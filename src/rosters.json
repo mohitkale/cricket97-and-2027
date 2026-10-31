@@ -1,0 +1,344 @@
+{
+  "India": [
+    {
+      "name": "Sachin Tendulkar",
+      "bat": "right",
+      "bowl": "right"
+    },
+    {
+      "name": "Sourav Ganguly",
+      "bat": "left",
+      "bowl": "right"
+    },
+    {
+      "name": "Rahul Dravid",
+      "bat": "right",
+      "bowl": "right"
+    },
+    {
+      "name": "Mohammad Azharuddin",
+      "bat": "right",
+      "bowl": "right"
+    },
+    {
+      "name": "Ajay Jadeja",
+      "bat": "right",
+      "bowl": "right"
+    },
+    {
+      "name": "Robin Singh",
+      "bat": "left",
+      "bowl": "right"
+    },
+    {
+      "name": "Nayan Mongia",
+      "bat": "right",
+      "bowl": "right"
+    },
+    {
+      "name": "Anil Kumble",
+      "bat": "right",
+      "bowl": "right"
+    },
+    {
+      "name": "Javagal Srinath",
+      "bat": "right",
+      "bowl": "right"
+    },
+    {
+      "name": "Venkatesh Prasad",
+      "bat": "right",
+      "bowl": "right"
+    },
+    {
+      "name": "Harbhajan Singh",
+      "bat": "right",
+      "bowl": "right"
+    }
+  ],
+  "Australia": [
+    {
+      "name": "Mark Taylor",
+      "bat": "left",
+      "bowl": "right"
+    },
+    {
+      "name": "Michael Slater",
+      "bat": "right",
+      "bowl": "right"
+    },
+    {
+      "name": "Ricky Ponting",
+      "bat": "right",
+      "bowl": "right"
+    },
+    {
+      "name": "Mark Waugh",
+      "bat": "right",
+      "bowl": "right"
+    },
+    {
+      "name": "Steve Waugh",
+      "bat": "right",
+      "bowl": "right"
+    },
+    {
+      "name": "Michael Bevan",
+      "bat": "left",
+      "bowl": "left"
+    },
+    {
+      "name": "Ian Healy",
+      "bat": "right",
+      "bowl": "right"
+    },
+    {
+      "name": "Shane Warne",
+      "bat": "right",
+      "bowl": "right"
+    },
+    {
+      "name": "Glenn McGrath",
+      "bat": "right",
+      "bowl": "right"
+    },
+    {
+      "name": "Jason Gillespie",
+      "bat": "right",
+      "bowl": "right"
+    },
+    {
+      "name": "Damien Fleming",
+      "bat": "right",
+      "bowl": "right"
+    }
+  ],
+  "England": [
+    {
+      "name": "Michael Atherton",
+      "bat": "right",
+      "bowl": "right"
+    },
+    {
+      "name": "Alec Stewart",
+      "bat": "right",
+      "bowl": "right"
+    },
+    {
+      "name": "Nasser Hussain",
+      "bat": "right",
+      "bowl": "right"
+    },
+    {
+      "name": "Graham Thorpe",
+      "bat": "left",
+      "bowl": "right"
+    },
+    {
+      "name": "Graeme Hick",
+      "bat": "right",
+      "bowl": "right"
+    },
+    {
+      "name": "Neil Fairbrother",
+      "bat": "left",
+      "bowl": "right"
+    },
+    {
+      "name": "Andrew Flintoff",
+      "bat": "right",
+      "bowl": "right"
+    },
+    {
+      "name": "Darren Gough",
+      "bat": "right",
+      "bowl": "right"
+    },
+    {
+      "name": "Phil Tufnell",
+      "bat": "right",
+      "bowl": "left"
+    },
+    {
+      "name": "Andrew Caddick",
+      "bat": "right",
+      "bowl": "right"
+    },
+    {
+      "name": "Dominic Cork",
+      "bat": "right",
+      "bowl": "right"
+    }
+  ],
+  "West Indies": [
+    {
+      "name": "Brian Lara",
+      "bat": "left",
+      "bowl": "right"
+    },
+    {
+      "name": "Shivnarine Chanderpaul",
+      "bat": "left",
+      "bowl": "right"
+    },
+    {
+      "name": "Carl Hooper",
+      "bat": "right",
+      "bowl": "right"
+    },
+    {
+      "name": "Richie Richardson",
+      "bat": "right",
+      "bowl": "right"
+    },
+    {
+      "name": "Jimmy Adams",
+      "bat": "left",
+      "bowl": "right"
+    },
+    {
+      "name": "Chris Gayle",
+      "bat": "left",
+      "bowl": "right"
+    },
+    {
+      "name": "Ridley Jacobs",
+      "bat": "left",
+      "bowl": "right"
+    },
+    {
+      "name": "Curtly Ambrose",
+      "bat": "left",
+      "bowl": "right"
+    },
+    {
+      "name": "Courtney Walsh",
+      "bat": "right",
+      "bowl": "right"
+    },
+    {
+      "name": "Ian Bishop",
+      "bat": "right",
+      "bowl": "right"
+    },
+    {
+      "name": "Nixon McLean",
+      "bat": "right",
+      "bowl": "right"
+    }
+  ],
+  "Pakistan": [
+    {
+      "name": "Saeed Anwar",
+      "bat": "left",
+      "bowl": "right"
+    },
+    {
+      "name": "Aamer Sohail",
+      "bat": "left",
+      "bowl": "right"
+    },
+    {
+      "name": "Ijaz Ahmed",
+      "bat": "right",
+      "bowl": "right"
+    },
+    {
+      "name": "Inzamam-ul-Haq",
+      "bat": "right",
+      "bowl": "right"
+    },
+    {
+      "name": "Saleem Malik",
+      "bat": "right",
+      "bowl": "right"
+    },
+    {
+      "name": "Moin Khan",
+      "bat": "right",
+      "bowl": "right"
+    },
+    {
+      "name": "Shahid Afridi",
+      "bat": "right",
+      "bowl": "right"
+    },
+    {
+      "name": "Wasim Akram",
+      "bat": "left",
+      "bowl": "left"
+    },
+    {
+      "name": "Waqar Younis",
+      "bat": "right",
+      "bowl": "right"
+    },
+    {
+      "name": "Saqlain Mushtaq",
+      "bat": "right",
+      "bowl": "right"
+    },
+    {
+      "name": "Shoaib Akhtar",
+      "bat": "right",
+      "bowl": "right"
+    }
+  ],
+  "South Africa": [
+    {
+      "name": "Gary Kirsten",
+      "bat": "left",
+      "bowl": "right"
+    },
+    {
+      "name": "Herschelle Gibbs",
+      "bat": "right",
+      "bowl": "right"
+    },
+    {
+      "name": "Daryll Cullinan",
+      "bat": "right",
+      "bowl": "right"
+    },
+    {
+      "name": "Hansie Cronje",
+      "bat": "right",
+      "bowl": "right"
+    },
+    {
+      "name": "Jacques Kallis",
+      "bat": "right",
+      "bowl": "right"
+    },
+    {
+      "name": "Jonty Rhodes",
+      "bat": "right",
+      "bowl": "right"
+    },
+    {
+      "name": "Mark Boucher",
+      "bat": "right",
+      "bowl": "right"
+    },
+    {
+      "name": "Shaun Pollock",
+      "bat": "right",
+      "bowl": "right"
+    },
+    {
+      "name": "Allan Donald",
+      "bat": "right",
+      "bowl": "right"
+    },
+    {
+      "name": "Lance Klusener",
+      "bat": "left",
+      "bowl": "right"
+    },
+    {
+      "name": "Paul Adams",
+      "bat": "right",
+      "bowl": "left"
+    }
+  ]
+}

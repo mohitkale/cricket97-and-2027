@@ -1,0 +1,30 @@
+export const DELIVERY_TYPES = ['Yorker', 'Full', 'Good', 'Short', 'Bouncer', 'Full toss'];
+
+// These are deliberately simplified arcade trajectories, with the bounce point
+// measured as a fraction of the ball's travel from bowler to striker.
+export function deliveryHeight(type, progress) {
+  const p = Math.max(0, Math.min(1, progress));
+  if (type === 'Full toss') return 2.7 - 1.85 * p;
+  const bounce = { Yorker: 0.94, Full: 0.82, Good: 0.62, Short: 0.44, Bouncer: 0.30 }[type] ?? 0.62;
+  const finish = { Yorker: 0.25, Full: 0.55, Good: 0.85, Short: 1.45, Bouncer: 2.55 }[type] ?? 0.85;
+  if (p <= bounce) return 0.22 + 2.48 * (1 - p / bounce);
+  const q = (p - bounce) / (1 - bounce);
+  return 0.22 + (finish - 0.22) * q + Math.sin(Math.PI * q) * (type === 'Bouncer' ? 0.35 : 0.18);
+}
+
+export function pickDelivery(selected, computer, random = Math.random) {
+  const types = ['Good', 'Good', 'Full', 'Short', 'Yorker', 'Bouncer', 'Full toss'];
+  const type = computer ? types[Math.floor(random() * types.length)] : selected;
+  const fault = random();
+  const noBall = fault < 0.045;
+  const wide = !noBall && fault < 0.105;
+  const line = wide ? (random() < 0.5 ? -1 : 1) * (2.7 + random() * 0.5) : (random() - 0.5) * 1.15;
+  return { type, line, noBall, wide };
+}
+
+export function scoreDelivery({ runs = 0, dismissal = null, noBall = false, wide = false }) {
+  // A no-ball overrides a wide. The supported dismissal on either is run out.
+  const extra = noBall ? 'NO BALL' : wide ? 'WIDE' : null;
+  const allowedDismissal = extra && dismissal !== 'RUN OUT' ? null : dismissal;
+  return { legal: !extra, penalty: extra ? 1 : 0, runs, dismissal: allowedDismissal, extra };
+}
