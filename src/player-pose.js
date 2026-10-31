@@ -1,3 +1,6 @@
+/** Model faces +Z, so anatomical left lies along its local +X. */
+export function shoulderOffsets() { return { left: .55, right: -.55 }; }
+
 /** Geometry-independent handedness defaults used by the match renderer. */
 export function battingSetup(hand, striker = true) {
   const sign = hand === 'left' ? -1 : 1;

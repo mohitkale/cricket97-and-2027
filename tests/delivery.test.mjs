@@ -28,3 +28,12 @@ test('a selected yorker pitches later and arrives lower than a bouncer', () => {
   assert.ok(deliveryHeight(yorker.type, 0.5) > deliveryHeight(bouncer.type, 0.5));
   assert.ok(deliveryHeight(yorker.type, 1) < deliveryHeight(bouncer.type, 1));
 });
+
+test('keeper reach follows ball position and speed differs for pace and spin', async () => {
+  const { keeperCanCollect, deliverySpeed } = await import('../src/delivery.js');
+  const keeper = {x:0,z:13.6};
+  assert.equal(keeperCanCollect({x:.5,y:1,z:13.4},keeper),true);
+  assert.equal(keeperCanCollect({x:2,y:1,z:13.4},keeper),false);
+  assert.equal(keeperCanCollect({x:.5,y:4,z:13.4},keeper),false);
+  assert.ok(deliverySpeed('fast',()=>.5)>deliverySpeed('leg spin',()=>.5));
+});

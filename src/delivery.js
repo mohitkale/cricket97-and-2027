@@ -22,9 +22,19 @@ export function pickDelivery(selected, computer, random = Math.random) {
   return { type, line, noBall, wide };
 }
 
-export function scoreDelivery({ runs = 0, dismissal = null, noBall = false, wide = false }) {
+// Speeds are represented in km/h; delivery travel is slowed for readability.
+export function deliverySpeed(style, random = Math.random) {
+  const range = style.includes('spin') ? [75, 98] : style === 'fast' ? [125, 150] : [100, 120];
+  return Math.round(range[0] + random() * (range[1] - range[0]));
+}
+
+export function keeperCanCollect(ball, keeper) {
+  return Math.abs(ball.z - keeper.z) < 1.25 && Math.abs(ball.x - keeper.x) < 0.75 && ball.y < 2.9;
+}
+
+export function scoreDelivery({ runs = 0, dismissal = null, noBall = false, wide = false, byes = false }) {
   // A no-ball overrides a wide. The supported dismissal on either is run out.
   const extra = noBall ? 'NO BALL' : wide ? 'WIDE' : null;
   const allowedDismissal = extra && dismissal !== 'RUN OUT' ? null : dismissal;
-  return { legal: !extra, penalty: extra ? 1 : 0, runs, dismissal: allowedDismissal, extra };
+  return { legal: !extra, penalty: extra ? 1 : 0, runs, dismissal: allowedDismissal, extra, ...(byes && !wide ? { byes: true } : {}) };
 }

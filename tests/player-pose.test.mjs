@@ -58,3 +58,12 @@ test('the bowling arm passes vertically over the shoulder before release', async
   assert.ok(bowlingArmAngle(1.6) > Math.PI);
   assert.equal(bowlingArmAngle(1.8), Math.PI * 1.5);
 });
+
+test('anatomical bowling arms correspond to the model facing direction', async () => {
+  const { shoulderOffsets } = await import('../src/player-pose.js');
+  const shoulders = shoulderOffsets();
+  // A person facing +Z has their left shoulder on +X in this model.
+  assert.ok(shoulders.left > 0 && shoulders.right < 0);
+  assert.equal(bowlingHome('left').arm, 0);
+  assert.equal(bowlingHome('right').arm, 1);
+});

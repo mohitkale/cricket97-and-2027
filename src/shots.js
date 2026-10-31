@@ -3,9 +3,10 @@
 export const SHOTS = {
   'Left cover': { angle: 0.72, speed: 23, lift: 2.0, autoRun: true },
   'Right cover': { angle: -0.72, speed: 23, lift: 2.0, autoRun: true },
+  'Straight drive': { angle: 0, speed: 24, lift: 1.4, autoRun: true },
   'Attacking drive': { angle: 0, speed: 25, lift: 8.5, autoRun: true },
   'Defend': { angle: 0.15, speed: 8, lift: 0.6, autoRun: false },
-  'Sweep': { angle: 2.2, speed: 18, lift: 2.8, autoRun: false },
+  'Sweep': { angle: 1.82, speed: 18, lift: 0.35, autoRun: true },
   'Hook': { angle: -2.25, speed: 23, lift: 6, autoRun: true },
   'Pull': { angle: -1.45, speed: 22, lift: 3.5, autoRun: true },
   'Cut': { angle: 1.55, speed: 22, lift: 2.3, autoRun: true },
@@ -15,7 +16,7 @@ export const SHOTS = {
 export const SHOT_KEYS = {
   ArrowLeft: 'Left cover', ArrowRight: 'Right cover', ArrowUp: 'Attacking drive',
   ArrowDown: 'Defend', Space: 'Sweep',
-  Digit1: 'Hook', Digit2: 'Pull', Digit3: 'Cut', Digit4: 'Flick',
+  Digit1: 'Hook', Digit2: 'Pull', Digit3: 'Cut', Digit4: 'Flick', Digit5: 'Straight drive',
 };
 
 export function canReachDelivery(name, height, line, easy = false) {
@@ -27,8 +28,16 @@ export function canReachDelivery(name, height, line, easy = false) {
 export function shotVelocity(name, timing, random = Math.random, contact = {}) {
   const shot = SHOTS[name] || SHOTS['Attacking drive'];
   const quality = Math.max(0.55, Math.min(1, 1 - timing * 0.5));
-  const angle = shot.angle + (random() - 0.5) * 0.22 + Math.max(-0.14, Math.min(0.14, (contact.line || 0) * 0.12));
-  const speed = shot.speed * quality * (0.94 + random() * 0.12);
-  const lift = Math.max(0.3, shot.lift + Math.max(-0.4, Math.min(1.2, ((contact.height ?? 0.8) - 0.8) * 0.5)));
+  const other = contact.secondaryShot && SHOTS[contact.secondaryShot];
+  // Blend directions on the unit circle so opposite cover drives meet straight.
+  const angleFor=(item,name)=>name==='Sweep' && contact.hand==='left' ? -item.angle : item.angle;
+  const shotAngle=angleFor(shot,name), otherAngle=other?angleFor(other,contact.secondaryShot):0;
+  const baseAngle = other ? Math.atan2(Math.sin(shotAngle) + Math.sin(otherAngle), Math.cos(shotAngle) + Math.cos(otherAngle)) : shotAngle;
+  const angle = baseAngle + (random() - 0.5) * 0.22 + Math.max(-0.14, Math.min(0.14, (contact.line || 0) * 0.12));
+  const baseSpeed = other ? (shot.speed + other.speed) / 2 : shot.speed;
+  const power = contact.power ? 1.4 : 1;
+  const speed = baseSpeed * quality * power * (contact.difficulty === 'easy' ? 1.08 : 1) * (0.94 + random() * 0.12);
+  const baseLift = other ? (shot.lift + other.lift) / 2 : shot.lift;
+  const lift = Math.max(0.3, baseLift + Math.max(-0.4, Math.min(1.2, ((contact.height ?? 0.8) - 0.8) * 0.5))) + (contact.power ? 10 * quality : 0);
   return { x: Math.sin(angle) * speed, y: lift, z: -Math.cos(angle) * speed, autoRun: shot.autoRun };
 }
