@@ -37,3 +37,14 @@ test('keeper reach follows ball position and speed differs for pace and spin', a
   assert.equal(keeperCanCollect({x:.5,y:4,z:13.4},keeper),false);
   assert.ok(deliverySpeed('fast',()=>.5)>deliverySpeed('leg spin',()=>.5));
 });
+
+test('a missed delivery hits the actual stumps or passes them based on its trajectory', async () => {
+  const {wicketIntersection}=await import('../src/delivery.js');
+  const delivery={x:0,y:.85,releaseX:0,releaseZ:-11,type:'Good'};
+  assert.ok(wicketIntersection(delivery));
+  assert.equal(wicketIntersection({...delivery,x:1.1}),null);
+  assert.equal(wicketIntersection({...delivery,y:2.6,type:'Bouncer'}),null);
+  const yorker=wicketIntersection({...delivery,y:.25,type:'Yorker'});
+  assert.equal(yorker.z,10.4);
+  assert.equal(scoreDelivery({dismissal:'BOWLED',noBall:true}).dismissal,null);
+});

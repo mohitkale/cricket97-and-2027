@@ -33,3 +33,39 @@ test('the threatened runner depends on which wicket receives the return', () => 
   assert.equal(runnerAtEnd(-4, 4, 'keeper'), 'partner');
   assert.equal(runnerAtEnd(4, -4, 'bowler'), 'partner');
 });
+
+test('down starts another run from the crease and a second completed run counts', async () => {
+  const {callDown}=await import('../src/running.js');
+  const run={runActive:false,runProgress:0,runs:1,runAllowed:false};
+  assert.equal(callDown(run),'started');
+  assert.equal(run.runActive,true);
+  stepRun(run,2.7);
+  assert.equal(run.runs,2);
+  assert.equal(run.runActive,false);
+});
+test('down queues a second run after halfway; early down still sends batters back', async () => {
+  const {callDown}=await import('../src/running.js');
+  const run={runActive:true,runProgress:.7,runs:0,runAllowed:true};
+  assert.equal(callDown(run),'queued');
+  stepRun(run,1);
+  assert.equal(run.runs,1);
+  assert.equal(run.runActive,true);
+  assert.equal(run.runProgress,0);
+  stepRun(run,2.7);
+  assert.equal(run.runs,2);
+  const early={runActive:true,runProgress:.2,runs:0,runAllowed:true};
+  assert.equal(callDown(early),'back');
+  stepRun(early,1);
+  assert.equal(early.runs,0);
+  assert.equal(early.runActive,false);
+});
+test('R queues an additional run at any point and calling back clears it', async () => {
+  const {requestRun,returnToCrease}=await import('../src/running.js');
+  const run={runActive:true,runProgress:.2,runs:0,runAllowed:true};
+  assert.equal(requestRun(run),'queued');
+  assert.equal(returnToCrease(run),true);
+  assert.equal(run.queuedRun,false);
+  stepRun(run,2.7);
+  assert.equal(run.runActive,false);
+  assert.equal(run.runs,0);
+});

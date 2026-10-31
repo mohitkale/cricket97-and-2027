@@ -8,12 +8,14 @@ export function stepRun(run, dt) {
   if (returning && position <= 0) {
     run.runActive = false;
     run.runReturning = false;
+    run.queuedRun = false;
     finished = true;
   } else if (!returning && position >= 1) {
     run.runs++;
     run.runProgress = 0;
-    run.runActive = false;
-    run.runAllowed = false;
+    run.runActive = !!run.queuedRun;
+    run.runAllowed = !!run.queuedRun;
+    run.queuedRun = false;
     finished = true;
   }
   return { moved: true, finished, position, returning };
@@ -37,6 +39,31 @@ export function runnerAtEnd(strikerZ, partnerZ, end) {
 export function returnToCrease(run) {
   if (!run.runActive) return false;
   run.runAllowed = false;
+  run.queuedRun = false;
   run.runReturning = true;
   return true;
+}
+
+/** Call another run now, or queue it while the current run is underway. */
+export function requestRun(run) {
+  if (run.runActive) {
+    if (run.runReturning) return 'returning';
+    run.queuedRun = true;
+    return 'queued';
+  }
+  run.runAllowed = true;
+  run.runActive = true;
+  run.runReturning = false;
+  run.runProgress = 0;
+  run.queuedRun = false;
+  return 'started';
+}
+
+/** Down: go back early, queue the next run past halfway, or run from a crease. */
+export function callDown(run) {
+  if (!run.runActive) return requestRun(run);
+  if (run.runReturning) return 'returning';
+  if (run.runProgress >= .5) return requestRun(run);
+  returnToCrease(run);
+  return 'back';
 }
