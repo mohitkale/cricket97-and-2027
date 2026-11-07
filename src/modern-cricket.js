@@ -8,7 +8,7 @@ export function modernDeliveryLine(delivery,hand,movement=0){
 }
 /** Solve the release velocity for a selected pitch length. Rapier determines
  * the actual bounce and subsequent flight; no rendered height curve is used. */
-export function deliveryLaunch({release,line,travel,length,movement=0,spin=false}){
+export function deliveryLaunch({release,line,travel,length,movement=0,spin=false,turn=spin?movement:0,pitch='horizon'}){
   const gravity=9.81;
   const fraction={Yorker:.94,Full:.82,Good:.62,Short:.44,Bouncer:.3}[length]??.62;
   const bounceTime=Math.max(.16,travel*fraction);
@@ -17,6 +17,9 @@ export function deliveryLaunch({release,line,travel,length,movement=0,spin=false
   return {
     velocity:{x:(line-release.x-.5*swing*travel*travel)/travel,y:vy,z:(9.2-release.z)/travel*1.025},
     swing,
+    // Venue presets are gameplay tuning. The kick applies once at pitch contact.
+    turnVelocity:turn*(pitch==='horizon'?2.8:pitch==='coastal'?1.9:2.3),
+    pitchRestitution:pitch==='coastal'?.68:pitch==='riverside'?.52:.58,
     spin:spin?{x:movement>0?-10:10,y:movement*60,z:movement*24}:{x:-7,y:0,z:0},
   };
 }

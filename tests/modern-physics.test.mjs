@@ -46,3 +46,15 @@ test('a well-timed power drive physically clears the stadium roof at either hand
   const base=shotVelocity('Straight drive',0,()=>.5,{height:.65});
   assert.ok(modernShotResponse(base,{z:40},0,'right',{shot:'Straight drive'}).y<2);
 });
+
+test('opposite cutters separate on pitching at both 30 and 120 Hz',()=>{
+  function bowl(turn,hz){
+    resetBallPhysics();
+    const p={x:0,y:2.3,z:-11},launch=deliveryLaunch({release:p,line:0,travel:.7,length:'Good',turn}),v={...launch.velocity};
+    let bounced=false;
+    for(let i=0;i<hz*.8;i++)bounced=advanceBall(p,v,1/hz,bounced,launch);
+    return p.x;
+  }
+  for(const hz of [30,120])assert.ok(bowl(.3,hz)-bowl(-.3,hz)>.2);
+  assert.ok(Math.abs(bowl(.3,30)-bowl(.3,120))<.01);
+});

@@ -37,3 +37,14 @@ export function bowlingVariation(name, random = Math.random) {
   if (name === 'Wasim Akram' && roll > .78) return {name:'Reverse swing', movement:roll > .89 ? .32 : -.32};
   return roll < .38 ? {name:'Inswing', movement:.25} : roll < .76 ? {name:'Outswing', movement:-.25} : {name:'Straight', movement:0};
 }
+
+export function modernBowlingVariation(name, hand, random=Math.random) {
+  const base=bowlingVariation(name,random);
+  const side=hand==='left'?-1:1;
+  if(bowlingProfile(name).spin) return {...base,turn:base.movement,speedFactor:1};
+  const mix=random();
+  if(mix<.12) return {name:'Slower ball',movement:0,turn:0,speedFactor:.81};
+  if(mix<.24) return {name:'Off cutter',movement:0,turn:-.23*side,speedFactor:.90};
+  if(mix<.36) return {name:'Seam away',movement:0,turn:.15*side,speedFactor:.98};
+  return {...base,movement:base.movement*side,turn:0,speedFactor:1};
+}

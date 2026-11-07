@@ -1,3 +1,4 @@
+import {modernBowlingVariation} from './bowling-profiles.js';
 import {firstPadContact,lbwEligible} from './pad-contact.js';
 import { signalOutcome } from './modern-umpire.js';
 import { createDeliveryBenchmark } from './delivery-benchmark.js';
@@ -312,8 +313,8 @@ function startDelivery(){if(state.phase!=='playing')return;
  benchmark?.begin();
  const home=resetBowler();if(era.modern){resetMotor(batter);resetMotor(nonStriker);}placeNonStriker();resetKeeper();resetFielders();modernFielding?.begin();applyBattingStance(batter,profile(lineup().striker).bat,true);applyBattingStance(nonStriker,profile(lineup().partner).bat,false);
  const delivery=pickDelivery(state.line,humanBatting()),length=delivery.type;
- const bowlerName=lineup().bowler, bowling=bowlingProfile(bowlerName), variation=bowlingVariation(bowlerName);
- const lineX=era.modern?modernDeliveryLine(delivery,profile(lineup().striker).bat,variation.movement):delivery.line+(delivery.wide?0:variation.movement), speed=deliverySpeed(bowling.style), travel=20.12/(speed/3.6)*(era.modern?1:2.1);$('#delivery-speed').hidden=true;umpire.userData.arms.forEach(arm=>arm.rotation.set(0,0,0));
+ const bowlerName=lineup().bowler, bowling=bowlingProfile(bowlerName), variation=era.modern?modernBowlingVariation(bowlerName,bowler.userData.bowlHand):bowlingVariation(bowlerName);
+ const lineX=era.modern?modernDeliveryLine(delivery,profile(lineup().striker).bat,variation.movement):delivery.line+(delivery.wide?0:variation.movement), speed=Math.round(deliverySpeed(bowling.style)*(variation.speedFactor??1)), travel=20.12/(speed/3.6)*(era.modern?1:2.1);$('#delivery-speed').hidden=true;umpire.userData.arms.forEach(arm=>arm.rotation.set(0,0,0));
  state.phase='animating';setCrowdMood('delivery');state.anim={start:performance.now(),last:performance.now(),swing:state.queuedShot?1.8+travel-.3:null,selectedShot:state.queuedShot||null,secondaryShot:state.secondaryShot,power:!!state.queuedPower,variation,freeHit:era.modern&&!!state.freeHit,spin:bowling.spin,speed,flight:false,live:false,length,lineX,travel,noBall:delivery.noBall,wide:era.modern?false:delivery.wide,guardX:batter.position.x,battingHand:profile(lineup().striker).bat,called:false,bowlerX:home.x,bowlerArm:home.arm,cpuShot:['Defend','Left cover','Right cover','Attacking drive','Sweep'][Math.floor(Math.random()*5)],impact:1.8+travel,runs:0,runProgress:0,runActive:false,runAllowed:false,dismissal:null};
  state.queuedShot=null;message(state.anim.freeHit?'FREE HIT':humanBatting()?'THE BOWLER IS IN':'RUNNING IN TO BOWL',`${length.toUpperCase()} · ${variation.name.toUpperCase()}`);renderUI()
 }
@@ -522,7 +523,7 @@ function animate(now){
    if(t<1.8){ball.position.copy(handPosition(bowler,a.bowlerArm))}
    else if(era.modern){
     let flightStep=dt;
-    if(!a.releasePoint){a.releasePoint=handPosition(bowler,a.bowlerArm);ball.position.copy(a.releasePoint);flightStep=Math.min(dt,Math.max(0,t-1.8));a.releaseGuardX=batter.position.x;const launch=deliveryLaunch({release:a.releasePoint,line:a.lineX,travel:a.travel,length:a.length,movement:a.variation.movement,spin:a.spin});a.deliveryVelocity=new THREE.Vector3(launch.velocity.x,launch.velocity.y,launch.velocity.z);a.deliveryForces=launch;resetBallPhysics();setBallSpin(launch.spin);$('#delivery-speed').textContent=`${a.speed} km/h`;$('#delivery-speed').hidden=false;}
+    if(!a.releasePoint){a.releasePoint=handPosition(bowler,a.bowlerArm);ball.position.copy(a.releasePoint);flightStep=Math.min(dt,Math.max(0,t-1.8));a.releaseGuardX=batter.position.x;const launch=deliveryLaunch({release:a.releasePoint,line:a.lineX,travel:a.travel,length:a.length,movement:a.variation.movement,spin:a.spin,turn:a.variation.turn,pitch:venueId});a.deliveryVelocity=new THREE.Vector3(launch.velocity.x,launch.velocity.y,launch.velocity.z);a.deliveryForces=launch;resetBallPhysics();setBallSpin(launch.spin);$('#delivery-speed').textContent=`${a.speed} km/h`;$('#delivery-speed').hidden=false;}
     const before=ball.position.clone();const wasBounced=a.deliveryBounced;a.deliveryBounced=advanceBall(ball.position,a.deliveryVelocity,flightStep,a.deliveryBounced,a.deliveryForces);
     if(!wasBounced&&a.deliveryBounced)a.pitchX=a.deliveryForces.pitchX??ball.position.x;
     if(ball.position.z>=9.2){const fraction=(9.2-before.z)/(ball.position.z-before.z||1);ball.position.lerpVectors(before,ball.position.clone(),THREE.MathUtils.clamp(fraction,0,1));a.impact=t;}

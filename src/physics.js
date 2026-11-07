@@ -1,7 +1,7 @@
 // A shared, locally bundled Rapier world. Classic mode simulates ball/turf;
 // modern mode adds pitch contact, aerodynamics, and kinematic player capsules.
 import {CRICKET,athleteScale,groundHeight} from './cricket-scale.js';
-let world, ball, loading, RAPIER, modern=false, radius=.22, accumulator=0, controller;
+let world, ball, loading, RAPIER, modern=false, radius=.22, accumulator=0, controller, pitchCollider;
 const athletes=new Map();
 export function initPhysics(options={}) {
   if (!loading) { modern=!!options.modern; radius=modern?CRICKET.ballRadius:.22; }
@@ -16,7 +16,7 @@ export function initPhysics(options={}) {
     world.createCollider(RAPIER.ColliderDesc.ball(radius).setMass(modern?CRICKET.ballMass:.16).setCollisionGroups(modern?0x00010001:0xffffffff)
       .setFriction(.03).setRestitution(.48), ball);
     if(modern){
-      world.createCollider(RAPIER.ColliderDesc.cuboid(2.5,.06,12.5).setTranslation(0,.06,0).setFriction(.12).setRestitution(.58));
+      pitchCollider=world.createCollider(RAPIER.ColliderDesc.cuboid(2.5,.06,12.5).setTranslation(0,.06,0).setFriction(.12).setRestitution(.58));
       controller=world.createCharacterController(.015);
       controller.setApplyImpulsesToDynamicBodies(false);
     }
@@ -30,6 +30,7 @@ export function resetBallPhysics() {
 export function setBallSpin(spin){if(ball)ball.setAngvel(spin,true);}
 export function advanceBall(position, velocity, seconds, bounced = false, forces = null) {
   if (!world) throw new Error('Physics engine is not initialized');
+  if(pitchCollider)pitchCollider.setRestitution(forces?.pitchRestitution??.58);
   ball.setTranslation({ x: position.x, y: Math.max(radius, position.y), z: position.z }, true);
   ball.setLinvel({ x: velocity.x, y: velocity.y, z: velocity.z }, true);
   let remaining = Math.max(0, Math.min(seconds, .1));
@@ -48,7 +49,10 @@ export function advanceBall(position, velocity, seconds, bounced = false, forces
     let p = ball.translation(), v = ball.linvel();
     const floor=modern&&Math.abs(p.x)<2.5&&Math.abs(p.z)<12.5?.12:0;
     if (p.y <= radius+floor+.005) {
-      if(modern&&!bounced&&forces)forces.pitchX=p.x;
+      if(modern&&!bounced&&forces){
+        forces.pitchX=p.x;
+        if(floor>0&&forces.turnVelocity)ball.setLinvel({x:v.x+forces.turnVelocity,y:v.y,z:v.z},true);
+      }
       bounced = true;
       if (p.y < radius+floor) ball.setTranslation({x:p.x, y:radius+floor, z:p.z}, true);
       if (Math.abs(v.y) < .55) {
