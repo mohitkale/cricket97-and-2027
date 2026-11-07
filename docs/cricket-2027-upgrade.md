@@ -42,3 +42,7 @@ The first six tasks deliver the practice over. Use the following backlog for the
 For each row, leave the commit ID, scenario inputs or seed, expected and observed outcome, clip or trace where visual timing matters, and any remaining gap. A screenshot can confirm kit fit. A release-to-contact clip at game speed is needed to judge weight, timing and ball readability. Record which claims were checked on hardware and which were checked only in automation.
 
 Promote the branch only when the rules inventory identifies the supported formats and exceptions, all match-flow checks pass, every shipped asset has a recorded licence and credit, and the device results meet the agreed performance targets. If a rig or stadium asset misses budget, switch that asset to its procedural fallback and rerun the same scenario. Keep release changes in reviewable commits so a regression can be reverted independently. The local main checkpoint remains the pre-upgrade reference.
+
+### Implementation progress
+
+Task 1 started. Open /?era=2027&debug during development and play an over. The overlay reports the 95th percentile live delivery frame interval per 120 samples. Compare equivalent runs on the same device. The stadium displays now share a texture and refresh through match UI updates. Device measurements and input-to-visible-motion capture remain open.

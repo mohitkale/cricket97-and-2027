@@ -32,25 +32,24 @@ export function buildModernStadium(scene,{grass,grass2,pitchmat,roof,roofLip,ren
   for(const [radius,y]of[[63,.4],[70,5.9],[76.5,11.3]]){
     const ring=new THREE.Mesh(new THREE.TorusGeometry(radius,.07,5,160),led);ring.rotation.x=Math.PI/2;ring.position.y=y;scene.add(ring);leds.push(ring);
   }
-  const screens=[];
-  for(const angle of [Math.PI*.12,Math.PI*1.12]){
+
     const canvas=document.createElement('canvas');canvas.width=1024;canvas.height=512;
     const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;
+  for(const angle of [Math.PI*.12,Math.PI*1.12]){
     const frame=new THREE.Group();frame.position.set(Math.sin(angle)*74,11,Math.cos(angle)*74);frame.lookAt(0,11,0);
     const back=new THREE.Mesh(new THREE.BoxGeometry(17,9,.5),new THREE.MeshStandardMaterial({color:0x0b1722}));frame.add(back);
-    const display=new THREE.Mesh(new THREE.PlaneGeometry(16,8),new THREE.MeshBasicMaterial({map:texture}));display.position.z=.28;frame.add(display);scene.add(frame);screens.push({canvas,texture});
+    const display=new THREE.Mesh(new THREE.PlaneGeometry(16,8),new THREE.MeshBasicMaterial({map:texture}));display.position.z=.28;frame.add(display);scene.add(frame);
   }
   // Seat rows give the contemporary bowl structure below the instanced crowd.
   const seats=new THREE.InstancedMesh(new THREE.BoxGeometry(.48,.12,.43),new THREE.MeshStandardMaterial({color:0x2b5d72,roughness:.8}),6000);
   const dummy=new THREE.Object3D();for(let i=0;i<6000;i++){const row=Math.floor(i/500),angle=i%500/500*Math.PI*2,r=64.6+row*.98;dummy.position.set(Math.sin(angle)*r,.7+row*.57,Math.cos(angle)*r);dummy.rotation.y=angle;dummy.updateMatrix();seats.setMatrixAt(i,dummy.matrix);}scene.add(seats);
-  let previous='',lastUpdate=0;
+  let previous='';
   return {
     setVenue(venue){grass.color.setHex(venue.turf);grass2.color.copy(grass.color).multiplyScalar(1.12);led.color.setHex(venue.accent);},
     setNight(night){renderer.toneMappingExposure=night?1.26:1.05;},
-    update(now,match){
-      if(now-lastUpdate<400)return;lastUpdate=now;
+    update(match){
       const key=JSON.stringify(match);if(key===previous)return;previous=key;
-      for(const{canvas,texture}of screens){const x=canvas.getContext('2d');x.fillStyle='#091d2a';x.fillRect(0,0,1024,512);x.fillStyle='#c3ff54';x.fillRect(0,0,1024,9);x.font='700 29px Arial';x.textAlign='left';x.fillText('CRICKET 2027',50,65);x.textAlign='right';x.fillStyle='#91b7b1';x.font='24px Arial';x.fillText(match.venue.toUpperCase(),974,65);x.textAlign='center';x.fillStyle='#f0f8e8';x.font='bold 55px Arial';x.fillText(match.team.toUpperCase(),512,165);x.font='bold 135px Arial';x.fillText(match.score,512,315);x.fillStyle='#c3ff54';x.font='32px Arial';x.fillText(`${match.overs} OVERS   •   INTERNATIONAL`,512,395);x.fillStyle='#70978c';x.font='20px Arial';x.fillText('THEN. NOW. ALWAYS.',512,465);texture.needsUpdate=true;}
+      const x=canvas.getContext('2d');x.fillStyle='#091d2a';x.fillRect(0,0,1024,512);x.fillStyle='#c3ff54';x.fillRect(0,0,1024,9);x.font='700 29px Arial';x.textAlign='left';x.fillText('CRICKET 2027',50,65);x.textAlign='right';x.fillStyle='#91b7b1';x.font='24px Arial';x.fillText(match.venue.toUpperCase(),974,65);x.textAlign='center';x.fillStyle='#f0f8e8';x.font='bold 55px Arial';x.fillText(match.team.toUpperCase(),512,165);x.font='bold 135px Arial';x.fillText(match.score,512,315);x.fillStyle='#c3ff54';x.font='32px Arial';x.fillText(`${match.overs} OVERS   •   INTERNATIONAL`,512,395);x.fillStyle='#70978c';x.font='20px Arial';x.fillText('THEN. NOW. ALWAYS.',512,465);texture.needsUpdate=true;
     },
   };
 }

@@ -260,7 +260,9 @@ function renderBroadcastScore(){
 }
 const heldShotKeys=new Set();
 let selectShotFromKeyboard=()=>{};
-function renderUI(){if(state.phase==='ready'||state.phase==='finished')$('#delivery-speed').hidden=true;$('#fullscreen').hidden=state.phase==='ready'||state.phase==='finished';$('#pause-game').hidden=state.phase==='ready'||state.phase==='finished';renderBroadcastScore();let batting=state.innings===0?firstBatting():secondBatting(),bowling=state.innings===0?secondBatting():firstBatting();let i=state.innings,j=1-i;$('#score').innerHTML=`<div class="score-line"><div class="flag">${teams[batting].flag}</div><div class="teamname">${batting}<small>${i===0?'BATTING FIRST':'CHASING'}</small></div><div class="score-num">${state.score[i]}/${state.wickets[i]}<small>${overs(state.balls[i])} / ${matchOvers} OV</small></div></div><div class="versus">V E R S U S</div><div class="score-line secondary"><div class="flag">${teams[bowling].flag}</div><div class="teamname">${bowling}<small>${i===0?'YET TO BAT':'FIRST INNINGS'}</small></div><div class="score-num">${i===0?'—':state.score[j]+'/'+state.wickets[j]}<small>${i===0?'':overs(state.balls[j])+' OV'}</small></div></div><div class="score-foot"><span>${i===1?'TARGET':'CURRENT RUN RATE'}</span><b>${i===1?state.score[0]+1:(state.balls[i]?((state.score[i]*6)/state.balls[i]).toFixed(1):'0.0')}</b></div><div class="score-foot"><span>EXTRAS</span><b>${state.extras[i]}</b></div><div class="score-foot"><span>ON STRIKE</span><b>${squads[batting][Math.min(state.striker||0,10)]}</b></div>`;
+function renderUI(){
+ modernStadium?.update({team:lineup().batting,score:`${state.score[state.innings]}/${state.wickets[state.innings]}`,overs:overs(state.balls[state.innings]),venue:VENUES[venueId].name});
+ if(state.phase==='ready'||state.phase==='finished')$('#delivery-speed').hidden=true;$('#fullscreen').hidden=state.phase==='ready'||state.phase==='finished';$('#pause-game').hidden=state.phase==='ready'||state.phase==='finished';renderBroadcastScore();let batting=state.innings===0?firstBatting():secondBatting(),bowling=state.innings===0?secondBatting():firstBatting();let i=state.innings,j=1-i;$('#score').innerHTML=`<div class="score-line"><div class="flag">${teams[batting].flag}</div><div class="teamname">${batting}<small>${i===0?'BATTING FIRST':'CHASING'}</small></div><div class="score-num">${state.score[i]}/${state.wickets[i]}<small>${overs(state.balls[i])} / ${matchOvers} OV</small></div></div><div class="versus">V E R S U S</div><div class="score-line secondary"><div class="flag">${teams[bowling].flag}</div><div class="teamname">${bowling}<small>${i===0?'YET TO BAT':'FIRST INNINGS'}</small></div><div class="score-num">${i===0?'—':state.score[j]+'/'+state.wickets[j]}<small>${i===0?'':overs(state.balls[j])+' OV'}</small></div></div><div class="score-foot"><span>${i===1?'TARGET':'CURRENT RUN RATE'}</span><b>${i===1?state.score[0]+1:(state.balls[i]?((state.score[i]*6)/state.balls[i]).toFixed(1):'0.0')}</b></div><div class="score-foot"><span>EXTRAS</span><b>${state.extras[i]}</b></div><div class="score-foot"><span>ON STRIKE</span><b>${squads[batting][Math.min(state.striker||0,10)]}</b></div>`;
 $('#innings-tag').textContent=state.phase==='ready'?'QUICK MATCH':(i===0?'1ST INNINGS':'2ND INNINGS');$('#broadcast').textContent=state.phase==='ready'?'MATCH PREVIEW':(era.modern?`LIVE FROM ${VENUES[venueId].name.toUpperCase()}`:'LIVE FROM THE GRAND OVAL');let controls=$('#controls');
 if(state.phase==='ready'){let touch=$('#stage-controls');touch.classList.remove('hidden');touch.innerHTML='<div class="touch-row"><button class="touch-bowl" id="stage-setup">SET UP MATCH →</button></div>';$('#stage-setup').onclick=showSetup;$('#play-status').textContent='MATCH PREVIEW';$('#control-title').textContent='READY TO PLAY?';$('#hint').textContent='Choose your teams and playing XI, then step out onto the field.';controls.innerHTML='<button class="primary" id="setup">SET UP MATCH &nbsp; ↗</button>';$('#setup').onclick=showSetup;return}
 let isBat=humanBatting();$('#stage-controls').classList.toggle('bowling-controls',!isBat);$('#control-title').textContent=isBat?'YOU ARE BATTING':'YOU ARE BOWLING';
@@ -443,18 +445,38 @@ function animateCrowd(now){
 let previousFrame=0;
 const debugOutput=import.meta.env.DEV&&new URLSearchParams(location.search).has('debug')?document.createElement('output'):null;
 if(debugOutput){debugOutput.style.cssText='position:fixed;top:0;left:0;z-index:99;background:#000;color:#c3ff54;font:11px monospace;padding:8px;pointer-events:none';document.body.append(debugOutput);}
+// Debug-only live-delivery samples. Exclude idle, replay and background gaps.
+const deliveryIntervals = [];
+let lastDeliveryFrame = null;
+let sampledDelivery = null;
+let deliveryFrameStats = '';
+function updateDeliveryStats(now) {
+  const active = state.phase === 'animating' && pausedAt === null && !document.hidden;
+  if (active && sampledDelivery === state.anim && lastDeliveryFrame !== null) {
+    deliveryIntervals.push(now - lastDeliveryFrame);
+    if (deliveryIntervals.length === 120) {
+      deliveryIntervals.sort((a, b) => a - b);
+      deliveryFrameStats = ` · live p95 ${deliveryIntervals[113].toFixed(1)} ms (120 frames)`;
+      deliveryIntervals.length = 0;
+    }
+  }
+  sampledDelivery = active ? state.anim : null;
+  lastDeliveryFrame = active ? now : null;
+}
+document.addEventListener('visibilitychange', () => { lastDeliveryFrame = null; });
 function animate(now){
  const elapsed=previousFrame?(now-previousFrame)/1000:1/60;
  frameDelta=Math.min(era.modern?.1:.05,elapsed);previousFrame=now;
  if(fieldingLab){const a=state.anim,actions=modernFielding.events.map(e=>e.type).filter((v,i,all)=>v!==all[i-1]);fieldingLab.update(a?.lab?`${a.labName}: ${actions.join(' → ')||'tracking'} · ${a.labPlayer.userData.fielding?.mode||'stance'} · ${a.phase||'delivery'}${a.dismissal?' · '+a.dismissal:''} · closest hand ${modernFielding.closestHand.toFixed(2)}`:'Choose a drill. Results come from live contact.');}
- if(debugOutput)debugOutput.textContent=`${Math.round(1/elapsed)} FPS · ${renderer.info.render.calls} draw calls · ${state.phase}/${state.anim?.phase||'delivery'} ${state.anim?.cpuShot||''} · camera ${currentBroadcastView?.id||cameraNames[state.camera]} @ ${camera.position.toArray().map(n=>n.toFixed(1)).join(',')} · ball ${ball.position.x.toFixed(2)},${ball.position.y.toFixed(2)},${ball.position.z.toFixed(2)}`;
+ if(debugOutput && era.modern)updateDeliveryStats(now);
+ if(debugOutput)debugOutput.textContent=`${Math.round(1/elapsed)} FPS · ${renderer.info.render.calls} draw calls · ${state.phase}/${state.anim?.phase||'delivery'} ${state.anim?.cpuShot||''} · camera ${currentBroadcastView?.id||cameraNames[state.camera]} @ ${camera.position.toArray().map(n=>n.toFixed(1)).join(',')} · ball ${ball.position.x.toFixed(2)},${ball.position.y.toFixed(2)},${ball.position.z.toFixed(2)}${deliveryFrameStats}`;
  requestAnimationFrame(animate);animateCrowd(now);
  if(pausedAt!==null){renderFrame();return}
  if(state.phase==='intro'&&now>=state.introUntil){state.phase='playing';state.autoAt=now+1800;$('#player-intro').classList.add('hidden');renderUI()}
  if(state.phase==='replay'){updateReplay(now);updateBallVisual();updateRunInset();if(state.replay){if(era.modern)updateCamera();else{camera.position.lerp(new THREE.Vector3(ball.position.x+13,27,ball.position.z+27),.09);camera.lookAt(ball.position.x,0,ball.position.z)}}renderFrame();return}
  if(state.phase==='playing'&&humanBatting()&&state.autoAt&&now>=state.autoAt&&!$('#modal-root').children.length)startDelivery();
  if(!state.anim)holdBallAtRunUp();
- if(era.modern){modernStadium.update(now,{team:lineup().batting,score:`${state.score[state.innings]}/${state.wickets[state.innings]}`,overs:overs(state.balls[state.innings]),venue:VENUES[venueId].name});if(state.phase!=='replay')syncAthletes([batter,nonStriker,bowler,keeper,...fielders]);if(!state.anim){[bowler,...fielders].forEach(p=>idleAthlete(p,now/1000,frameDelta));}}
+ if(era.modern){if(state.phase!=='replay')syncAthletes([batter,nonStriker,bowler,keeper,...fielders]);if(!state.anim){[bowler,...fielders].forEach(p=>idleAthlete(p,now/1000,frameDelta));}}
  if(state.anim){let a=state.anim,t=(now-a.start)/1000,dt=Math.min((now-a.last)/1000,era.modern?.1:.05)*(a.lab?(a.labSpeed??.2):1);a.last=now;if(era.modern&&(!a.lab||a.labClock)){a.simTime=(a.simTime||0)+dt;t=a.simTime;}
   if(era.modern&&a.flight&&a.phase!=='field')modernFielding.finishActions(dt,ball.position,[a.fielder,a.receiver]);
   let swingAt=humanBatting()?a.swing:a.impact-(era.modern?.3:.22);
