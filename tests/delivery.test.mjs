@@ -48,3 +48,14 @@ test('a missed delivery hits the actual stumps or passes them based on its traje
   assert.equal(yorker.z,10.4);
   assert.equal(scoreDelivery({dismissal:'BOWLED',noBall:true}).dismissal,null);
 });
+
+test('a modern free hit survives a wide and ends with a legal delivery',async()=>{
+  const {nextFreeHit,scoreDelivery}=await import('../src/delivery.js');
+  const noBall=scoreDelivery({noBall:true});
+  assert.equal(nextFreeHit(false,noBall),true);
+  assert.equal(nextFreeHit(true,scoreDelivery({wide:true})),true);
+  const caught=scoreDelivery({dismissal:'CAUGHT',freeHit:true});
+  assert.equal(caught.dismissal,null);
+  assert.equal(nextFreeHit(true,caught),false);
+  assert.equal(scoreDelivery({dismissal:'RUN OUT',freeHit:true}).dismissal,'RUN OUT');
+});

@@ -32,10 +32,10 @@ export function keeperCanCollect(ball, keeper) {
   return Math.abs(ball.z - keeper.z) < 1.25 && Math.abs(ball.x - keeper.x) < 0.75 && ball.y < 2.9;
 }
 
-export function scoreDelivery({ runs = 0, dismissal = null, noBall = false, wide = false, byes = false }) {
+export function scoreDelivery({ runs = 0, dismissal = null, noBall = false, wide = false, byes = false, freeHit = false }) {
   // A no-ball overrides a wide. The supported dismissal on either is run out.
   const extra = noBall ? 'NO BALL' : wide ? 'WIDE' : null;
-  const allowedDismissal = extra && dismissal !== 'RUN OUT' ? null : dismissal;
+  const allowedDismissal = (extra || freeHit) && dismissal !== 'RUN OUT' ? null : dismissal;
   return { legal: !extra, penalty: extra ? 1 : 0, runs, dismissal: allowedDismissal, extra, ...(byes && !wide ? { byes: true } : {}) };
 }
 
@@ -50,4 +50,9 @@ export function wicketIntersection({x, y, releaseX, releaseZ, type}) {
   // Rendered stumps span +/- .35, with a .045 half-width; bails are at 1.34.
   return Math.abs(wicketX) <= .395 + ballRadius && wicketY <= 1.34 + ballRadius
     ? {x:wicketX, y:wicketY, z:wicketZ} : null;
+}
+
+
+export function nextFreeHit(wasFreeHit, result) {
+  return result.extra === 'NO BALL' || (wasFreeHit && !result.legal);
 }
