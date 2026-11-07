@@ -48,6 +48,7 @@ export function advanceBall(position, velocity, seconds, bounced = false, forces
     let p = ball.translation(), v = ball.linvel();
     const floor=modern&&Math.abs(p.x)<2.5&&Math.abs(p.z)<12.5?.12:0;
     if (p.y <= radius+floor+.005) {
+      if(modern&&!bounced&&forces)forces.pitchX=p.x;
       bounced = true;
       if (p.y < radius+floor) ball.setTranslation({x:p.x, y:radius+floor, z:p.z}, true);
       if (Math.abs(v.y) < .55) {

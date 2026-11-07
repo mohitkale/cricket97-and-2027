@@ -15,6 +15,20 @@ export function runnerGroundPoints(p){
   return points;
 }
 
+// The same held-ball contact decides a return or a keeper's stumping attempt.
+export function touchWicketWithBall(receiver, hand, ball, end, elapsed, dt) {
+  const wicket=ENDS[end], before=ball.clone(), scale=athleteScale(receiver);
+  const goal=new THREE.Vector3(.22*scale,0,wicket.wicket+wicket.direction*.7*scale);
+  const facingYaw=Math.atan2(-receiver.position.x,wicket.wicket-receiver.position.z);
+  moveAthlete(receiver,goal,dt,4.8,{facingYaw});
+  receiver.rotation.x=.025;
+  receiver.userData.torso.rotation.set(1.45*Math.min(1,elapsed/.3),0,0);
+  plantStandingFeet(receiver);
+  solveArm(receiver,hand,new THREE.Vector3(0,CRICKET.pitchTop+.45,wicket.wicket));
+  ball.copy(handPoint(receiver,hand));
+  return sweptWicketHit(before,ball,end);
+}
+
 /** Release, flight, glove possession, and wicket contact are separate events.
  * Receivers run into position; neither receiver nor ball is teleported. */
 export class ReturnController{
@@ -87,13 +101,7 @@ export class ReturnController{
       }
       if(s.elapsed>s.launch.duration+1.2){s.phase='overthrow';return {type:'overthrow',end:s.end};}
     }else if(s.phase==='receive'){
-      const r=s.receiver,before=ball.clone(),blend=Math.min(1,s.elapsed/.3);
-      const scale=athleteScale(r);s.goal.set(.22*scale,0,s.wicket.wicket+s.wicket.direction*.7*scale);
-      const facingYaw=Math.atan2(-r.position.x,s.wicket.wicket-r.position.z);
-      moveAthlete(r,s.goal,dt,4.8,{facingYaw});
-      r.rotation.x=.025;r.userData.torso.rotation.set(1.45*blend,0,0);plantStandingFeet(r);
-      const target=new THREE.Vector3(0,CRICKET.pitchTop+.45,s.wicket.wicket);solveArm(r,1,target);ball.copy(handPoint(r,1));
-      const hit=sweptWicketHit(before,ball,s.end);
+      const hit=touchWicketWithBall(s.receiver,1,ball,s.end,s.elapsed,dt);
       if(hit){s.phase='complete';return {type:'wicket',end:s.end,...this.decision()};}
       if(s.elapsed>2){s.phase='complete';return {type:'complete',end:s.end};}
     }

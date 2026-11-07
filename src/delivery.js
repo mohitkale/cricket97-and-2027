@@ -33,9 +33,10 @@ export function keeperCanCollect(ball, keeper) {
 }
 
 export function scoreDelivery({ runs = 0, dismissal = null, noBall = false, wide = false, byes = false, freeHit = false }) {
-  // A no-ball overrides a wide. The supported dismissal on either is run out.
+  // A no-ball overrides a wide. A stumping can count on an ordinary wide.
   const extra = noBall ? 'NO BALL' : wide ? 'WIDE' : null;
-  const allowedDismissal = (extra || freeHit) && dismissal !== 'RUN OUT' ? null : dismissal;
+  const protectedBall = noBall || freeHit || (wide && dismissal !== 'STUMPED');
+  const allowedDismissal = protectedBall && dismissal !== 'RUN OUT' ? null : dismissal;
   return { legal: !extra, penalty: extra ? 1 : 0, runs, dismissal: allowedDismissal, extra, ...(byes && !wide ? { byes: true } : {}) };
 }
 

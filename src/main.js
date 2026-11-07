@@ -1,3 +1,4 @@
+import {firstPadContact,lbwEligible} from './pad-contact.js';
 import { signalOutcome } from './modern-umpire.js';
 import { createDeliveryBenchmark } from './delivery-benchmark.js';
 import * as THREE from 'three';
@@ -9,7 +10,7 @@ import {DEFAULT_MATCH_OVERS,MATCH_FORMATS,matchFormat} from './match-format.js';
 import {CRICKET,athleteScale,ankleHeight,gloveRadius} from './cricket-scale.js';
 import {poseBowling,poseBatting,poseKeeping,poseBattingReady} from './cricket-actions.js';
 import {safeOpeningSingle,sweptContact} from './fielding-planner.js';
-import {sweptWicketHit} from './return-throw.js';
+import {sweptWicketHit,groundedAtCrease} from './return-throw.js';
 import { stepRun, judgeThrow, runnerAtEnd, requestRun, callDown } from './running.js';
 import { SHOT_KEYS, shotVelocity, canReachDelivery } from './shots.js';
 import { createMatchStats, batterStats, bowlerStats, recordDelivery, strikeRate, economyRate } from './match-stats.js';
@@ -25,7 +26,7 @@ import { deliveryLaunch, modernShotResponse, modernDeliveryLine, assistedStroke 
 import { advanceAthleticRun } from './locomotion.js';
 import { batchAthletes } from './athlete-batch.js';
 import { buildModernCrowd } from './modern-crowd.js';
-import { ReturnController } from './return-controller.js';
+import { ReturnController, runnerGroundPoints, touchWicketWithBall } from './return-controller.js';
 import { FieldingController, handPoint } from './fielding-controller.js';
 import { buildModernStadium } from './modern-stadium.js';
 const era=resolveEra(new URLSearchParams(location.search).get('era'))||resolveEra('97');
@@ -325,7 +326,7 @@ function beginFlight(now){let a=state.anim;let cue=$('#batting-cue');if(cue)cue.
  a.lineX=ball.position.x;let shot=isHuman?(a.selectedShot||state.shot):a.cpuShot;state.shot=null;state.queuedShot=null;state.powerArmed=false;state.queuedPower=false;state.secondaryShot=null;state.lastShotInput=null;heldShotKeys.clear();let easyBatting=isHuman&&difficulty==='easy';let miss=(!era.modern&&a.wide)||!canReachDelivery(shot,era.modern?ball.position.y/CRICKET.athleteScale:ball.position.y,era.modern?a.lineX/CRICKET.athleteScale:a.lineX,easyBatting)||timing>(easyBatting?1.15:.75)||Math.random()<(easyBatting?.01:timing>.42?.2:.04);
  if(era.modern){a.contactPoint=ball.position.clone();if(!a.deliveryBounced&&ball.position.y>1.05)a.noBall=true;a.wide=judgeWide({x:a.lineX,height:ball.position.y,hand:a.battingHand,guardX:a.guardX,releaseX:a.releaseGuardX,strikerX:batter.position.x,bounced:!!a.deliveryBounced,noBall:a.noBall,touched:!miss});if(a.noBall&&!a.called){a.called=true;umpire.userData.arms[0].rotation.z=-Math.PI/2;message('NO BALL','ONE EXTRA • BALL STILL LIVE');announce('No ball. One extra.');}}
  if(miss){state.powerArmed=false;state.queuedPower=false;setCrowdMood('tension');if(Math.abs(a.lineX)<.5)crowdReaction('gasp');let wicket=era.modern?sweptWicketHit(ball.position,ball.position.clone().addScaledVector(a.deliveryVelocity,Math.max(0,(10.5-ball.position.z)/a.deliveryVelocity.z)),'keeper'):wicketIntersection({x:a.lineX,y:ball.position.y,releaseX:a.releasePoint.x,releaseZ:a.releasePoint.z,type:a.length});
-  if(wicket&&!a.noBall&&!a.wide&&!a.freeHit){a.live=false;a.phase='miss';a.missStart=ball.position.clone();const padContact=(a.swing!==null||!isHuman)&&Math.abs(a.lineX-batter.position.x)<.24&&Math.random()<.18;a.dismissal=padContact?'LBW':'BOWLED';a.missTarget=padContact?new THREE.Vector3(a.lineX,.65,9.55):new THREE.Vector3(wicket.x,wicket.y,wicket.z);a.phaseAt=now}
+  if(!era.modern&&wicket&&!a.noBall&&!a.wide&&!a.freeHit){a.live=false;a.phase='miss';a.missStart=ball.position.clone();const padContact=(a.swing!==null||!isHuman)&&Math.abs(a.lineX-batter.position.x)<.24&&Math.random()<.18;a.dismissal=padContact?'LBW':'BOWLED';a.missTarget=padContact?new THREE.Vector3(a.lineX,.65,9.55):new THREE.Vector3(wicket.x,wicket.y,wicket.z);a.phaseAt=now}
   else {resetBallPhysics();a.bye=true;a.live=true;a.phase='keeper-chase';a.bounced=era.modern?!!a.deliveryBounced:a.length!=='Full toss';a.velocity=era.modern?a.deliveryVelocity.clone():new THREE.Vector3((a.lineX-a.releasePoint.x)/a.travel*.38,-.2,20.12/a.travel*.82);a.runAllowed=false;a.runActive=false;a.runProgress=0;a.runs=0;message(!era.modern&&a.wide?'WIDE BALL':'BEATEN','KEEPER MOVES TO COLLECT')}
   renderUI();$('#play-status').textContent='BALL PASSES THE BAT';return}
  if(era.modern){
@@ -370,9 +371,9 @@ function modernPickup(a,dt,now){
  advanceRunners(a,dt,now);
 }
 
-function endPlay(outcome,dismissal){let a=state.anim;if(!a||a.ending)return;dismissal=scoreDelivery({runs:outcome,dismissal,noBall:a.noBall,wide:a.wide,freeHit:a.freeHit}).dismissal;a.ending=true;a.live=false;a.outcome=outcome;a.dismissal=dismissal||null;a.phase='settle';a.phaseAt=performance.now();if(dismissal==='BOWLED'||dismissal==='RUN OUT')breakWicket(a.phaseAt);
- if(dismissal){message('WICKET!',dismissal);playEffect('wicket');setCrowdMood('celebrate');crowdReaction('wicket');announce(dismissal==='LBW'?'That is leg before wicket!':dismissal==='BOWLED'?'Bowled him!':dismissal==='CAUGHT & BOWLED'?'Caught and bowled!':dismissal==='RUN OUT'?'Run out! The keeper takes the bails off.':'Caught in the field!')}
- else if(outcome===4||outcome===6){message(a.wide?'FIVE WIDES!':a.bye?'FOUR BYES!':outcome===4?'FOUR!':'SIX!', 'BOUNDARY');setCrowdMood('celebrate');crowdReaction(outcome===6?'six':'four');announce(outcome===4?'That has raced away for four!':'That is a magnificent six!')}
+function endPlay(outcome,dismissal){let a=state.anim;if(!a||a.ending)return;dismissal=scoreDelivery({runs:outcome,dismissal,noBall:a.noBall,wide:a.wide,freeHit:a.freeHit}).dismissal;a.ending=true;a.live=false;a.outcome=outcome;a.dismissal=dismissal||null;a.phase='settle';a.phaseAt=performance.now();if(['BOWLED','RUN OUT','STUMPED'].includes(dismissal))breakWicket(a.phaseAt);
+ if(dismissal){message('WICKET!',dismissal);playEffect('wicket');setCrowdMood('celebrate');crowdReaction('wicket');announce(dismissal==='STUMPED'?'Stumped! The keeper takes the bails off.':dismissal==='LBW'?'That is leg before wicket!':dismissal==='BOWLED'?'Bowled him!':dismissal==='CAUGHT & BOWLED'?'Caught and bowled!':dismissal==='RUN OUT'?'Run out! The keeper takes the bails off.':'Caught in the field!')}
+ else if(outcome===4||outcome===6){message(a.wide?'FIVE WIDES!':a.legBye?'FOUR LEG BYES!':a.bye?'FOUR BYES!':outcome===4?'FOUR!':'SIX!', 'BOUNDARY');setCrowdMood('celebrate');crowdReaction(outcome===6?'six':'four');announce(outcome===4?'That has raced away for four!':'That is a magnificent six!')}
  else if(a.noBall||a.wide){setCrowdMood('tension');message(a.noBall?'NO BALL':'WIDE',outcome?`${outcome} RUN${outcome===1?'':'S'} + 1 EXTRA`:'1 EXTRA • REBOWL');if(!era.modern||!(a.called||a.wideCalled))announce(a.noBall?'No ball. One extra.':'Wide ball. One extra.') }
  else {setCrowdMood(outcome?'shot':'quiet');if(outcome>0)crowdReaction('runs');message(outcome===0?'DOT BALL':`${outcome} RUN${outcome===1?'':'S'}`,'BALL RETURNED');announce(outcome===0?'No run.':outcome===1?'They take a single.':`They come back for ${outcome}.`)}renderUI();$('#play-status').textContent=dismissal||'PLAY COMPLETE';
 }
@@ -522,7 +523,8 @@ function animate(now){
    else if(era.modern){
     let flightStep=dt;
     if(!a.releasePoint){a.releasePoint=handPosition(bowler,a.bowlerArm);ball.position.copy(a.releasePoint);flightStep=Math.min(dt,Math.max(0,t-1.8));a.releaseGuardX=batter.position.x;const launch=deliveryLaunch({release:a.releasePoint,line:a.lineX,travel:a.travel,length:a.length,movement:a.variation.movement,spin:a.spin});a.deliveryVelocity=new THREE.Vector3(launch.velocity.x,launch.velocity.y,launch.velocity.z);a.deliveryForces=launch;resetBallPhysics();setBallSpin(launch.spin);$('#delivery-speed').textContent=`${a.speed} km/h`;$('#delivery-speed').hidden=false;}
-    const before=ball.position.clone();a.deliveryBounced=advanceBall(ball.position,a.deliveryVelocity,flightStep,a.deliveryBounced,a.deliveryForces);
+    const before=ball.position.clone();const wasBounced=a.deliveryBounced;a.deliveryBounced=advanceBall(ball.position,a.deliveryVelocity,flightStep,a.deliveryBounced,a.deliveryForces);
+    if(!wasBounced&&a.deliveryBounced)a.pitchX=a.deliveryForces.pitchX??ball.position.x;
     if(ball.position.z>=9.2){const fraction=(9.2-before.z)/(ball.position.z-before.z||1);ball.position.lerpVectors(before,ball.position.clone(),THREE.MathUtils.clamp(fraction,0,1));a.impact=t;}
     if(a.noBall&&!a.called){a.called=true;umpire.userData.arms[0].rotation.z=-Math.PI/2;message('NO BALL','ONE EXTRA • BALL STILL LIVE');announce('No ball. One extra.')}
    }else {if(!a.releasePoint){a.releasePoint=handPosition(bowler,a.bowlerArm);$('#delivery-speed').textContent=`${a.speed} km/h`;$('#delivery-speed').hidden=false}let p=Math.min((t-1.8)/a.travel,1),height=deliveryHeight(a.length,p)+(a.releasePoint.y-2.7)*(1-p);ball.position.set(THREE.MathUtils.lerp(a.releasePoint.x,a.lineX,p)+(a.spin&&p>.62?Math.sin((p-.62)/.38*Math.PI)*a.variation.movement*.35:Math.sin(Math.PI*p)*a.variation.movement*.5),height,THREE.MathUtils.lerp(a.releasePoint.z,9.2,p));if(a.noBall&&!a.called){a.called=true;umpire.userData.arms[0].rotation.z=-Math.PI/2;message('NO BALL','ONE EXTRA • BALL STILL LIVE');announce('No ball. One extra.')}}
@@ -532,16 +534,43 @@ function animate(now){
   }else if(a.phase==='keeper-chase'&&era.modern){
    const before=ball.position.clone(),hands=[handPoint(keeper,0),handPoint(keeper,1)];
    a.bounced=advanceBall(ball.position,a.velocity,dt,a.bounced);poseKeeping(keeper,ball.position,a.velocity,dt);
-   const held=hands.some((hand,i)=>sweptContact(hand,handPoint(keeper,i),before,ball.position,gloveRadius(keeper))!==null);
-   if(held){a.phase='keeper-gather';a.phaseAt=now;a.gatherFrom=ball.position.clone();ball.position.copy(keeperGlove());message('WICKETKEEPER','CLEAN GLOVE CONTACT');}
+   const wicket=sweptWicketHit(before,ball.position,'keeper');
+   const pad=a.padTouched?null:firstPadContact(before,wicket?new THREE.Vector3(wicket.x,wicket.y,wicket.z):ball.position,batter);
+   if(pad){
+     a.padTouched=true;a.wide=false;
+     const playedShot=a.swing!==null||!humanBatting();
+     const untilStumps=Math.max(0,(10.5-pad.point.z)/Math.max(.01,a.velocity.z));
+     const projected=pad.point.clone().addScaledVector(a.velocity,untilStumps);
+     projected.y-=4.905*untilStumps**2;
+     const wouldHit=sweptWicketHit(pad.point,projected,'keeper');
+     ball.position.copy(pad.point);
+     if(lbwEligible({pitchX:a.pitchX,impactX:pad.point.x,hand:a.battingHand,playedShot,wouldHit,noBall:a.noBall,freeHit:a.freeHit}))endPlay(0,'LBW');
+     else if(!playedShot)endPlay(0,null);
+     else {a.legBye=true;a.phase='field';a.velocity.multiplyScalar(.22);a.velocity.z*=-1;resetBallPhysics();message('OFF THE PAD','BALL IN PLAY');renderUI();}
+   }else if(wicket&&!a.noBall&&!a.freeHit){
+     ball.position.set(wicket.x,wicket.y,wicket.z);a.wide=false;endPlay(0,'BOWLED');
+   }else{
+   const glove=hands.findIndex((hand,i)=>sweptContact(hand,handPoint(keeper,i),before,ball.position,gloveRadius(keeper))!==null);
+   if(glove>=0){a.phase='keeper-gather';a.glove=glove;a.phaseAt=now;a.gatherFrom=ball.position.clone();ball.position.copy(handPoint(keeper,glove));message('WICKETKEEPER','CLEAN GLOVE CONTACT');}
    else if(ball.position.z>keeper.position.z+.8){a.phase='field';a.runAllowed=true;a.runActive=true;a.runReturning=false;message(a.wide?'WIDE BALL':'BYE','PAST THE KEEPER • BATTERS RUN');renderUI();}
+   }
   }else if(a.phase==='keeper-chase'){
    a.bounced=advanceBall(ball.position,a.velocity,dt,a.bounced);
    let shift=THREE.MathUtils.clamp(ball.position.x-keeper.position.x,-3.0*dt,3.0*dt);keeper.position.x+=shift;keeperWalk(keeper,Math.abs(shift),now);keeper.rotation.x=-.48;watchPoint(keeper,ball.position);aimHandAt(keeper,0,ball.position);aimHandAt(keeper,1,ball.position);
    if(keeperCanCollect(ball.position,keeper.position)){a.phase='keeper-gather';a.phaseAt=now;a.gatherFrom=ball.position.clone();message('WICKETKEEPER','COLLECTS THE BALL')}
    else if(ball.position.z>keeper.position.z+1.4){a.phase='field';a.runAllowed=true;a.runActive=true;a.runReturning=false;message(a.wide?'WIDE BALL':'BYE','PAST THE KEEPER • BATTERS RUN');renderUI()}
   }else if(a.phase==='keeper-gather'){
-   let p=Math.min((now-a.phaseAt)/420,1);if(era.modern){ball.position.copy(keeperGlove());if(p>=1)endPlay(0,null);}else{keeper.rotation.x=-.48-.12*p;keeper.userData.knees.forEach(k=>k.rotation.x=.65);ball.position.lerpVectors(a.gatherFrom,keeperGlove(),p);if(p>=1)endPlay(0,null);}
+   let p=Math.min((now-a.phaseAt)/420,1);if(era.modern){
+     ball.position.copy(handPoint(keeper,a.glove??1));
+     if(!a.noBall&&!a.freeHit&&!a.runActive&&!groundedAtCrease(runnerGroundPoints(batter),'keeper')){
+       a.phase='stumping';a.stumpingTime=0;
+     }else if(p>=1)endPlay(0,null);
+   }else{keeper.rotation.x=-.48-.12*p;keeper.userData.knees.forEach(k=>k.rotation.x=.65);ball.position.lerpVectors(a.gatherFrom,keeperGlove(),p);if(p>=1)endPlay(0,null);}
+  }else if(a.phase==='stumping'){
+   a.stumpingTime+=dt;
+   const hit=touchWicketWithBall(keeper,a.glove,ball,'keeper',a.stumpingTime,dt);
+   if(hit){const safe=groundedAtCrease(runnerGroundPoints(batter),'keeper');endPlay(0,safe?null:'STUMPED');}
+   else if(a.stumpingTime>2)endPlay(0,null);
   }else if(a.phase==='field'&&era.modern){
    const before=ball.position.clone();a.bounced=advanceBall(ball.position,a.velocity,dt,a.bounced);ball.rotation.x+=Math.hypot(a.velocity.x,a.velocity.z)*dt/.16;
    const event=modernFielding.update({ball:ball.position,previousBall:before,velocity:a.velocity,bounced:a.bounced,dt});
