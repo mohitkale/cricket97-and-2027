@@ -46,3 +46,5 @@ Promote the branch only when the rules inventory identifies the supported format
 ### Implementation progress
 
 Task 1 started. Open /?era=2027&debug during development and play an over. The overlay reports the 95th percentile live delivery frame interval per 120 samples. Compare equivalent runs on the same device. The stadium displays now share a texture and refresh through match UI updates. Device measurements and input-to-visible-motion capture remain open.
+
+Task 1 desktop baseline completed for both editions. See [six-ball results and reproduction steps](delivery-baseline.md). Both captures include six legal deliveries and six stroke-response samples. Physical-phone validation remains open for the device matrix. Task 2 can proceed against this reference.
