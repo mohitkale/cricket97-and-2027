@@ -1,3 +1,4 @@
+import { signalOutcome } from './modern-umpire.js';
 import { createDeliveryBenchmark } from './delivery-benchmark.js';
 import * as THREE from 'three';
 import {judgeWide,WIDE_GUIDE} from './wide-ball.js';
@@ -372,11 +373,11 @@ function modernPickup(a,dt,now){
 function endPlay(outcome,dismissal){let a=state.anim;if(!a||a.ending)return;dismissal=scoreDelivery({runs:outcome,dismissal,noBall:a.noBall,wide:a.wide}).dismissal;a.ending=true;a.live=false;a.outcome=outcome;a.dismissal=dismissal||null;a.phase='settle';a.phaseAt=performance.now();if(dismissal==='BOWLED'||dismissal==='RUN OUT')breakWicket(a.phaseAt);
  if(dismissal){message('WICKET!',dismissal);playEffect('wicket');setCrowdMood('celebrate');crowdReaction('wicket');announce(dismissal==='LBW'?'That is leg before wicket!':dismissal==='BOWLED'?'Bowled him!':dismissal==='CAUGHT & BOWLED'?'Caught and bowled!':dismissal==='RUN OUT'?'Run out! The keeper takes the bails off.':'Caught in the field!')}
  else if(outcome===4||outcome===6){message(a.wide?'FIVE WIDES!':a.bye?'FOUR BYES!':outcome===4?'FOUR!':'SIX!', 'BOUNDARY');setCrowdMood('celebrate');crowdReaction(outcome===6?'six':'four');announce(outcome===4?'That has raced away for four!':'That is a magnificent six!')}
- else if(a.noBall||a.wide){setCrowdMood('tension');message(a.noBall?'NO BALL':'WIDE',outcome?`${outcome} RUN${outcome===1?'':'S'} + 1 EXTRA`:'1 EXTRA • REBOWL');announce(a.noBall?'No ball. One extra.':'Wide ball. One extra.') }
+ else if(a.noBall||a.wide){setCrowdMood('tension');message(a.noBall?'NO BALL':'WIDE',outcome?`${outcome} RUN${outcome===1?'':'S'} + 1 EXTRA`:'1 EXTRA • REBOWL');if(!era.modern||!(a.called||a.wideCalled))announce(a.noBall?'No ball. One extra.':'Wide ball. One extra.') }
  else {setCrowdMood(outcome?'shot':'quiet');if(outcome>0)crowdReaction('runs');message(outcome===0?'DOT BALL':`${outcome} RUN${outcome===1?'':'S'}`,'BALL RETURNED');announce(outcome===0?'No run.':outcome===1?'They take a single.':`They come back for ${outcome}.`)}renderUI();$('#play-status').textContent=dismissal||'PLAY COMPLETE';
 }
 // Record rendered transforms so replay shows the actual delivery, shot and fielding.
-const replayActors=[ball,batter,nonStriker,bowler,keeper,...fielders];
+const replayActors=[ball,batter,nonStriker,bowler,keeper,...fielders,...(era.modern?[umpire]:[])];
 function pose(o){return [o.position.x,o.position.y,o.position.z,o.rotation.x,o.rotation.y,o.rotation.z]}
 function applyPose(o,p){o.position.set(p[0],p[1],p[2]);o.rotation.set(p[3],p[4],p[5])}
 function captureFrame(now){let a=state.anim;if(!a||state.phase!=='animating'||(!a.captureContact&&now-(a.lastCapture||0)<(era.modern?33:55)))return;a.captureContact=false;a.lastCapture=now;let limbs=replayActors.slice(1).map(p=>p.userData.arms&&p.userData.legs?[...p.userData.arms,...p.userData.elbows,...p.userData.legs,...p.userData.knees].map(v=>[v.rotation.x,v.rotation.y,v.rotation.z]):[]);(a.frames||(a.frames=[])).push({t:now-a.start,camera:era.modern&&state.camera===0&&currentBroadcastView?{id:currentBroadcastView.id,position:camera.position.toArray(),look:currentBroadcastView.look.toArray(),fov:camera.fov}:null,actors:replayActors.map(pose),limbs,details:replayActors.slice(1).map(p=>({head:p.userData.head?pose(p.userData.head):null,torso:p.userData.torso?pose(p.userData.torso):null,bat:p.userData.bat?pose(p.userData.bat):null})),stumps:wicketParts.map(pose)});if(a.frames.length>(era.modern?600:260))a.frames.shift()}
@@ -606,7 +607,7 @@ function animate(now){
    let p=Math.min((now-a.phaseAt)/650,1);if(a.throwEnd==='bowler'){bowler.rotation.x=-.15*p;ball.position.copy(handPosition(bowler,1))}else{let before=keeper.position.z;keeper.position.z=THREE.MathUtils.lerp(a.receiveStart.z,12.5,p);keeperWalk(keeper,Math.abs(keeper.position.z-before),now);gripFingers(keeper,1,p);keeper.rotation.x=-.36-p*.18;keeper.userData.arms.forEach(arm=>arm.rotation.x=-.9-p*.3);ball.position.copy(keeperGlove())}advanceRunners(a,dt,now);
    if(p>=1){let decision=judgeThrow(a);if(decision==='run-out'){a.dismissedPlayer=runnerAtEnd(batter.position.z,nonStriker.position.z,a.throwEnd)==='striker'?state.striker:state.partner;endPlay(a.runs,'RUN OUT')}else if(decision==='missed-active'){a.phase='safe';a.runAllowed=false;a.queuedRun=false;message('BATTER SAFE','COMPLETE THE RUN')}else endPlay(a.runs,null)}
   }else if(a.phase==='safe'){advanceRunners(a,dt,now);if(!a.runActive)endPlay(a.runs,null)
-  }else if(a.phase==='settle'){animateWicket(now);if(now-a.phaseAt>1600){captureFrame(now);if(a.lab){a.phase='lab-result';}else if((a.dismissal&&replayWickets)||((a.outcome===4||a.outcome===6)&&replayBoundaries))startReplay();else resolveDelivery()}}
+  }else if(a.phase==='settle'){animateWicket(now);if(era.modern)signalOutcome(umpire,a,(now-a.phaseAt)/1000);if(now-a.phaseAt>1600){captureFrame(now);if(a.lab){a.phase='lab-result';}else if((a.dismissal&&replayWickets)||((a.outcome===4||a.outcome===6)&&replayBoundaries))startReplay();else resolveDelivery()}}
   if(era.modern&&a.flight&&t<2.5&&bowler!==a.fielder&&bowler.userData.fielding?.mode==='ready')poseBowling(bowler,t,dt,a.bowlerArm);
   if(era.modern&&a.wide&&!a.wideCalled&&ball.position.z>=10.4){a.wideCalled=true;umpire.userData.arms.forEach(arm=>arm.rotation.z=arm===umpire.userData.arms[0]?-Math.PI/2:Math.PI/2);message('WIDE BALL','ONE EXTRA • BALL STILL LIVE');announce('Wide ball. One extra.');}
   if(era.modern&&state.anim===a&&a.caughtBall)ball.position.copy(handPoint(a.fielder,1));
