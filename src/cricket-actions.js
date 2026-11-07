@@ -15,10 +15,11 @@ export function poseBattingReady(p,{hand='right',striker=true}={}){
 }
 
 export function poseKeeping(p,ball,velocity,dt){
-  const scale=athleteScale(p),time=velocity?.z>1?clamp((13.1-ball.z)/velocity.z,0,.5):0;
+  const depth=p.userData.standingZ??13.1;
+  const scale=athleteScale(p),time=velocity?.z>1?clamp((depth-ball.z)/velocity.z,0,.5):0;
   const predictedX=ball.z>0?ball.x+(velocity?.x||0)*time:0;
   const lowTake=ball.z>11&&ball.y<.6;
-  const goal=new THREE.Vector3(clamp(predictedX,-2.4,2.4),0,lowTake?Math.max(13.1,ball.z+.75):13.1);
+  const goal=new THREE.Vector3(clamp(predictedX,-2.4,2.4),0,lowTake?Math.max(depth,ball.z+.75):depth);
   moveAthlete(p,goal,dt,3.6,{facingYaw:Math.atan2(ball.x-p.position.x,ball.z-p.position.z)});
   const close=ball.distanceTo(p.position)<3,target=close?ball.clone():new THREE.Vector3(goal.x,1.4*scale,12.75);
   const crouch=clamp((2.2*scale-target.y)/(1.8*scale),0,1);
@@ -57,7 +58,7 @@ export function poseBowling(p,t,dt,arm=1){
 
 /** Animation-led technique over the shared shot choices. The contact pose
  * places the blade at the ball, with both hands on its handle. */
-export function poseBatting(p,{phase,shot='Straight drive',contact,hand='right'}){
+export function poseBatting(p,{phase,shot='Straight drive',contact,hand='right',edge=false}){
   const s=athleteScale(p),sign=hand==='left'?-1:1,bat=p.userData.bat;
   p.userData.batHand=hand;
   const load=smooth(phase/.2),down=smooth((phase-.2)/.23),follow=smooth((phase-.43)/.57);
@@ -71,7 +72,7 @@ export function poseBatting(p,{phase,shot='Straight drive',contact,hand='right'}
   const back=p.localToWorld(new THREE.Vector3(-sign*.12,2.35,.2));
   const hit=contact.clone();hit.y=clamp(hit.y,.2,1.65);
   worldQ.setFromEuler(new THREE.Euler(0,Math.PI,-sign*(sweep?1.35:horizontal?1.15:0)+follow*sign*(horizontal?1.6:.9)));
-  const bladeOffset=new THREE.Vector3(0,-.93*s,0).applyQuaternion(worldQ);
+  const bladeOffset=new THREE.Vector3(edge?-sign*.1*s:0,-.93*s,0).applyQuaternion(worldQ);
   const grip=hit.clone().sub(bladeOffset);
   // Keep the pickup above the rear shoulder before the downswing.
   const position=back.clone().lerp(grip,down);

@@ -48,3 +48,13 @@ export function assistedStroke(delivery) {
   if (offSide < -.25) return 'Flick';
   return 'Straight drive';
 }
+
+export function outsideEdge({line,hand,timing,shot}) {
+  const off=line*(hand==='left'?-1:1);
+  return off>.27 && Math.abs(timing)>.19 && ['Defend','Left cover','Right cover','Straight drive','Attacking drive'].includes(shot);
+}
+
+export function edgeVelocity(incoming,hand) {
+  const side=hand==='left'?-1:1;
+  return {x:side*Math.min(9,Math.abs(incoming.z)*.24),y:2.6,z:Math.max(5,incoming.z*.41),autoRun:false};
+}

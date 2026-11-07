@@ -58,3 +58,14 @@ test('opposite cutters separate on pitching at both 30 and 120 Hz',()=>{
   for(const hz of [30,120])assert.ok(bowl(.3,hz)-bowl(-.3,hz)>.2);
   assert.ok(Math.abs(bowl(.3,30)-bowl(.3,120))<.01);
 });
+
+import {outsideEdge,edgeVelocity} from '../src/modern-cricket.js';
+test('a late reaching drive can carry behind to slip on either hand',()=>{
+  for(const [hand,side] of [['left',-1],['right',1]]){
+    const shot={line:side*.4,hand,shot:'Straight drive',timing:.24};
+    assert.equal(outsideEdge(shot),true);
+    assert.equal(outsideEdge({...shot,timing:.02}),false);
+    const v=edgeVelocity({z:35},hand);
+    assert.ok(v.x*side>0&&v.z>0);assert.equal(v.autoRun,false);
+  }
+});
