@@ -1,3 +1,4 @@
+import { modernProfiles } from './eras.js';
 // Profiles describe the players, not a match-wide pace/spin mode. Names not
 // listed remain available as occasional medium-pace bowlers if selected.
 const bowlers = {
@@ -9,12 +10,14 @@ const bowlers = {
   'Shaun Pollock':['fast',5], 'Allan Donald':['fast',5], 'Lance Klusener':['fast',5], 'Paul Adams':['left-arm spin',5], 'Jacques Kallis':['fast',5], 'Hansie Cronje':['medium',3],
 };
 export function bowlingProfile(name) {
+  const modern=modernProfiles.get(name);
+  if(modern)return {style:modern.style,skill:modern.role==='bowler'?5:modern.role==='all-rounder'?4:1,spin:modern.style.includes('spin')};
   const [style, skill] = bowlers[name] || ['medium', 1];
   return { style, skill, spin: style.includes('spin') };
 }
 const keepers = new Set(['Nayan Mongia','Ian Healy','Alec Stewart','Ridley Jacobs','Moin Khan','Mark Boucher']);
 export function keeperIndex(names) {
-  const index = names.slice(0, 11).findIndex(name => keepers.has(name));
+  const index = names.slice(0, 11).findIndex(name => keepers.has(name)||modernProfiles.get(name)?.role==='keeper');
   return index < 0 ? 6 : index;
 }
 export function bowlingOrder(names, count = 5) {

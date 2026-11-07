@@ -1,0 +1,18 @@
+/** Development-only deterministic drills. Uses the real match scene,
+ * controller and Rapier ball; no prerecorded animation or forced result. */
+export function mountFieldingLab({launch,pause,resume}){
+  const panel=document.createElement('aside');panel.className='fielding-lab';panel.setAttribute('aria-label','Fielding verification');
+  panel.id='fielding-lab';
+  panel.innerHTML='<strong>CRICKET CHECKS · LIVE PHYSICS</strong><div><button data-drill="delivery">Bowling camera</button><button data-drill="left-stance">Left-hand stance</button><button data-drill="right-stance">Right-hand stance</button><button data-drill="loft">Stadium six</button><button data-drill="ground">Ground ball</button><button data-drill="body">Body block</button><button data-drill="standing">Standing catch</button><button data-drill="dive">Diving catch</button><button data-drill="rope">Rope save</button><button data-drill="backpedal">Backpedal</button><button data-drill="return">Return throw</button><button data-drill="runout">Run-out attempt</button><button data-drill="overthrow">Missed return</button></div><div><button data-lab-pause>Pause action</button><button data-lab-resume>Resume action</button></div><output>Choose a drill. Results come from live contact.</output>';
+  const close=document.createElement('button');close.className='fielding-lab-close';close.type='button';close.textContent='×';close.setAttribute('aria-label','Close fielding checks');panel.prepend(close);
+  const open=document.createElement('button');open.className='fielding-lab-open';open.type='button';open.textContent='FIELDING CHECKS';open.setAttribute('aria-controls',panel.id);open.setAttribute('aria-expanded','false');
+  const style=document.createElement('style');style.textContent='.fielding-lab{position:fixed;z-index:8;right:12px;bottom:12px;width:310px;max-width:calc(100% - 24px);max-height:60vh;overflow:auto;padding:12px;background:#07151ff2;border:1px solid #c3ff5480;border-radius:5px;color:#e6f5e3;font:10px/1.5 Arial;box-shadow:0 6px 30px #0009}.fielding-lab[hidden],.fielding-lab-open[hidden]{display:none!important}.fielding-lab strong{font-size:9px;color:#c3ff54;letter-spacing:1px}.fielding-lab>div{display:flex;flex-wrap:wrap;gap:5px;margin:8px 0}.fielding-lab button,.fielding-lab-open{font:10px Arial;padding:7px 10px;background:#193c38;border:1px solid #8da99a;color:#ecf6e5;border-radius:3px}.fielding-lab .fielding-lab-close{float:right;margin:-5px -5px 4px 8px;font-size:20px;line-height:20px;padding:0 6px}.bottom-links .fielding-lab-open{font-size:8px;letter-spacing:.7px;padding:8px 10px;border:1px solid #8da99a;border-radius:3px;color:#ecf6e5;background:#193c38}.fielding-lab output{display:block;min-height:30px;color:#b9d1be}';
+  document.head.append(style);document.body.append(panel);(document.querySelector('.bottom-links')||document.body).append(open);
+  const setOpen=value=>{panel.hidden=!value;open.hidden=value;open.setAttribute('aria-expanded',String(value));};
+  setOpen(false);
+  close.onclick=()=>{setOpen(false);open.focus();};open.onclick=()=>{setOpen(true);close.focus();};
+  panel.onkeydown=event=>{if(event.key==='Escape'){event.stopPropagation();close.click();}};
+  panel.querySelectorAll('[data-drill]').forEach(button=>button.onclick=async()=>{button.disabled=true;try{await launch(button.dataset.drill);}finally{button.disabled=false;}});
+  panel.querySelector('[data-lab-pause]').onclick=pause;panel.querySelector('[data-lab-resume]').onclick=resume;
+  let previous='';return {update(value){if(value!==previous){panel.querySelector('output').textContent=value;previous=value;}}};
+}

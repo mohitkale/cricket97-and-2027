@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import rosters from '../src/rosters.json' with { type: 'json' };
+import {MATCH_FORMATS,DEFAULT_MATCH_OVERS,matchFormat} from '../src/match-format.js';
 import { bowlingProfile, bowlingOrder, bowlingVariation, keeperIndex } from '../src/bowling-profiles.js';
 
 test('real bowlers have their own styles and variations', () => {
@@ -15,7 +16,7 @@ test('real bowlers have their own styles and variations', () => {
 test('rotation respects the keeper, squad and over limits for all match lengths', () => {
   for (const players of Object.values(rosters)) {
     const names = players.map(p => p.name);
-    for (const [overs, count, limit] of [[5,5,1],[10,6,2],[20,7,4]]) {
+    for (const {overs,bowlers:count,maxBowlerOvers:limit} of MATCH_FORMATS) {
       const order = bowlingOrder(names, count);
       assert.equal(new Set(order.map(p => p.index)).size, count);
       assert.ok(order.every(p => p.index !== keeperIndex(names)));
@@ -27,4 +28,13 @@ test('rotation respects the keeper, squad and over limits for all match lengths'
       assert.ok([...used.values()].every(n => n <= limit));
     }
   }
+});
+
+test('two-over matches are available while the default stays at five',()=>{
+  assert.equal(DEFAULT_MATCH_OVERS,5);
+  assert.deepEqual(MATCH_FORMATS.map(f=>f.overs),[2,5,10,20]);
+  assert.equal(matchFormat('2').overs*6,12);
+  assert.equal(matchFormat('2').bowlers,2);
+  assert.equal(matchFormat('2').maxBowlerOvers,1);
+  assert.equal(matchFormat(undefined).overs,5);
 });
