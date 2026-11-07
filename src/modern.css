@@ -68,3 +68,6 @@ body[data-era="2027"]{--modern-accent:#c3ff54;--modern-border:#ffffff17;backgrou
   [data-era="2027"] .shot-extra-row button{width:43px}
   [data-era="2027"] .run-inset:not(.hidden){right:8px;width:84px}
 }
+
+[data-era="2027"] .assist-options summary{cursor:pointer;text-align:center;color:#fff;background:#112026db;border-radius:5px;padding:.35rem .65rem;font-size:.75rem}
+[data-era="2027"] .assist-options[open]{background:#112026e8;border-radius:7px}

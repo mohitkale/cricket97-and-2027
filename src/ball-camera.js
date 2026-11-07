@@ -7,6 +7,8 @@ const mount=(id,position,look,fov)=>Object.freeze({id,position:Object.freeze(pos
 // location of a mounted camera. Pan/tilt and the lens may follow the action.
 export const BROADCAST_MOUNTS=Object.freeze({
   delivery:mount('delivery',[-8,16,-72],[0,1,1.5],22),
+  shoulderRight:mount('shoulderRight',[1.75,2.85,15.8],[0,1.1,1.6],38),
+  shoulderLeft:mount('shoulderLeft',[-1.75,2.85,15.8],[0,1.1,1.6],38),
   preview:mount('preview',[8,3.4,17],[0,1,9.2],36),
   stadium:mount('stadium',[58,36,58],[0,1,0],55),
   keeper:mount('keeper',[8,16,72],[0,1,0],22),
@@ -50,9 +52,9 @@ function fieldSubjects(ball,players,lofted){
  * and zoom are smoothed. A shot retains its camera rather than sector-flapping. */
 export class BallCamera{
   constructor(){this.key=null;this.shot=null;this.id=null;this.look=new THREE.Vector3();this.fov=22;this.lofted=false;}
-  update({ball,velocity,active=false,phase='delivery',deliveryKey=null,dt=1/60,aspect=1.5,players=[]}){
+  update({ball,velocity,active=false,phase='delivery',deliveryKey=null,battingHand=null,dt=1/60,aspect=1.5,players=[]}){
     if(deliveryKey!==this.key){this.key=deliveryKey;this.shot=null;this.lofted=false;}
-    let id='delivery',tracking=false;
+    let id=battingHand?(battingHand==='left'?'shoulderLeft':'shoulderRight'):'delivery',tracking=false;
     if(phase==='preview')id='preview';
     else if(active&&phase!=='delivery'){
       if(phase==='return'&&Math.hypot(ball.x,ball.z)<18){id='delivery';tracking=true;this.shot=null;}
@@ -71,6 +73,7 @@ export class BallCamera{
     else {
       if(phase==='return')this.lofted=false;else if(ball.y>6)this.lofted=true;
       const {ground,points}=fieldSubjects(ball,players,this.lofted);
+      if(phase==='return')points.push(new THREE.Vector3(0,.7,(velocity?.z??0)>=0?10.4:-10.4));
       const target=ball.clone().addScaledVector(velocity||new THREE.Vector3(),.06);
       if(this.lofted)target.lerp(ground,.62);
       if(cut)this.look.copy(target);

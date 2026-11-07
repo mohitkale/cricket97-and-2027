@@ -33,3 +33,15 @@ export function modernShotResponse(base,incoming,timing,hand='right',options={})
   if(options.power&&options.shot!=='Defend')lift=Math.max(lift,18+quality*7);
   return {x:(base.x*c-base.z*s)*paceBonus,y:lift,z:(base.x*s+base.z*c)*paceBonus,autoRun:base.autoRun};
 }
+
+// The player supplies timing. Delivery length and line choose the stroke.
+export function assistedStroke(delivery) {
+  if (!delivery) return 'Straight drive';
+  const offSide = delivery.lineX * (delivery.battingHand === 'left' ? -1 : 1);
+  if (delivery.length === 'Bouncer') return 'Hook';
+  if (delivery.length === 'Short') return offSide > .26 ? 'Cut' : 'Pull';
+  if (delivery.length === 'Yorker') return 'Defend';
+  if (delivery.spin && delivery.length === 'Good') return 'Sweep';
+  if (offSide < -.25) return 'Flick';
+  return 'Straight drive';
+}

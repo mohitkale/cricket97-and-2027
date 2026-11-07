@@ -57,3 +57,17 @@ export function boundaryCrossing(before,after,radius=50){
   const b=2*(before.x*dx+before.z*dz),c=before.x*before.x+before.z*before.z-radius*radius;
   return clamp((-b+Math.sqrt(Math.max(0,b*b-4*a*c)))/(2*a),0,1);
 }
+
+// Allow acceleration, crease braking and the strike follow-through before a run.
+export function safeOpeningSingle(position, velocity, fielders) {
+  const deadline = 3.7;
+  const path = predictFieldingPath(position, velocity, false, deadline);
+  for (const sample of path) {
+    if (Math.hypot(sample.x, sample.z) >= 50) break;
+    if (sample.y > 2.5) continue;
+    const returnDistance = Math.hypot(sample.x, Math.abs(sample.z) - 10.4);
+    if (sample.t + .3 + returnDistance / 30 >= deadline) continue;
+    if (fielders.some(player => arrivalTime(player, sample) <= sample.t + .12)) return false;
+  }
+  return true;
+}
