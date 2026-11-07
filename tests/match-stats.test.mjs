@@ -33,3 +33,11 @@ test('strike rate and economy use balls, including partial overs', async () => {
   assert.equal(economyRate({runs:12,balls:9}),'8.00');
   assert.equal(economyRate({runs:3,balls:0}),'—');
 });
+
+test('a no-ball with two leg byes records each extra separately',async()=>{
+  const {scoreDelivery}=await import('../src/delivery.js');
+  const innings=createMatchStats()[0];recordDelivery(innings,'A','B',scoreDelivery({runs:2,noBall:true,legByes:true}));
+  assert.deepEqual(innings.extras,{wides:0,noBalls:1,byes:0,legByes:2});
+  assert.equal(batterStats(innings,'A').runs,0);
+  assert.equal(bowlerStats(innings,'B').runs,1);
+});

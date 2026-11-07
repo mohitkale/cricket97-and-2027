@@ -11,7 +11,7 @@ import {predictFieldingPath,planInterception,sweptContact,boundaryCrossing} from
 const clamp=THREE.MathUtils.clamp,smooth=t=>THREE.MathUtils.smoothstep(clamp(t,0,1),0,1);
 const planar=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 const activeAction=s=>s&&['dive','slide','recover','jump'].includes(s.mode);
-export const handPoint=(p,i)=>{p.updateMatrixWorld(true);return p.userData.arms[i].userData.hand.getWorldPosition(new THREE.Vector3());};
+export const handPoint=(p,i)=>p.userData.arms[i].userData.hand.getWorldPosition(new THREE.Vector3());
 
 /** Sports actions own their complete pose until landing/recovery finishes.
  * A boundary ends scoring eligibility, not the athlete's momentum. */

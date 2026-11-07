@@ -85,7 +85,7 @@ export function poseBatting(p,{phase,shot='Straight drive',contact,hand='right',
   // Fit the body to a reachable two-handed grip instead of stretching an
   // arm or leaving a glove behind the moving handle.
   for(let iteration=0;iteration<16;iteration++){
-    const correction=new THREE.Vector3();p.updateMatrixWorld(true);
+    const correction=new THREE.Vector3();
     for(let i=0;i<2;i++){
       const offset=i===(hand==='left'?1:0)?-.04:-.23;
       const wrist=position.clone().add(new THREE.Vector3(0,offset*s,0).applyQuaternion(worldQ));

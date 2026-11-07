@@ -28,3 +28,12 @@ test('a stumping on a wide records the extra, wicket and unchanged legal-ball co
   assert.equal(scoreDelivery({wide:true,freeHit:true,dismissal:'STUMPED'}).dismissal,null);
   assert.equal(scoreDelivery({noBall:true,dismissal:'STUMPED'}).dismissal,null);
 });
+
+import {strikerBreaksWicket} from '../src/return-throw.js';
+test('a swinging blade must cross the actual wicket to cause hit wicket',()=>{
+  const point=(x,z)=>new Vector3(x,.5,z);
+  assert.ok(strikerBreaksWicket([point(0,10.2)],[point(0,10.6)]));
+  assert.equal(strikerBreaksWicket([point(.3,10.2)],[point(.3,10.6)]),false);
+  assert.equal(scoreDelivery({wide:true,dismissal:'HIT WICKET'}).dismissal,'HIT WICKET');
+  assert.equal(scoreDelivery({noBall:true,dismissal:'HIT WICKET'}).dismissal,null);
+});

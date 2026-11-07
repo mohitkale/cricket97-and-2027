@@ -3,8 +3,22 @@ import * as THREE from 'three';
 function surfaceTexture(kind){
   const c=document.createElement('canvas');c.width=c.height=256;const x=c.getContext('2d');
   x.fillStyle=kind==='grass'?'#8fa482':'#bdad8b';x.fillRect(0,0,256,256);
-  let seed=149;for(let i=0;i<8000;i++){seed=(Math.imul(seed,1664525)+1013904223)>>>0;const px=seed%256;seed=(Math.imul(seed,1664525)+1013904223)>>>0;const py=seed%256;x.fillStyle=i%2?'#ffffff14':'#07191020';x.fillRect(px,py,kind==='grass'?1:2,kind==='grass'?4:1);}
-  const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(kind==='grass'?35:3,kind==='grass'?35:12);t.colorSpace=THREE.SRGBColorSpace;return t;
+  let seed=149;
+  function random(){seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;}
+  for(let i=0;i<8000;i++){
+    x.fillStyle=i%2?'#ffffff14':'#07191020';
+    x.fillRect(random()*256,random()*256,kind==='grass'?1:2,kind==='grass'?4:1);
+  }
+  if(kind==='pitch'){
+    for(const y of [30,226]){
+      for(let i=0;i<500;i++){
+        const step=(random()+random()-1)*48;
+        x.fillStyle=i%2?'#78623a33':'#ddcea444';
+        x.fillRect(128+step,y+(random()+random()-1)*20,1+random()*6,1+random()*2);
+      }
+    }
+  }
+  const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(kind==='grass'?35:1,kind==='grass'?35:1);t.colorSpace=THREE.SRGBColorSpace;return t;
 }
 
 /** Modern architecture decorates the common ground; pitch dimensions, camera
@@ -20,14 +34,29 @@ export function buildModernStadium(scene,{grass,grass2,pitchmat,roof,roofLip,ren
   const canopy=new THREE.MeshStandardMaterial({color:0xdce1d5,side:THREE.DoubleSide,roughness:.8});
   const led=new THREE.MeshBasicMaterial({color:0xc3ff54});
   const leds=[];
-  function beam(a,b,r=.08){const d=new THREE.Vector3().subVectors(b,a),m=new THREE.Mesh(new THREE.CylinderGeometry(r,r,d.length(),6),structure);m.position.copy(a).add(b).multiplyScalar(.5);m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),d.normalize());scene.add(m);return m;}
+  const roofVertices=[],supports=[];
+  const vertex=(angle,r,y)=>new THREE.Vector3(Math.sin(angle)*r,y,Math.cos(angle)*r);
   for(let i=0;i<48;i++){
-    const a=i*Math.PI*2/48,b=a+Math.PI*2/48;
-    const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute([
-      Math.sin(a)*73,15.3,Math.cos(a)*73,Math.sin(b)*73,15.3,Math.cos(b)*73,Math.sin((a+b)/2)*87,18.5,Math.cos((a+b)/2)*87,
-    ],3));geo.computeVertexNormals();scene.add(new THREE.Mesh(geo,canopy));
-    beam(new THREE.Vector3(Math.sin(a)*73,15.3,Math.cos(a)*73),new THREE.Vector3(Math.sin(a)*87,18.5,Math.cos(a)*87));
-    if(i%3===0)beam(new THREE.Vector3(Math.sin(a)*82,0,Math.cos(a)*82),new THREE.Vector3(Math.sin(a)*87,18.5,Math.cos(a)*87),.17);
+    const a=i*Math.PI*2/48,b=(i+1)*Math.PI*2/48;
+    for(const p of [vertex(a,73,15.3),vertex(b,73,15.3),vertex((a+b)/2,87,18.5)])roofVertices.push(...p.toArray());
+    supports.push([vertex(a,73,15.3),vertex(a,87,18.5),.08]);
+    if(i%3===0)supports.push([vertex(a,82,0),vertex(a,87,18.5),.17]);
+  }
+  const panels=new THREE.BufferGeometry();
+  panels.setAttribute('position',new THREE.Float32BufferAttribute(roofVertices,3));
+  panels.computeVertexNormals();scene.add(new THREE.Mesh(panels,canopy));
+  const beams=new THREE.InstancedMesh(new THREE.CylinderGeometry(1,1,1,6),structure,supports.length);
+  const up=new THREE.Vector3(0,1,0);
+  supports.forEach(([from,to,r],i)=>{
+    const delta=to.clone().sub(from),length=delta.length();
+    const transform=new THREE.Matrix4().compose(from.clone().lerp(to,.5),
+      new THREE.Quaternion().setFromUnitVectors(up,delta.normalize()),new THREE.Vector3(r,length,r));
+    beams.setMatrixAt(i,transform);
+  });
+  scene.add(beams);
+  for(const end of [-1,1]){
+    const screen=new THREE.Mesh(new THREE.PlaneGeometry(15,5),new THREE.MeshStandardMaterial({color:0x152026,roughness:1}));
+    screen.position.set(0,3,end*61);screen.rotation.y=end>0?Math.PI:0;scene.add(screen);
   }
   for(const [radius,y]of[[63,.4],[70,5.9],[76.5,11.3]]){
     const ring=new THREE.Mesh(new THREE.TorusGeometry(radius,.07,5,160),led);ring.rotation.x=Math.PI/2;ring.position.y=y;scene.add(ring);leds.push(ring);

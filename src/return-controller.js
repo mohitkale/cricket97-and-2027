@@ -9,7 +9,6 @@ import {ENDS,chooseReturnEnd,returnThrowLaunch,sweptWicketHit,groundedAtCrease} 
 import {wrapAngle} from './locomotion.js';
 
 export function runnerGroundPoints(p){
-  p.updateMatrixWorld(true);
   const points=p.userData.knees.map(k=>k.localToWorld(new THREE.Vector3(0,-.75,.105)));
   if(p.userData.bat)points.push(p.userData.bat.localToWorld(new THREE.Vector3(0,-1.49,0)));
   return points;

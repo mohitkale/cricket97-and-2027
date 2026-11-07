@@ -42,3 +42,9 @@ export function chooseReturnEnd(from,runnerPositions,runActive,runnerSpeed=7){
   });
   return danger.sort((a,b)=>b.margin-a.margin)[0].end;
 }
+
+// Sample the blade and shoes while the striker plays the delivery. Sweeping
+// corresponding points prevents a quick backswing from skipping the stumps.
+export function strikerBreaksWicket(previous,current) {
+  return !!previous && current.some((point,i)=>sweptWicketHit(previous[i],point,'keeper',.02));
+}

@@ -67,3 +67,8 @@ export function callDown(run) {
   returnToCrease(run);
   return 'back';
 }
+
+// Runs for a boundary overthrow depend on crossing at the instant of the throw.
+export function overthrowAllowance(run){
+  return 4+run.runs+Number(!!run.runActive && !run.runReturning && run.runProgress>.5);
+}

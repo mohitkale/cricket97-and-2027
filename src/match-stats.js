@@ -11,6 +11,10 @@ export function bowlerStats(stats, name) {
 }
 
 export function recordDelivery(stats, batter, bowler, result) {
+  const extras=stats.extras ||= {wides:0,noBalls:0,byes:0,legByes:0};
+  if(result.extra==='WIDE')extras.wides+=result.penalty+result.runs;
+  if(result.extra==='NO BALL')extras.noBalls+=result.penalty;
+  if(result.byes)extras[result.legByes?'legByes':'byes']+=result.runs;
   const bat = stats.batters[batter] ||= { runs: 0, balls: 0 };
   const bowl = stats.bowlers[bowler] ||= { balls: 0, runs: 0, wickets: 0 };
   if (result.extra !== 'WIDE') bat.balls++;

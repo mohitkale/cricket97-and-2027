@@ -32,12 +32,12 @@ export function keeperCanCollect(ball, keeper) {
   return Math.abs(ball.z - keeper.z) < 1.25 && Math.abs(ball.x - keeper.x) < 0.75 && ball.y < 2.9;
 }
 
-export function scoreDelivery({ runs = 0, dismissal = null, noBall = false, wide = false, byes = false, freeHit = false }) {
+export function scoreDelivery({ runs = 0, dismissal = null, noBall = false, wide = false, byes = false, legByes = false, freeHit = false }) {
   // A no-ball overrides a wide. A stumping can count on an ordinary wide.
   const extra = noBall ? 'NO BALL' : wide ? 'WIDE' : null;
-  const protectedBall = noBall || freeHit || (wide && dismissal !== 'STUMPED');
+  const protectedBall = noBall || freeHit || (wide && !['STUMPED','HIT WICKET'].includes(dismissal));
   const allowedDismissal = protectedBall && dismissal !== 'RUN OUT' ? null : dismissal;
-  return { legal: !extra, penalty: extra ? 1 : 0, runs, dismissal: allowedDismissal, extra, ...(byes && !wide ? { byes: true } : {}) };
+  return { legal: !extra, penalty: extra ? 1 : 0, runs, dismissal: allowedDismissal, extra, ...((byes||legByes) && !wide ? { byes: true } : {}), ...(legByes && !wide ? {legByes:true} : {}) };
 }
 
 /** Project a missed ball from the striker to the rendered striker's wicket.

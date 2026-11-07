@@ -1,5 +1,5 @@
 // Development capture for the first over. Timestamps end at WebGL submission.
-export function createDeliveryBenchmark(pixelRatio) {
+export function createDeliveryBenchmark(getPixelRatio) {
   const deliveries = [];
   let current, previousFrame, inputAt, poseChanged;
   const percentile = (values, fraction) => {
@@ -10,7 +10,7 @@ export function createDeliveryBenchmark(pixelRatio) {
   return {
     begin() {
       if (deliveries.filter(d => d.legal).length >= 6) return;
-      current = { intervals: [], responseMs: null };
+      current = { intervals: [], responseMs: null, initialRatio:getPixelRatio() };
       previousFrame = inputAt = null;
       poseChanged = false;
     },
@@ -28,15 +28,15 @@ export function createDeliveryBenchmark(pixelRatio) {
       poseChanged = false;
     },
     finish(legal) {
-      if (current) deliveries.push({ ...current, legal });
+      if (current) deliveries.push({ ...current, legal, finalRatio:getPixelRatio() });
       current = null;
     },
     report() {
       const frames = deliveries.flatMap(d => d.intervals);
       return {
-        browser: navigator.userAgent, viewport: [innerWidth, innerHeight], pixelRatio,
+        browser: navigator.userAgent, viewport: [innerWidth, innerHeight], pixelRatio:getPixelRatio(),
         frameCount: frames.length, p50Ms: percentile(frames, .5), p95Ms: percentile(frames, .95),
-        deliveries: deliveries.map(d => ({ legal: d.legal, frames: d.intervals.length,
+        deliveries: deliveries.map(d => ({ legal: d.legal, initialRatio:d.initialRatio, finalRatio:d.finalRatio, frames: d.intervals.length,
           p95Ms: percentile(d.intervals, .95), responseMs: d.responseMs }))
       };
     }

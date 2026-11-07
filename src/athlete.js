@@ -126,7 +126,6 @@ export function dressAthlete(model,name,team) {
 
 export function solveArm(model,index,target) {
   const arm=model.userData.arms[index],elbow=model.userData.elbows[index];
-  model.updateMatrixWorld(true);
   const wrist=arm.parent.worldToLocal(target.clone()),shoulder=arm.position.clone();
   const axis=wrist.clone().sub(shoulder),rawLength=axis.length();if(rawLength<1e-5)return;
   const upper=.49,lower=.5,distance=THREE.MathUtils.clamp(rawLength,.08,upper+lower-.005);axis.normalize();
@@ -145,7 +144,6 @@ export function solveArm(model,index,target) {
 }
 
 export function gripBat(model) {
-  model.updateMatrixWorld(true);
   for(let i=0;i<2;i++){
     const top=model.userData.batHand==='left'?1:0;
     const target=model.userData.bat.localToWorld(new THREE.Vector3(0,i===top?-.04:-.23,0));
@@ -154,7 +152,6 @@ export function gripBat(model) {
 }
 
 export function solveLeg(model,index,target){
-  model.updateMatrixWorld(true);
   const hip=model.userData.legs[index],knee=model.userData.knees[index],origin=hip.position.clone();
   const ankle=model.worldToLocal(target.clone());
   const axis=ankle.clone().sub(origin),distance=THREE.MathUtils.clamp(axis.length(),.08,1.375);axis.normalize();
@@ -167,7 +164,6 @@ export function solveLeg(model,index,target){
 }
 
 export function plantFeet(model){
-  model.updateMatrixWorld(true);
   for(let i=0;i<2;i++){
     const foot=model.localToWorld(new THREE.Vector3(i?-.23:.23,0,i?-.06:.12));foot.y=ankleHeight(model);
     solveLeg(model,i,foot);
@@ -182,9 +178,7 @@ export function plantStandingFeet(model,degrees=10){
     model.userData.legs[i].rotation.set(-angle*.5,0,0);
     model.userData.knees[i].rotation.set(angle,0,0);
   }
-  model.updateMatrixWorld(true);
   const feet=model.userData.knees.map(k=>k.localToWorld(new THREE.Vector3(0,-.75,.105)));
   const ground=ankleHeight(model)-.07*model.scale.y;
   model.position.y+=ground-Math.min(...feet.map(v=>v.y));
-  model.updateMatrixWorld(true);
 }

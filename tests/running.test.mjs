@@ -69,3 +69,10 @@ test('R queues an additional run at any point and calling back clears it', async
   assert.equal(run.runActive,false);
   assert.equal(run.runs,0);
 });
+
+test('overthrow boundary credits only the run already crossed at release',async()=>{
+  const {overthrowAllowance}=await import('../src/running.js');
+  const run={runs:1,runActive:true,runProgress:.51};
+  assert.equal(overthrowAllowance(run),6);
+  assert.equal(overthrowAllowance({...run,runProgress:.4}),5);
+});
