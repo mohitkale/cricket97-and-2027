@@ -48,3 +48,11 @@ Promote the branch only when the rules inventory identifies the supported format
 Task 1 started. Open /?era=2027&debug during development and play an over. The overlay reports the 95th percentile live delivery frame interval per 120 samples. Compare equivalent runs on the same device. The stadium displays now share a texture and refresh through match UI updates. Device measurements and input-to-visible-motion capture remain open.
 
 Task 1 desktop baseline completed for both editions. See [six-ball results and reproduction steps](delivery-baseline.md). Both captures include six legal deliveries and six stroke-response samples. Physical-phone validation remains open for the device matrix. Task 2 can proceed against this reference.
+
+### Stock striker fit
+
+Task 2 uses the CC BY 4.0 Cesium Man body as the first redistributable human mesh. Its procedural cricket head and equipment remain on the match skeleton. The body is local and needs no model service at runtime. The converter in `scripts/fit-striker.mjs` takes the upstream CesiumMan.glb, fits bind positions and skin weights to the cricket skeleton and omits the original texture and logo. See `public/models/CREDITS.txt` for source and licence.
+
+The fitted body uses 1,154 triangles and adds 150,374 asset bytes before HTTP compression (about 63 KB with gzip). Its fallback is the existing procedural body. Five drive phases on each hand produced valid deformed vertices, a maximum 9.7 mm grip error and a planted sole at pitch height. Run `node --test tests/stock-striker.test.mjs` to repeat. These checks establish rig compatibility. The batter still uses the existing stylised head and cricket poses.
+
+Task 2 checked in both editions. The modern match completed six legal deliveries with the stock body and another six with its request blocked. Classic completed an over without requesting the body. See [the five drive poses](qa/stock-striker-drive.png) and [performance results](delivery-baseline.md). The measurement target is still open. The next task is release, impact and follow-through synchronization.

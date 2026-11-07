@@ -47,6 +47,7 @@ export function attachAthleteSkin(model,replaced){
   let previous='';
   function update(){
     for(let i=1;i<bones.length;i++){bones[i].position.copy(sources[i].position);bones[i].quaternion.copy(sources[i].quaternion);}
+    if(mesh.geometry!==geometry)return;
     const key=`${data.kit.color.getHex()}:${data.skin.color.getHex()}`;
     if(key!==previous){
       const attribute=geometry.attributes.color;

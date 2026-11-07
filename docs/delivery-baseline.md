@@ -16,3 +16,9 @@ MacBookPro16,1, Intel Core i7-9750H, 16 GB RAM, headless Chrome 156, 880 × 693 
 | 97 | 2,560 | 16.7 ms | 50.1 ms | 157.3, 133.1, 173.1, 116.3, 116.6, 133.1 |
 
 The 2027 over exceeded the proposed 33 ms frame target at p95. Four of its six shots exceeded the 100 ms response target. At the first HIT NOW frame, the cue can appear 480 ms before projected impact while the stroke is scheduled no earlier than 350 ms before impact. That creates up to roughly 130 ms of intentional wait for an on-cue input before rendering cost. For the next batting change, prototype an immediate preparation pose while preserving the timed contact frame, then repeat this capture. Use a GPU trace to investigate slow frames separately. These desktop measurements establish a comparison point. Physical-phone performance and end-to-end touch latency still require a handset.
+
+## Task 2 stock-striker comparison
+
+Repeated the same desktop workload with the 698-vertex fitted body. The final stock-body over produced 1,005 frame intervals, a 16.8 ms median and a 350 ms p95. The contemporaneous classic run also slowed down (1,240 intervals, 16.7 ms median, 166.6 ms p95). Chrome logged CVDisplayLink creation failures in this headless session. These runs miss the frame-time target and are unsuitable for estimating phone performance.
+
+Blocking the asset and repeating the identical modern over produced 947 intervals, 16.7 ms median and 400 ms p95. The fallback also completed all six deliveries. The slow tail persists with either body. A hardware GPU trace remains necessary before assigning a cause or expanding the rig to all players.

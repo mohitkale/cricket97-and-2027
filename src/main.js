@@ -183,6 +183,7 @@ keeper.position.y=-.16;keeper.rotation.x=-.36;keeper.userData.arms.forEach(a=>a.
 const bat=batter.userData.bat;
 let fielders=[];[[7,13],[-8,12],[20,7],[-22,4],[27,-20],[-27,-18],[7,-30],[-7,-31],[35,12]].forEach(([x,z])=>{let p=player(x,z,0xe0c84e,Math.PI);p.userData.home=p.position.clone();fielders.push(p)});
 const modernFielding=era.modern?new FieldingController([...fielders,bowler]):null;
+if (era.modern) import('./stock-striker.js').then(({ fitStockStriker }) => fitStockStriker(batter)).catch(error => console.warn('Stock striker unavailable.', error));
 const athleteBatch=era.modern?batchAthletes(scene,[batter,nonStriker,bowler,keeper,umpire,legUmpire,...fielders]):null;
 let modernShadowFrame=0;
 function renderFrame(){athleteBatch?.update();if(era.modern&&state.anim&&++modernShadowFrame%4===0)renderer.shadowMap.needsUpdate=true;renderer.render(scene,camera);}
@@ -423,7 +424,8 @@ function crowdReaction(kind){if(state.muted||!audioCtx)return;let gasp=kind==='g
 function duckCrowd(duration){if(!crowdDuck||!audioCtx)return;let now=audioCtx.currentTime,g=crowdDuck.gain;g.cancelScheduledValues(now);g.setValueAtTime(g.value,now);g.linearRampToValueAtTime(.42,now+.12);g.setValueAtTime(.42,now+Math.max(.15,duration));g.linearRampToValueAtTime(1,now+Math.max(.15,duration)+.6)}
 function announce(text){$('#commentary').textContent=text.toUpperCase();if(state.muted||!audioCtx)return;let clip=commentaryBuffers[commentaryFiles[text]];if(clip){try{stopSpokenAudio();commentarySource=audioCtx.createBufferSource();commentarySource.buffer=clip;const gain=audioCtx.createGain();gain.gain.value=1.1;commentarySource.connect(gain).connect(masterMix);duckCrowd(clip.duration);commentarySource.start()}catch{}return}if(!('speechSynthesis' in window))return;try{let voice=speechSynthesis.getVoices().find(v=>v.localService&&/^en/i.test(v.lang));if(!voice)return;speechSynthesis.cancel();let u=new SpeechSynthesisUtterance(text);u.voice=voice;u.rate=1.03;u.pitch=.9;u.volume=1;duckCrowd(Math.min(4,text.length/14));speechSynthesis.speak(u)}catch{}}
 $('#sound').onclick=()=>{if(state.muted)enableSound();else{state.muted=true;userMuted=true;introSequence++;stopSpokenAudio();if('speechSynthesis' in window)speechSynthesis.cancel();if(crowdMaster)crowdMaster.gain.setTargetAtTime(0,audioCtx.currentTime,.08);$('#sound').textContent='♪ SOUND OFF'}};
-$('#audio-credits').onclick=()=>alert('Stadium ambience: Work With Sounds / Torsten Nilsson, CC BY 4.0 (recording edited and converted). Crowd applause: stephan, public domain. Crowd gasp: starlite, public domain. Full source and license links are in the project README and audio/CREDITS.txt.');
+if (era.modern) $('#audio-credits').textContent = 'CREDITS';
+$('#audio-credits').onclick=()=>alert('Stadium ambience: Work With Sounds / Torsten Nilsson, CC BY 4.0 (recording edited and converted). Crowd applause: stephan, public domain. Crowd gasp: starlite, public domain. Full source and license links are in the project README and audio/CREDITS.txt.' + (era.modern ? '\n\nStriker body adapted from Cesium Man, © 2017 Cesium, CC BY 4.0. Source, licence and modifications: models/CREDITS.txt.' : ''));
 // Pause both the clock and audio when the page is hidden or another game tab
 // takes focus. Some embedded browsers keep background pages marked visible.
 const tabIdentity=Math.random().toString(36).slice(2)+Date.now().toString(36);let matchChannel=null,externallyPaused=false,manualPaused=false,pausedAt=document.hidden?performance.now():null;
