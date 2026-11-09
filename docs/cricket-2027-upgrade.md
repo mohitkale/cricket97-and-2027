@@ -149,4 +149,11 @@ Modern match controls become inert during a pause and reactivate when the match 
 - Compare human matches and paired games with the same two teams swapping batting order before deciding whether to tune scoring.
 - Have a first-time player complete a two-over match unaided. Record where they hesitate, miss a cue or lose track of the target.
 - On Android Chrome and iOS Safari, review the three portrait plays at game speed, rotate during play, background and resume, and measure the 33 ms p95 frame and 100 ms response targets.
-- The numbered backlog and rules inventory retain the remaining scenario-specific checks and simulation gaps, including formal dead-ball decisions and dynamic field infringements.
+- The numbered backlog and rules inventory retain the remaining scenario-specific checks and simulation gaps, including additional dead-ball causes, whole-body field-position checks and over-rate sanctions.
+
+### Dead ball and field restrictions, 10 November
+
+- Task 7. Stopped a user-controlled run-up before release on a free hit. Chrome showed DEAD BALL, the scorebook and strike stayed unchanged, and the replacement was released as a free hit.
+- Tasks 7 and 11. Moved a third fielder outside the opening circle before release. Chrome recorded one no-ball extra, zero legal balls and a free hit. Unit fixtures cover the end of the powerplay, both batting hands and the keeper exemption behind the popping crease. Placement uses each actor’s centre.
+
+See clauses 20.4.2.10, 28.4 and 28.7 in the [ICC Men’s T20I playing conditions](https://images.icc-cricket.com/image/upload/prd/bsxcho7ufe2pjban0wjp.pdf).

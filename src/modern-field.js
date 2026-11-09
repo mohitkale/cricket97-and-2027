@@ -4,8 +4,31 @@ const paceSpread=[[4,15],[18,8],[19,-3],[-14,-9],[31,-29],[-32,-27],[40,5],[-39,
 const spinOpening=[[2.6,12.8],[-3.8,8.4],[16,10],[19,-2],[13,-16],[-15,-12],[-19,4],[33,-27],[-36,-24]];
 const spinSpread=[[3.6,13],[-4.6,7.8],[18,6],[-18,-5],[37,13],[30,-31],[-31,-29],[-40,9],[11,-42]];
 
+function openingOvers(balls,overs){
+  return balls<6*Math.max(1,Math.round(overs*.3));
+}
+
+// Use live actor centres at release, including bowler and keeper.
+export function fieldRestrictionFault({fielders,keeper,bowler,hand,balls,overs}){
+  const opening=openingOvers(balls,overs);
+  const legSign=hand==='left'?1:-1;
+  let outside=0,onSide=0,behindLeg=0;
+  for(const player of [...fielders,bowler,keeper]){
+    const {x,z}=player.position;
+    if(Math.hypot(x,Math.max(0,Math.abs(z)-10.4))>27.43)outside++;
+    if(x*legSign>0){
+      onSide++;
+      if(player!==keeper && z>=9.3)behindLeg++;
+    }
+  }
+  if(outside>(opening?2:5))return 'TOO MANY OUTSIDE THE CIRCLE';
+  if(onSide>5)return 'TOO MANY ON THE LEG SIDE';
+  if(behindLeg>2)return 'TOO MANY BEHIND SQUARE ON LEG';
+  return null;
+}
+
 export function fieldForDelivery({hand,spin,balls,overs}) {
-  const opening=balls<6*Math.max(1,Math.round(overs*.3));
+  const opening=openingOvers(balls,overs);
   const positions=spin?(opening?spinOpening:spinSpread):(opening?paceOpening:paceSpread);
   const side=hand==='left'?-1:1;
   return positions.map(([x,z])=>[x*side,z]);
