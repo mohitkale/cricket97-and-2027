@@ -8,7 +8,7 @@ The upgrade branch includes a playable modern match from toss through rematch. T
 
 | Area | Evidence | Remaining validation |
 |---|---|---|
-| Players, ball and cameras | Licensed fitted bodies, bat and glove contact checks for both hands, shoulder and return camera tests, five-frame drive review | Review a mobile capture of a yorker, a spin delivery and a tight single. |
+| Players, ball and cameras | Licensed fitted bodies, bat and glove contact checks for both hands, shoulder and return camera tests, five-frame drive review | Portrait browser captures reviewed below. Physical phone review remains open. |
 | Controls, field and decisions | Assisted batting/bowling, safe-single estimates, field restrictions, wicket and extras fixtures | First-time-player usability session and representative match-balance sample. |
 | Full match | Production two-over tie and rematch, normal first deliveries in 5/10/20-over formats, and an accelerated T20 chase with the final scorecards | Physical Android and iOS runs with real touch input. |
 | Rendering and release | Local stock-body fallback, shared near-player geometry, grouped stadium draws, adaptive resolution, desktop frame and input measurements | Meet and measure the frame budget on the target handset. The [baseline](delivery-baseline.md) retains the observed misses. |
@@ -93,3 +93,13 @@ November 9 long-match verification. Fixed a stumping crash caused by passing the
 Modern stadium performance checkpoint: repeated supports, flagpoles, lamp bulbs and advertising fixtures share instanced draws. Advertising art still uses the venue materials, and day/night lighting still updates the lamp batch. Crowd animation updates only the matrices it changed. For the first 520 of 5,200 spectators, the five crowd buffers mark 134,336 changed bytes out of 1,343,104 bytes total. Replay recording is conditional on the user's replay settings. A wicket-only accelerated match played 64 replay ticks and advanced once from 4/0 after 0.4 overs to 4/1 after 0.5. See the paired desktop runs in [the delivery baseline](delivery-baseline.md).
 
 November 10 return-play checkpoint. Task 5 camera framing follows the wicket selected by the thrower through windup, flight and collection (6b35495). Task 6 delivers each return event to the match in physics-step order, including a glove take and wicket contact within one render frame. In 390 × 844 desktop Chrome emulation, the run-out drill produced release, receive, wicket and RUN OUT. The missed-return drill produced release and overthrow and resumed live fielding. Physical handset framing remains open.
+
+### Portrait camera review, 10 November
+
+Chrome at 390 × 844 CSS pixels, DPR 1. An isolated checkout advanced the normal camera, actor and ball updates at 60 simulation steps per second and captured the first post-bounce frame. Both deliveries used the left-handed opening striker. The review used fixed launch inputs and the existing return drill.
+
+| Scenario | Observed |
+|---|---|
+| [140 km/h yorker](qa/portrait-yorker.png) | Ball visible on the pitch in front of the crease at z = 8.39 m. Bat, stumps and Play Shot button clear of the bounce. |
+| [85 km/h leg spin, good length](qa/portrait-spin.png) | Ball visible against the pitch near mid-screen at z = 2.36 m. Shoulder view retained at bounce. |
+| [Tight single to the bowler’s end](qa/portrait-return.png) | At collection, both runners, the receiving crease and the wicket are in frame. The running controls sit below the pitch. |
