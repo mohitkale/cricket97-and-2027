@@ -75,3 +75,15 @@ body[data-era="2027"]{--modern-accent:#c3ff54;--modern-border:#ffffff17;backgrou
 [data-era='2027'] .skip-intro{pointer-events:auto;margin:.6rem auto 0;display:block;padding:.4rem .8rem;cursor:pointer;background:#10291f;color:white;border:1px solid #869c91;border-radius:4px}
 
 [data-era='2027'] .dismissal-note{display:block;font-size:.75em;font-weight:400;color:#b1c8be}
+
+@media(max-width:600px){
+  [data-era="2027"] #broadcast-score{height:73px;width:min(190px,calc(100% - 130px))}
+  [data-era="2027"] .broadcast-figures span:not(:first-child){display:none}
+  [data-era="2027"] #delivery-speed{top:88px}
+  [data-era="2027"] #stage[data-bat-hand="left"] #stage-controls:not(:has(#stage-setup)){
+    left:12px!important;right:auto!important;align-items:flex-start
+  }
+  [data-era="2027"] #stage-controls:has([data-assisted]){height:auto;max-height:70%;width:auto!important}
+  [data-era="2027"] .assist-options[open]{overflow-y:auto}
+  [data-era="2027"] #stage-controls [data-assisted]:enabled{background:#c3ff54;color:#101e1c;font-weight:800}
+}

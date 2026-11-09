@@ -38,3 +38,17 @@ test('automatic running declines a drive straight to cover and accepts an open g
   assert.equal(safeOpeningSingle(ball,velocity,[fielder(6,3)]),false);
   assert.equal(safeOpeningSingle(ball,velocity,[fielder(-40,-15)]),true);
 });
+
+test('portrait batting view includes both shoulders, both feet and the striker wicket',()=>{
+  for(const hand of ['left','right']){
+    const camera=new BallCamera(),aspect=.65,x=hand==='left'?.35:-.35;
+    const view=camera.update({ball:new THREE.Vector3(0,1,9.2),battingHand:hand,aspect});
+    const lens=new THREE.PerspectiveCamera(view.fov,aspect,.1,400);
+    lens.position.copy(view.position);lens.lookAt(view.look);lens.updateMatrixWorld();
+    for(const y of [.12,1.9])for(const dx of [-.3,.3]){
+      const projected=new THREE.Vector3(x+dx,y,9.8).project(lens);
+      assert.ok(Math.abs(projected.x)<.96&&Math.abs(projected.y)<.96);
+    }
+    assert.ok(Math.abs(new THREE.Vector3(0,.12,10.4).project(lens).y)<.98);
+  }
+});

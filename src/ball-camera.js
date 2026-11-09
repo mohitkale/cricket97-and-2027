@@ -69,6 +69,11 @@ export class BallCamera{
       }
     }
     const view=fixedBroadcastView(id),cut=id!==this.id;this.id=id;
+    if(!tracking&&aspect<1&&(id==='shoulderRight'||id==='shoulderLeft')){
+      const portrait=clamp((1-aspect)/.45,0,1);
+      view.fov+=12*portrait;
+      view.look.x-=view.position.x*.4*portrait;
+    }
     if(!tracking){this.look.copy(view.look);this.fov=view.fov;}
     else {
       if(phase==='return')this.lofted=false;else if(ball.y>6)this.lofted=true;

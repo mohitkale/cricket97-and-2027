@@ -2,6 +2,19 @@
 
 Start at main checkpoint dfeecc8 on branch codex/cricket-2027-realism. Read era-architecture.md and physics-realism-review.md first. Each numbered task fits a separate commit. Integrate through the existing era.modern boundary in src/main.js. Load modern assets only after selecting ?era=2027. Keep match decisions in the existing engine and feed its results to the visuals. The console reference for assisted play is [Cricket 26 on PS5](https://store.playstation.com/en-us/concept/10013889).
 
+## Current handoff, 9 November 2026
+
+The upgrade branch includes a playable modern match from toss through rematch. The numbered tasks below describe the implementation sequence. Dated checkpoints at the end record what was exercised.
+
+| Area | Evidence | Remaining validation |
+|---|---|---|
+| Players, ball and cameras | Licensed fitted bodies, bat and glove contact checks for both hands, shoulder and return camera tests, five-frame drive review | Review a mobile capture of a yorker, a spin delivery and a tight single. |
+| Controls, field and decisions | Assisted batting/bowling, safe-single estimates, field restrictions, wicket and extras fixtures | First-time-player usability session and representative match-balance sample. |
+| Full match | Production two-over tie and rematch, normal first deliveries in 5/10/20-over formats, and an accelerated T20 chase with the final scorecards | Physical Android and iOS runs with real touch input. |
+| Rendering and release | Local stock-body fallback, shared near-player geometry, grouped stadium draws, adaptive resolution, desktop frame and input measurements | Meet and measure the frame budget on the target handset. The [baseline](delivery-baseline.md) retains the observed misses. |
+
+Consult the [rules inventory](modern-rules.md) for format-specific exceptions and outstanding simulation details. Main still identifies the original game checkpoint. This branch has not been released.
+
 ## Free stock pipeline
 
 Try a generic rigged human and compatible locomotion clips from [Adobe Mixamo](https://helpx.adobe.com/creative-cloud/faq/mixamo-faq.html). Download the character with skin and clips on the same skeleton. Use Three.js FBXLoader and AnimationMixer for the first prototype. Keep one loaded template and clone skinned actors with SkeletonUtils. Prefer GLB with GLTFLoader for assets supplied in that format. No Blender step is required. Stock walks cover approach and recovery. Cricket release, two-handed grip, and pickup still need authored motion. Use the existing cricket-actions poses as keyframes mapped to named stock bones if suitable licensed clips cannot be found.
@@ -19,7 +32,7 @@ Equipment candidates are [Bharath’s cricket set](https://sketchfab.com/3d-mode
 
 ## Development handoff
 
-Begin with task 1. Task 2 feeds task 3. Controls and camera can be developed against procedural actors once the baseline exists. Integrate all three before task 6. For every implementation commit record the task number, changed modules, reproduction steps, device measurements where relevant, pass/fail evidence and next open issue in its commit or review description. Run npm test and npm run build, then open /?era=97 and /?era=2027. Check that classic never requests the modern models and still plays an over. Current status is planning complete, implementation and measurements pending.
+Begin with task 1. Task 2 feeds task 3. Controls and camera can be developed against procedural actors once the baseline exists. Integrate all three before task 6. For every implementation commit record the task number, changed modules, reproduction steps, device measurements where relevant, pass/fail evidence and next open issue in its commit or review description. Run npm test and npm run build, then open /?era=97 and /?era=2027. Check that classic never requests the modern models and still plays an over. Use the current handoff above for implementation and verification status.
 
 ## From the practice over to a complete release
 

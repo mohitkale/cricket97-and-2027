@@ -17,17 +17,22 @@ export function batchAthletes(scene,players){
   for(const bucket of buckets.values()){
     const material=bucket.material.clone();material.color.setHex(0xffffff);
     bucket.mesh=new THREE.InstancedMesh(bucket.geometry,material,bucket.objects.length);
+    bucket.colors=bucket.objects.map(()=>new THREE.Color(-1,-1,-1));
     bucket.mesh.castShadow=true;bucket.mesh.receiveShadow=true;bucket.mesh.frustumCulled=false;
     bucket.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);scene.add(bucket.mesh);
   }
   function update(){
     players.forEach(p=>p.userData.updateSkin?.());
     scene.updateMatrixWorld(true);
-    for(const{objects,mesh}of buckets.values()){
+    for(const{objects,mesh,colors}of buckets.values()){
+      let changedColor=false;
       for(let i=0;i<objects.length;i++){
-        const object=objects[i];mesh.setMatrixAt(i,object.visible?object.matrixWorld:hidden);mesh.setColorAt(i,object.material.color);
+        const object=objects[i];mesh.setMatrixAt(i,object.visible?object.matrixWorld:hidden);if(!colors[i].equals(object.material.color)){
+          colors[i].copy(object.material.color);
+          mesh.setColorAt(i,colors[i]);changedColor=true;
+        }
       }
-      mesh.instanceMatrix.needsUpdate=true;if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;
+      mesh.instanceMatrix.needsUpdate=true;if(changedColor)mesh.instanceColor.needsUpdate=true;
     }
   }
   update();return {update,batchCount:buckets.size};

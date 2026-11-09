@@ -23,7 +23,13 @@ test('instanced characters retain the original rig transforms, colours, and visi
   const scene=new THREE.Scene(),players=[createAthlete(scene,0,0,0x157acb),createAthlete(scene,10,5,0xe3c74c)];
   const before=players[1].userData.arms[0].userData.hand.getWorldPosition(new THREE.Vector3());
   const batch=batchAthletes(scene,players);assert.ok(batch.batchCount<70);
+  const instances=scene.children.filter(o=>o.isInstancedMesh);
+  const versions=instances.map(o=>o.instanceColor.version);
+  scene.matrixWorldAutoUpdate=false;
   players[1].position.x+=2;players[0].userData.beard.visible=false;batch.update();
+  assert.deepEqual(instances.map(o=>o.instanceColor.version),versions);
+  players[0].userData.kit.color.setHex(0x2468ab);batch.update();
+  assert.ok(instances.some((o,i)=>o.instanceColor.version>versions[i]));
   const after=players[1].userData.arms[0].userData.hand.getWorldPosition(new THREE.Vector3());
   assert.ok(Math.abs(after.x-before.x-2)<1e-8);assert.equal(players[0].userData.beard.visible,false);
   assert.equal(players[1].userData.kit.color.getHex(),0xe3c74c);
