@@ -61,18 +61,24 @@ test('the keeper can crouch to an actual low glove take without stretched arms',
   p.userData.arms.forEach(a=>assert.equal(a.scale.y,1));
 });
 
-test('stationary keeper and batting poses keep ten-degree knees and grounded soles',()=>{
+test('keeper lowers for a low take and batter loads the knees through contact with grounded soles',()=>{
   const keeper=player('keeper');keeper.position.set(0,0,13.1);
+  let previousBend=Infinity;
   for(const height of [.3,.8,1.5]){
     poseKeeping(keeper,new THREE.Vector3(0,height,12.7),new THREE.Vector3(0,0,25),1/60);
-    keeper.userData.knees.forEach(k=>assert.ok(Math.abs(k.rotation.x-Math.PI/18)<1e-8));
+    const bend=keeper.userData.knees[0].rotation.x;
+    assert.ok(bend<previousBend);previousBend=bend;
   }
   for(const hand of ['left','right']){
     const p=player('batter');p.position.set(hand==='left'?.35:-.35,0,9.8);
     poseBattingReady(p,{hand});
     for(const phase of [0,.2,.43,.6,.8,1]){
       poseBatting(p,{phase,contact:new THREE.Vector3(0,.65,9.2),hand});
-      p.userData.knees.forEach(k=>assert.ok(Math.abs(k.rotation.x-Math.PI/18)<1e-8));
+      const bend=p.userData.knees[0].rotation.x;
+      if(phase<=.2)assert.ok(Math.abs(bend-Math.PI/18)<1e-8);
+      if(phase===.43)assert.ok(bend>.7&&bend<1.2);
+      if(phase===1)assert.ok(bend<.4);
+
       const soles=p.userData.knees.map(k=>k.localToWorld(new THREE.Vector3(0,-.75,.105)));
       assert.ok(Math.abs(Math.min(...soles.map(v=>v.y))-.12)<.001);
       p.userData.arms.forEach((a,i)=>{
@@ -83,5 +89,23 @@ test('stationary keeper and batting poses keep ten-degree knees and grounded sol
     const yaw=p.rotation.y;poseBatting(p,{phase:1,contact:new THREE.Vector3(0,.65,13),hand});
     assert.equal(p.rotation.y,yaw,'following a ball behind the batter must not reverse their stance');
     assert.equal(p.userData.batHand,hand);
+  }
+});
+
+test('the keeper can take a reachable missed delivery at either standing depth',async()=>{
+  const {sweptContact}=await import('../src/fielding-planner.js');
+  const {handPoint}=await import('../src/fielding-controller.js');
+  const {gloveRadius}=await import('../src/cricket-scale.js');
+  for(const depth of [11.8,15.5]){
+    const keeper=player('keeper');
+    keeper.position.set(0,0,depth);keeper.rotation.y=Math.PI;keeper.userData.standingZ=depth;
+    const ball=new THREE.Vector3(.12,.75,9.2),velocity=new THREE.Vector3(0,0,26);
+    let caught=false;
+    while(ball.z<depth+.8&&!caught){
+      const before=ball.clone(),hands=[handPoint(keeper,0),handPoint(keeper,1)];
+      ball.addScaledVector(velocity,1/120);poseKeeping(keeper,ball,velocity,1/120);
+      caught=hands.some((hand,i)=>sweptContact(hand,handPoint(keeper,i),before,ball,gloveRadius(keeper))!==null);
+    }
+    assert.ok(caught,`missed reachable take at depth ${depth}`);
   }
 });

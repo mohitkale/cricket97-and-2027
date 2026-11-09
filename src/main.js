@@ -267,7 +267,7 @@ function firstBatting(){return state.firstBatting||home}
 function secondBatting(){return firstBatting()===home?away:home}
 function humanBatting(){return (state.innings===0?firstBatting():secondBatting())===home}
 function setKit(){const recolor=(p,color)=>p.userData.kit.color.setHex(color);[batter,nonStriker].forEach(p=>recolor(p,teams[state.innings===0?firstBatting():secondBatting()].color));[bowler,keeper,...fielders].forEach(p=>recolor(p,teams[state.innings===0?secondBatting():firstBatting()].color))}
-function setPlayerName(p,name,number){if(era.modern){const team=Object.keys(rosterProfiles).find(t=>rosterProfiles[t].some(v=>v.name===name))||home;dressAthlete(p,name,team);}if(!p.userData.nameCanvas)return;let key=`${name}:${number}`;if(p.userData.nameKey===key)return;p.userData.nameKey=key;let c=p.userData.nameCanvas,x=c.getContext('2d');x.clearRect(0,0,c.width,c.height);x.textAlign='center';x.font='bold 58px Arial';x.lineWidth=8;x.strokeStyle='#263326';x.fillStyle='#fff';let text=name.split(' ').slice(-1)[0].toUpperCase();x.strokeText(text,256,68,480);x.fillText(text,256,68,480);x.font='bold 72px Arial';x.strokeText(String(number),256,143);x.fillText(String(number),256,143);p.userData.nameTexture.needsUpdate=true}
+function setPlayerName(p,name,number){p.userData.playerName=name;if(era.modern){const team=Object.keys(rosterProfiles).find(t=>rosterProfiles[t].some(v=>v.name===name))||home;dressAthlete(p,name,team);}if(!p.userData.nameCanvas)return;let key=`${name}:${number}`;if(p.userData.nameKey===key)return;p.userData.nameKey=key;let c=p.userData.nameCanvas,x=c.getContext('2d');x.clearRect(0,0,c.width,c.height);x.textAlign='center';x.font='bold 58px Arial';x.lineWidth=8;x.strokeStyle='#263326';x.fillStyle='#fff';let text=name.split(' ').slice(-1)[0].toUpperCase();x.strokeText(text,256,68,480);x.fillText(text,256,68,480);x.font='bold 72px Arial';x.strokeText(String(number),256,143);x.fillText(String(number),256,143);p.userData.nameTexture.needsUpdate=true}
 function lineup(){let batting=state.innings===0?firstBatting():secondBatting(),bowling=state.innings===0?secondBatting():firstBatting(),over=Math.floor(state.balls[state.innings]/6),order=bowlingOrder(squads[bowling],matchFormat(matchOvers).bowlers),bowlerIndex=order[Math.min(over,matchOvers-1)%order.length].index;return {batting,bowling,bowlerIndex,striker:squads[batting][Math.min(state.striker,10)],partner:squads[batting][Math.min(state.partner,10)],bowler:squads[bowling][bowlerIndex]}}
 function syncPlayers(){let l=lineup();setPlayerName(batter,l.striker,state.striker+1);setPlayerName(nonStriker,l.partner,state.partner+1);setPlayerName(bowler,l.bowler,l.bowlerIndex+1);if(era.modern){batter.position.z=9.8;nonStriker.position.z=-9.75;}batter.position.x=profile(l.striker).bat==='left'?.35:-.35;applyBattingStance(batter,profile(l.striker).bat,true);applyBattingStance(nonStriker,profile(l.partner).bat,false);bowler.userData.bowlHand=profile(l.bowler).bowl;resetBowler();placeNonStriker();legUmpire.position.set(profile(l.striker).bat==='left'?14.5:-14.5,0,8);facePoint(legUmpire,new THREE.Vector3(0,0,9.8));resetKeeper();let keeperPos=keeperIndex(squads[l.bowling]);setPlayerName(keeper,squads[l.bowling][keeperPos],keeperPos+1);let f=squads[l.bowling].slice(0,11).map((name,i)=>({name,i})).filter(v=>v.i!==keeperPos&&v.i!==l.bowlerIndex);fielders.forEach((p,i)=>setPlayerName(p,f[i]?.name||'Fielder',(f[i]?.i??i)+1))}
 function introducePlayers(reason,newName){let l=lineup(),incoming=newName||l.striker;state.phase='intro';state.introUntil=performance.now()+4200;renderUI();let intro=$('#player-intro');let heading=reason==='start'&&state.toss?`${state.toss.result.toUpperCase()} · ${state.toss.userWon?'YOU WIN':'COMPUTER WINS'} THE TOSS`:reason==='start'?'THE OPENING PLAYERS':reason==='innings'?'THE CHASE BEGINS':reason==='wicket'?'NEW BATTER':reason==='both'?'NEW BATTER & BOWLER':'NEW BOWLER';let lines=reason==='bowler'?`<span>COMING ON TO BOWL</span><strong>${l.bowler}</strong><small>${l.bowling} · ${profile(l.bowler).bowl.toUpperCase()}-ARM</small>`:(reason==='wicket'||reason==='both')?`<span>COMING IN TO BAT</span><strong>${incoming}</strong><small>${profile(incoming).bat.toUpperCase()}-HAND BAT · ${reason==='both'?'NEW BOWLER:':'FACING'} ${l.bowler}</small>`:`<span>AT THE CREASE</span><strong>${l.striker} &nbsp; / &nbsp; ${l.partner}</strong><small>${profile(l.striker).bat.toUpperCase()}-HAND BAT · ${l.bowler} · ${profile(l.bowler).bowl.toUpperCase()}-ARM</small>`;intro.innerHTML=`<div class="intro-kicker">${heading}</div>${lines}`;if(era.modern){
@@ -418,7 +418,11 @@ function updateReplay(now){
  f.stumps.forEach((v,i)=>applyPose(wicketParts[i],mix(v,next.stumps[i])));
  if(era.modern)r.cameraView=replayBroadcastView(f.camera,next.camera,blend);
 }
-function resolveDelivery(){let i=state.innings,a=state.anim,batting=i===0?firstBatting():secondBatting(),outcome=a.outcome||0,newBatterName=a.dismissal?squads[batting][Math.min(state.nextBatter,10)]:null;const result=scoreDelivery({runs:outcome,dismissal:a.dismissal,noBall:a.noBall,wide:a.wide,byes:a.bye,legByes:a.legBye,freeHit:a.freeHit});if(era.modern)state.freeHit=nextFreeHit(!!a.freeHit,result);benchmark?.finish(result.legal);const l=lineup();recordDelivery(state.stats[i],l.striker,l.bowler,result);if(result.legal)state.balls[i]++;state.score[i]+=outcome+result.penalty;state.extras[i]+=result.penalty+((result.extra==='WIDE'||result.byes)?outcome:0);
+function resolveDelivery(){let i=state.innings,a=state.anim,batting=i===0?firstBatting():secondBatting(),outcome=a.outcome||0,newBatterName=a.dismissal?squads[batting][Math.min(state.nextBatter,10)]:null;const result=scoreDelivery({runs:outcome,dismissal:a.dismissal,noBall:a.noBall,wide:a.wide,byes:a.bye,legByes:a.legBye,freeHit:a.freeHit});if(era.modern)state.freeHit=nextFreeHit(!!a.freeHit,result);benchmark?.finish(result.legal);const l=lineup();const dismissalInfo=era.modern&&result.dismissal?{
+   batter:a.dismissedPlayer===undefined?l.striker:squads[batting][a.dismissedPlayer],
+   fielder:(a.dismissal==='STUMPED'?keeper:a.fielder)?.userData.playerName
+ }:null;
+ recordDelivery(state.stats[i],l.striker,l.bowler,result,dismissalInfo);if(result.legal)state.balls[i]++;state.score[i]+=outcome+result.penalty;state.extras[i]+=result.penalty+((result.extra==='WIDE'||result.byes)?outcome:0);
  if(outcome%2===1)[state.striker,state.partner]=[state.partner,state.striker];
  if(a.dismissal){state.wickets[i]++;let incoming=state.nextBatter++;if(a.dismissal==='RUN OUT'&&a.dismissedPlayer===state.partner)state.partner=incoming;else state.striker=incoming}
  let overChanged=result.legal&&state.balls[i]%6===0;if(overChanged){[state.striker,state.partner]=[state.partner,state.striker];state.powerUsed=0}state.history.push(a.dismissal||result.extra||outcome);let hadWicket=!!a.dismissal;state.phase='playing';state.anim=null;resetWickets();umpire.userData.arms.forEach(arm=>arm.rotation.set(0,0,0));ball.position.set(1.5,2,-20);resetBowler();resetKeeper();batter.position.set(profile(lineup().striker).bat==='left'?.7:-.7,0,9.8);placeNonStriker();resetFielders();state.autoAt=performance.now()+3200;setCrowdMood('between');
@@ -426,7 +430,7 @@ function resolveDelivery(){let i=state.innings,a=state.anim,batting=i===0?firstB
 function inningsCard(index){
  const batting=index===0?firstBatting():secondBatting(),bowling=index===0?secondBatting():firstBatting(),innings=state.stats[index];
  const extraDetail=era.modern&&innings.extras?` (Wd ${innings.extras.wides}, Nb ${innings.extras.noBalls}, B ${innings.extras.byes}, Lb ${innings.extras.legByes})`:'';
- const batters=Object.entries(innings.batters).map(([name,b])=>`<tr><th scope="row">${name}</th><td>${b.runs}</td><td>${b.balls}</td><td>${strikeRate(b)}</td></tr>`).join('')||'<tr><td colspan="4">No balls faced</td></tr>';
+ const batters=Object.entries(innings.batters).map(([name,b])=>`<tr><th scope="row">${name}${era.modern?`<small class="dismissal-note">${b.dismissal||'not out'}</small>`:''}</th><td>${b.runs}</td><td>${b.balls}</td><td>${strikeRate(b)}</td></tr>`).join('')||'<tr><td colspan="4">No balls faced</td></tr>';
  const bowlers=Object.entries(innings.bowlers).map(([name,b])=>`<tr><th scope="row">${name}</th><td>${overs(b.balls)}</td><td>${b.runs}</td><td>${b.wickets}</td><td>${economyRate(b)}</td></tr>`).join('')||'<tr><td colspan="5">No deliveries</td></tr>';
  return `<section class="innings-card"><div class="innings-card-heading"><strong>${batting} ${state.score[index]}/${state.wickets[index]}</strong><span>${overs(state.balls[index])} overs · ${state.extras[index]} extras${extraDetail}</span></div><div class="scorecard-grid"><div><h3>${batting} batting</h3><table><thead><tr><th>BATTER</th><th>R</th><th>B</th><th>SR</th></tr></thead><tbody>${batters}</tbody></table></div><div><h3>${bowling} bowling</h3><table><thead><tr><th>BOWLER</th><th>O</th><th>R</th><th>W</th><th>ECO</th></tr></thead><tbody>${bowlers}</tbody></table></div></div></section>`;
 }
@@ -533,16 +537,24 @@ function animate(now){
   if(era.modern&&a.flight&&a.phase!=='field')modernFielding.finishActions(dt,ball.position,[a.fielder,a.receiver]);
   let swingAt=humanBatting()?a.swing:a.impact-(era.modern?.3:.22);
   const preparationAt=a.preparationAt??swingAt;
-  if(era.modern&&swingAt!==null&&t>=preparationAt&&(t-swingAt)<.75&&(!a.runActive||a.simTime-a.flightSimTime<.25)){
+  if(era.modern&&!a.regainingGround&&swingAt!==null&&t>=preparationAt&&(t-swingAt)<.75&&(!a.runActive||a.simTime-a.flightSimTime<.25)){
     const preparation=Math.min(.2,Math.max(0,swingAt-preparationAt)/.7);
     let phase=t<swingAt?(t-preparationAt)/.7:Math.max(preparation,(t-swingAt)/.7);
     if(a.struckAt!==undefined)phase=.43+(t-a.struckAt)/.7;
     if(phase>0)benchmark?.pose();
     poseBatting(batter,{phase:THREE.MathUtils.clamp(phase,0,1),shot:(humanBatting()?(a.selectedShot||state.shot):a.cpuShot)||'Straight drive',contact:a.contactPoint||new THREE.Vector3(a.lineX,ball.position.z>5?ball.position.y:.65,9.2),hand:a.battingHand,edge:a.edged});
   }
-  else if(era.modern&&a.flight&&!a.runActive&&swingAt!==null&&t-swingAt>=.75&&!a.battingRecovered){poseBattingReady(batter,{hand:a.battingHand});a.battingRecovered=true;}
+  else if(era.modern&&!a.regainingGround&&a.flight&&!a.runActive&&swingAt!==null&&t-swingAt>=.75&&!a.battingRecovered){poseBattingReady(batter,{hand:a.battingHand});a.battingRecovered=true;}
   if(!era.modern&&swingAt!==null&&(!a.flight||a.phase==='field'&&(t-swingAt)<.75)){let swingDuration=a.power?.44:.75,progress=Math.min(Math.max((t-swingAt)/swingDuration,0),1),arc=Math.sin(progress*Math.PI),stance=batter.userData.stance,shot=humanBatting()?(a.selectedShot||state.shot):a.cpuShot,power=shot==='Defend'?.5:shot==='Attacking drive'?1.45:shot==='Sweep'?1.25:1.05;if(progress>0)benchmark?.pose();let grip=batter.userData.bat,isSweep=shot==='Sweep',isHook=shot==='Hook'||shot==='Pull',isCut=shot==='Cut',isFlick=shot==='Flick',groundDrive=shot==='Straight drive';grip.position.set(stance.sign*arc*(isSweep?.55:isCut?-.32:isFlick?.36:.28),1.9+arc*(isSweep?-.55:isHook?.58:.16),.3-arc*(groundDrive?.35:.18));grip.rotation.set(isSweep?arc*1.2:isHook?-arc*1.1:isCut?arc*.65:shot==='Attacking drive'?-arc*.65:arc*.18,0,-stance.sign*(.12+arc*(isHook?1.55:power)*(a.power?1.5:1)));batter.userData.knees[0].rotation.x=.18+arc*(isSweep?.8:isHook?.12:.3);batter.userData.knees[1].rotation.x=.18+arc*(isSweep?.5:.12);if((shot==='Attacking drive'||groundDrive)&&!a.flight)batter.position.z=9.8-arc*(groundDrive?.55:.95);batter.rotation.x=.14+arc*(isSweep?.38:isHook?-.05:.08);batter.rotation.y=stance.yaw+stance.sign*arc*(isSweep?.65:isHook?-.45:isCut?-.3:.22);batter.userData.head.rotation.y=stance.headYaw-stance.sign*arc*.22;aimBattingArms(batter);if(era.modern)plantFeet(batter)}
 
+  // After a missed stroke the striker can recover while the keeper gathers.
+  if(era.modern&&a.flight&&!a.runActive&&t-a.flightSimTime>.24&&
+     ['keeper-chase','keeper-gather','stumping'].includes(a.phase)&&
+     !groundedAtCrease(runnerGroundPoints(batter),'keeper')){
+    a.regainingGround=true;
+    moveAthlete(batter,new THREE.Vector3(batter.position.x,0,9.85),dt,3.2,{facingYaw:0});
+    groundRunningBat(batter,9.3);
+  }
   if(!a.flight){
    if(era.modern)poseKeeping(keeper,ball.position,a.deliveryVelocity,dt);else{watchPoint(keeper,ball.position);keeper.userData.knees.forEach(k=>k.rotation.x=.45+.04*Math.sin(t*3));if(t>1.8+a.travel*.55){let move=THREE.MathUtils.clamp(a.lineX-keeper.position.x,-2.4*dt,2.4*dt);keeper.position.x+=move;keeperWalk(keeper,Math.abs(move),now);}}
    if(humanBatting()){let ready=t>a.impact-.48;$('#play-status').textContent=ready?'COMPUTER BOWLING • HIT NOW!':'COMPUTER BOWLING • GET READY';let cue=$('#batting-cue');if(cue){cue.hidden=false;cue.textContent=ready?'HIT NOW':'GET READY';cue.classList.toggle('hit',ready)}}
@@ -560,27 +572,32 @@ function animate(now){
   }else if(a.phase==='miss'){
    let p=Math.min((now-a.phaseAt)/600,1);ball.position.lerpVectors(a.missStart,a.missTarget,p);if(p>=1)endPlay(0,a.dismissal);
   }else if(a.phase==='keeper-chase'&&era.modern){
-   const before=ball.position.clone(),hands=[handPoint(keeper,0),handPoint(keeper,1)];
-   a.bounced=advanceBall(ball.position,a.velocity,dt,a.bounced);poseKeeping(keeper,ball.position,a.velocity,dt);
-   const wicket=sweptWicketHit(before,ball.position,'keeper');
-   const pad=a.padTouched?null:firstPadContact(before,wicket?new THREE.Vector3(wicket.x,wicket.y,wicket.z):ball.position,batter);
-   if(pad){
-     a.padTouched=true;a.wide=false;playEffect('pad');
-     const playedShot=a.swing!==null||!humanBatting();
-     const untilStumps=Math.max(0,(10.5-pad.point.z)/Math.max(.01,a.velocity.z));
-     const projected=pad.point.clone().addScaledVector(a.velocity,untilStumps);
-     projected.y-=4.905*untilStumps**2;
-     const wouldHit=sweptWicketHit(pad.point,projected,'keeper');
-     ball.position.copy(pad.point);
-     if(lbwEligible({pitchX:a.pitchX,impactX:pad.point.x,hand:a.battingHand,playedShot,wouldHit,noBall:a.noBall,freeHit:a.freeHit}))endPlay(0,'LBW');
-     else if(!playedShot)endPlay(0,null);
-     else {a.legBye=true;a.phase='field';a.velocity.multiplyScalar(.22);a.velocity.z*=-1;resetBallPhysics();message('OFF THE PAD','BALL IN PLAY');renderUI();}
-   }else if(wicket&&!a.noBall&&!a.freeHit){
-     ball.position.set(wicket.x,wicket.y,wicket.z);a.wide=false;endPlay(0,'BOWLED');
-   }else{
-   const glove=hands.findIndex((hand,i)=>sweptContact(hand,handPoint(keeper,i),before,ball.position,gloveRadius(keeper))!==null);
-   if(glove>=0){playEffect('glove');a.phase='keeper-gather';a.glove=glove;a.phaseAt=now;a.gatherFrom=ball.position.clone();ball.position.copy(handPoint(keeper,glove));message('WICKETKEEPER','CLEAN GLOVE CONTACT');}
-   else if(ball.position.z>keeper.position.z+.8){a.phase='field';a.runAllowed=true;a.runActive=true;a.runReturning=false;message(a.wide?'WIDE BALL':'BYE','PAST THE KEEPER • BATTERS RUN');renderUI();}
+   // Resolve the pad, wicket and glove in the same short steps as the ball.
+   // A low frame rate can otherwise move a fast delivery past a whole stance.
+   for(let remaining=dt;remaining>1e-7&&a.phase==='keeper-chase';){
+    const step=Math.min(1/120,remaining);remaining-=step;
+    const before=ball.position.clone(),hands=[handPoint(keeper,0),handPoint(keeper,1)];
+    a.bounced=advanceBall(ball.position,a.velocity,step,a.bounced);poseKeeping(keeper,ball.position,a.velocity,step);
+    const wicket=sweptWicketHit(before,ball.position,'keeper');
+    const pad=a.padTouched?null:firstPadContact(before,wicket?new THREE.Vector3(wicket.x,wicket.y,wicket.z):ball.position,batter);
+    if(pad){
+      a.padTouched=true;a.wide=false;playEffect('pad');
+      const playedShot=a.swing!==null||!humanBatting();
+      const untilStumps=Math.max(0,(10.5-pad.point.z)/Math.max(.01,a.velocity.z));
+      const projected=pad.point.clone().addScaledVector(a.velocity,untilStumps);
+      projected.y-=4.905*untilStumps**2;
+      const wouldHit=sweptWicketHit(pad.point,projected,'keeper');
+      ball.position.copy(pad.point);
+      if(lbwEligible({pitchX:a.pitchX,impactX:pad.point.x,hand:a.battingHand,playedShot,wouldHit,noBall:a.noBall,freeHit:a.freeHit}))endPlay(0,'LBW');
+      else if(!playedShot)endPlay(0,null);
+      else {a.legBye=true;a.phase='field';a.velocity.multiplyScalar(.22);a.velocity.z*=-1;resetBallPhysics();message('OFF THE PAD','BALL IN PLAY');renderUI();}
+    }else if(wicket&&!a.noBall&&!a.freeHit){
+      ball.position.set(wicket.x,wicket.y,wicket.z);a.wide=false;endPlay(0,'BOWLED');
+    }else{
+    const glove=hands.findIndex((hand,i)=>sweptContact(hand,handPoint(keeper,i),before,ball.position,gloveRadius(keeper))!==null);
+    if(glove>=0){playEffect('glove');a.phase='keeper-gather';a.glove=glove;a.phaseAt=now;a.gatherFrom=ball.position.clone();ball.position.copy(handPoint(keeper,glove));message('WICKETKEEPER','CLEAN GLOVE CONTACT');}
+    else if(ball.position.z>keeper.position.z+.8){a.phase='field';a.runAllowed=true;a.runActive=true;a.runReturning=false;message(a.wide?'WIDE BALL':'BYE','PAST THE KEEPER • BATTERS RUN');renderUI();}
+    }
    }
   }else if(a.phase==='keeper-chase'){
    a.bounced=advanceBall(ball.position,a.velocity,dt,a.bounced);
@@ -596,7 +613,7 @@ function animate(now){
    }else{keeper.rotation.x=-.48-.12*p;keeper.userData.knees.forEach(k=>k.rotation.x=.65);ball.position.lerpVectors(a.gatherFrom,keeperGlove(),p);if(p>=1)endPlay(0,null);}
   }else if(a.phase==='stumping'){
    a.stumpingTime+=dt;
-   const hit=touchWicketWithBall(keeper,a.glove,ball,'keeper',a.stumpingTime,dt);
+   const hit=touchWicketWithBall(keeper,a.glove??1,ball.position,'keeper',a.stumpingTime,dt);
    if(hit){const safe=groundedAtCrease(runnerGroundPoints(batter),'keeper');endPlay(0,safe?null:'STUMPED');}
    else if(a.stumpingTime>2)endPlay(0,null);
   }else if(a.phase==='field'&&era.modern){

@@ -21,10 +21,16 @@ export function poseKeeping(p,ball,velocity,dt){
   const lowTake=ball.z>11&&ball.y<.6;
   const goal=new THREE.Vector3(clamp(predictedX,-2.4,2.4),0,lowTake?Math.max(depth,ball.z+.75):depth);
   moveAthlete(p,goal,dt,3.6,{facingYaw:Math.atan2(ball.x-p.position.x,ball.z-p.position.z)});
-  const close=ball.distanceTo(p.position)<3,target=close?ball.clone():new THREE.Vector3(goal.x,1.4*scale,12.75);
+  const gloveZ=p.position.z-.45;
+  const intercept=velocity?.z>1?clamp((gloveZ-ball.z)/velocity.z,0,.18):0;
+  const target=ball.distanceTo(p.position)<3?ball.clone():new THREE.Vector3(goal.x,1.4*scale,gloveZ);
+  if(intercept>0&&ball.z>9.2&&ball.z<gloveZ-.4){
+    target.set(ball.x+(velocity.x||0)*intercept,
+      Math.max(.15,ball.y+(velocity.y||0)*intercept-4.905*intercept**2),gloveZ);
+  }
   const crouch=clamp((2.2*scale-target.y)/(1.8*scale),0,1);
-  p.rotation.x=.025;p.userData.torso.rotation.set(.25+1.3*crouch,0,.16*crouch);
-  plantStandingFeet(p);
+  p.rotation.x=.025;p.userData.torso.rotation.set(.36+1.35*crouch,0,.16*crouch);
+  plantStandingFeet(p,12+65*crouch);
   if(p.worldToLocal(target.clone()).z>-.2){
     solveArm(p,0,target.clone().add(new THREE.Vector3(.035,0,0)));
     solveArm(p,1,target.clone().add(new THREE.Vector3(-.035,0,0)));
@@ -66,9 +72,12 @@ export function poseBatting(p,{phase,shot='Straight drive',contact,hand='right',
   const step=(defend?.45:sweep?.7:horizontal?.25:1)*load;
   p.position.z=9.8-step*.1-.45*down;p.position.y=-.12+(.12-s*(sweep?.48:.2))*load;
   p.rotation.set(.06*(1-load)-.04*load,sign*Math.PI/2-sign*(.12*load+.18*down+.32*follow),0);
-  const hinge=(sweep?1.35:.95)+clamp((1.1-contact.y),0,.8);
+  const lowBall=clamp(1.1-contact.y,0,.8);
+  const hinge=horizontal?.95+lowBall:(sweep?1.15:.82)+lowBall*.78;
   p.userData.torso.rotation.set(.25*(1-load)-.1*load,sign*(.18*load-.35*down-.18*follow),-sign*hinge*down*(1-.8*follow));
-  plantStandingFeet(p);
+  // Lower the hips through the knees as the hands come down to the ball.
+  const kneeBend=10+down*(horizontal?10:sweep?64:32+lowBall*22)*(1-.8*follow);
+  plantStandingFeet(p,kneeBend);
   const back=p.localToWorld(new THREE.Vector3(-sign*.12,2.35,.2));
   const hit=contact.clone();hit.y=clamp(hit.y,.2,1.65);
   worldQ.setFromEuler(new THREE.Euler(0,Math.PI,-sign*(sweep?1.35:horizontal?1.15:0)+follow*sign*(horizontal?1.6:.9)));

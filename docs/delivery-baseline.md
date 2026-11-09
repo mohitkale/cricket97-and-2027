@@ -22,3 +22,7 @@ The 2027 over exceeded the proposed 33 ms frame target at p95. Four of its six s
 Repeated the same desktop workload with the 698-vertex fitted body. The final stock-body over produced 1,005 frame intervals, a 16.8 ms median and a 350 ms p95. The contemporaneous classic run also slowed down (1,240 intervals, 16.7 ms median, 166.6 ms p95). Chrome logged CVDisplayLink creation failures in this headless session. These runs miss the frame-time target and are unsuitable for estimating phone performance.
 
 Blocking the asset and repeating the identical modern over produced 947 intervals, 16.7 ms median and 400 ms p95. The fallback also completed all six deliveries. The slow tail persists with either body. A hardware GPU trace remains necessary before assigning a cause or expanding the rig to all players.
+
+## November 9 follow-up
+
+The real-time Chrome capture at 880 × 693 produced 2,552 live frame intervals. Median was 16.7 ms and p95 was 83.3 ms. Adaptive rendering changed from pixel ratio 1 to 0.8 during the first delivery. The six accepted defensive shots reached their first submitted swing frames in 13.7, 16.5, 144.1, 18.8, 116.5 and 88.4 ms. Four met the 100 ms target. The p95 frame target remains open. This capture includes the revised batting pose and keeper substeps. The accelerated long-match checks use a different clock and are only for functional validation.

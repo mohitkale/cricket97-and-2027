@@ -15,8 +15,8 @@ export function runnerGroundPoints(p){
 }
 
 // The same held-ball contact decides a return or a keeper's stumping attempt.
-export function touchWicketWithBall(receiver, hand, ball, end, elapsed, dt) {
-  const wicket=ENDS[end], before=ball.clone(), scale=athleteScale(receiver);
+export function touchWicketWithBall(receiver, hand, ballPosition, end, elapsed, dt) {
+  const wicket=ENDS[end], before=ballPosition.clone(), scale=athleteScale(receiver);
   const goal=new THREE.Vector3(.22*scale,0,wicket.wicket+wicket.direction*.7*scale);
   const facingYaw=Math.atan2(-receiver.position.x,wicket.wicket-receiver.position.z);
   moveAthlete(receiver,goal,dt,4.8,{facingYaw});
@@ -24,8 +24,8 @@ export function touchWicketWithBall(receiver, hand, ball, end, elapsed, dt) {
   receiver.userData.torso.rotation.set(1.45*Math.min(1,elapsed/.3),0,0);
   plantStandingFeet(receiver);
   solveArm(receiver,hand,new THREE.Vector3(0,CRICKET.pitchTop+.45,wicket.wicket));
-  ball.copy(handPoint(receiver,hand));
-  return sweptWicketHit(before,ball,end);
+  ballPosition.copy(handPoint(receiver,hand));
+  return sweptWicketHit(before,ballPosition,end);
 }
 
 /** Release, flight, glove possession, and wicket contact are separate events.

@@ -73,3 +73,5 @@ body[data-era="2027"]{--modern-accent:#c3ff54;--modern-border:#ffffff17;backgrou
 [data-era="2027"] .assist-options[open]{background:#112026e8;border-radius:7px}
 
 [data-era='2027'] .skip-intro{pointer-events:auto;margin:.6rem auto 0;display:block;padding:.4rem .8rem;cursor:pointer;background:#10291f;color:white;border:1px solid #869c91;border-radius:4px}
+
+[data-era='2027'] .dismissal-note{display:block;font-size:.75em;font-weight:400;color:#b1c8be}

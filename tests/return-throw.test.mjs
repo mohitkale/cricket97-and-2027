@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import {returnThrowLaunch,sweptWicketHit,groundedAtCrease,chooseReturnEnd} from '../src/return-throw.js';
-import {ReturnController} from '../src/return-controller.js';
+import {ReturnController,touchWicketWithBall} from '../src/return-controller.js';
 import {FieldingController,handPoint} from '../src/fielding-controller.js';
 import {createAthlete} from '../src/athlete.js';
 import {groundRunningBat,resetMotor} from '../src/athlete-motion.js';
@@ -92,4 +92,22 @@ test('routine seeded returns are reliably taken, with rare real-contact bobbles'
   const rare=playReturn(false,20,()=>++calls===8?0:.5);
   assert.ok(rare.events.some(e=>e.type==='overthrow'&&e.bobble));
   assert.equal(rare.state.takeChecked,true);assert.equal(rare.state.received,false);
+});
+
+
+test('the keeper carries the rendered ball to the wicket with either glove',()=>{
+  for(const glove of [0,1]){
+    const keeper=createAthlete(new THREE.Scene(),0,11.8,0x215d93,Math.PI,'keeper');
+    keeper.scale.setScalar(CRICKET.athleteScale);
+    resetMotor(keeper);
+    const ball=new THREE.Mesh(new THREE.SphereGeometry(CRICKET.ballRadius),new THREE.MeshBasicMaterial());
+    ball.position.copy(handPoint(keeper,glove));
+    let hit=null;
+    for(let frame=1;frame<=120&&!hit;frame++){
+      hit=touchWicketWithBall(keeper,glove,ball.position,'keeper',frame/60,1/60);
+      assert.ok(ball.position.distanceTo(handPoint(keeper,glove))<1e-6);
+    }
+    assert.ok(hit,'the ball in the collecting glove must break the wicket');
+    assert.equal(ball.geometry.type,'SphereGeometry');
+  }
 });

@@ -41,3 +41,12 @@ test('a no-ball with two leg byes records each extra separately',async()=>{
   assert.equal(batterStats(innings,'A').runs,0);
   assert.equal(bowlerStats(innings,'B').runs,1);
 });
+
+test('scorecard assigns a non-striker run-out to the dismissed batter',()=>{
+  const innings=createMatchStats()[0];
+  recordDelivery(innings,'Striker','Bowler',{runs:0,legal:true,penalty:0,dismissal:'RUN OUT'},{batter:'Partner'});
+  assert.equal(innings.batters.Partner.dismissal,'run out');
+  assert.equal(innings.batters.Partner.balls,0);
+  assert.equal(innings.batters.Striker.dismissal,undefined);
+  assert.equal(innings.bowlers.Bowler.wickets,0);
+});
