@@ -4,6 +4,16 @@ Run `npm run dev` and open `/?era=2027&benchmark`. Bat first, leave replays off 
 
 Frame intervals use animation-frame timestamps during active deliveries. Inter-delivery gaps, paused frames and background discontinuities are excluded. The reported p95 pools the frames from every captured delivery. Shot response starts when the game accepts a live swing and ends when the engine submits a frame with a positive stroke phase. This includes the game's wait for its swing window. Hardware touch processing, display scanout and shots queued before a delivery are outside this measurement. A missing response means no qualifying swing frame was measured for that ball.
 
+## Repeat the capture from a terminal
+
+Start Vite and a dedicated Chrome instance with remote debugging enabled on a loopback port. With Node 22 or newer, run the following command from the repository root, substituting the two local ports as needed:
+
+```sh
+node scripts/benchmark-over.mjs http://127.0.0.1:5173 http://127.0.0.1:9222
+```
+
+The script creates a temporary tab, sets up the reference workload, prints the six-ball report as JSON and closes its tab. Record the viewport, render ratios and browser from the report alongside the hardware used. A separate Chrome profile avoids competing game tabs.
+
 ## Reference workload
 
 Local Vite development build in headless desktop Chrome on macOS. Start the default India versus Australia match with heads, bat first, normal difficulty and replays off. For this controlled comparison, the browser driver fixed Math.random to 0.25 at setup and clicked Defend on the first animation frame showing HIT NOW for each delivery. The diagnostic URL is available only in development. This workload measures repeated good-length balls. Hardware and GPU differences can change the result substantially.
@@ -30,3 +40,14 @@ The real-time Chrome capture at 880 × 693 produced 2,552 live frame intervals. 
 The following renderer change keeps the existing manual scene transform pass for the modern instanced players and reuses its results for rendering. It also updates instance colours only when they change. A repeat over on the same workload produced 2,442 live intervals, a 16.7 ms median and a 50.0 ms p95. Input-to-render samples were 16.9, 221.4, 62.4, 58.2, 14.7 and 9.7 ms. Five of six met the input target; the 33 ms frame target remains open. An isolated 15-actor CPU comparison over 270 measured updates showed a median of 0.90 ms before and 0.64 ms after; this isolates actor updates and does not measure GPU cost.
 
 In a 390 × 844 CSS-pixel Chrome viewport at DPR 2, touch input successfully opened setup, started a match, skipped the intro and played a legal scoring shot. The narrower score overlay, mirrored control placement and portrait camera preserve space for the striker, wicket and bounce. See [portrait batting capture](qa/portrait-batting.png). There was no connected Android handset.
+
+## Stadium fixtures and optional replay capture
+
+Repeated the six-ball desktop defence workload on 9 November at 880 × 693. The starting build recorded 2,178 live frame intervals, a 16.7 ms median and 50.0 ms p95. Five of six input-to-render samples were under 100 ms. A three-second CPU profile showed draw submission and shader setup among the sampled rendering costs.
+
+Grouping repeated flagpoles, tower supports, lamps and advertising fixtures reduced the fixed preview from 173 to 157 draw calls. The match also skips pose recording when neither modern replay option is selected. With these changes the repeat over recorded 2,556 live intervals, a 16.7 ms median and 33.3 ms p95. The six response samples were 9.9, 15.4, 17.1, 16.2, 81.9 and 15.9 ms. Both runs retained pixel ratio 1. These are paired workload observations in headless Chrome; they do not isolate either change's contribution or establish handset performance.
+
+
+On the build with partial crowd uploads, a subsequent full over recorded 100 ms p95 and four of six inputs below 100 ms. In a follow-up over alternating between full uploads on odd-numbered deliveries and partial uploads on even-numbered deliveries, the three paired p95 values (full vs partial, ms) were 83.4 vs 83.3, 66.7 vs 66.7, and 66.6 vs 66.7. Partial uploads reduce bytes transferred; this comparison found no discernible frame-time benefit or penalty. The rendering target remains open.
+
+The checked-in benchmark runner completed its own six-ball verification on the final build: 1,737 frame intervals, 33.2 ms median, 83.3 ms p95, and five of six inputs below 100 ms. The final render ratio was 0.8. Across these runs, the preview draw-count reduction and smaller crowd transfers were reproducible; the 33 ms live-frame target was not.
