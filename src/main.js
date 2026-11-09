@@ -267,7 +267,7 @@ function updateCamera(instant=false){
   }
   if(state.camera===0&&reducedMotion.matches&&state.phase!=='ready'){applyBroadcastView(fixedBroadcastView('stadium'));return;}
   const view=state.camera===0
-   ? state.phase==='replay'&&state.replay?.cameraView||ballCamera.update({ball:ball.position,velocity:a?.velocity||a?.deliveryVelocity,active:!!a?.flight,phase:state.phase==='ready'?'preview':broadcastPhase(a),deliveryKey:a,battingHand:!a?.lab&&humanBatting()&&['playing','animating'].includes(state.phase)?(a?.battingHand||profile(lineup().striker).bat):null,dt:frameDelta,aspect:camera.aspect,players:modernFielding.players})
+   ? state.phase==='replay'&&state.replay?.cameraView||ballCamera.update({ball:ball.position,velocity:a?.velocity||a?.deliveryVelocity,active:!!a?.flight,phase:state.phase==='ready'?'preview':broadcastPhase(a),deliveryKey:a,throwEnd:a?.throwEnd,battingHand:!a?.lab&&humanBatting()&&['playing','animating'].includes(state.phase)?(a?.battingHand||profile(lineup().striker).bat):null,dt:frameDelta,aspect:camera.aspect,players:modernFielding.players})
    : fixedBroadcastView(['delivery','stadium','delivery','keeper','batter'][state.camera]);
   applyBroadcastView(view);return;
  }
@@ -756,6 +756,7 @@ if(import.meta.env.DEV&&era.modern&&new URLSearchParams(location.search).has('fi
      const a=state.anim;let randomIndex=0;
      p.position.set(id==='overthrow'?46:id==='runout'?8:20,0,0);bowler.position.set(0,0,-11);keeper.position.set(0,0,13.6);
      batter.position.set(-.7,0,id==='runout'?7.85:9.8);nonStriker.position.set(.7,0,id==='runout'?-7.795:-9.75);
+     a.labBallCamera=true;state.camera=0;
      a.runActive=id==='runout';a.runAllowed=a.runActive;a.runProgress=id==='runout'?.1:0;a.fielder=p;a.bounced=true;
      a.throwRandom=id==='overthrow'?()=>randomIndex++%2===0?1:0:()=>.5;
      beginReturnThrow(a,p,now);

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {ENDS} from './return-throw.js';
 
 const {clamp,radToDeg}=THREE.MathUtils;
 const mount=(id,position,look,fov)=>Object.freeze({id,position:Object.freeze(position),look:Object.freeze(look),fov});
@@ -52,7 +53,7 @@ function fieldSubjects(ball,players,lofted){
  * and zoom are smoothed. A shot retains its camera rather than sector-flapping. */
 export class BallCamera{
   constructor(){this.key=null;this.shot=null;this.id=null;this.look=new THREE.Vector3();this.fov=22;this.lofted=false;}
-  update({ball,velocity,active=false,phase='delivery',deliveryKey=null,battingHand=null,dt=1/60,aspect=1.5,players=[]}){
+  update({ball,velocity,active=false,phase='delivery',deliveryKey=null,throwEnd=null,battingHand=null,dt=1/60,aspect=1.5,players=[]}){
     if(deliveryKey!==this.key){this.key=deliveryKey;this.shot=null;this.lofted=false;}
     let id=battingHand?(battingHand==='left'?'shoulderLeft':'shoulderRight'):'delivery',tracking=false;
     if(phase==='preview')id='preview';
@@ -78,7 +79,7 @@ export class BallCamera{
     else {
       if(phase==='return')this.lofted=false;else if(ball.y>6)this.lofted=true;
       const {ground,points}=fieldSubjects(ball,players,this.lofted);
-      if(phase==='return')points.push(new THREE.Vector3(0,.7,(velocity?.z??0)>=0?10.4:-10.4));
+      if(phase==='return' && ENDS[throwEnd])points.push(new THREE.Vector3(0,.7,ENDS[throwEnd].wicket));
       const target=ball.clone().addScaledVector(velocity||new THREE.Vector3(),.06);
       if(this.lofted)target.lerp(ground,.62);
       if(cut)this.look.copy(target);
