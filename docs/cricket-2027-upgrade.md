@@ -103,3 +103,18 @@ Chrome at 390 × 844 CSS pixels, DPR 1. An isolated checkout advanced the normal
 | [140 km/h yorker](qa/portrait-yorker.png) | Ball visible on the pitch in front of the crease at z = 8.39 m. Bat, stumps and Play Shot button clear of the bounce. |
 | [85 km/h leg spin, good length](qa/portrait-spin.png) | Ball visible against the pitch near mid-screen at z = 2.36 m. Shoulder view retained at bounce. |
 | [Tight single to the bowler’s end](qa/portrait-return.png) | At collection, both runners, the receiving crease and the wicket are in frame. The running controls sit below the pitch. |
+
+### Scripted match balance and fielding recovery, 10 November
+
+India (assisted taps) played Australia (computer) on normal difficulty with good-length human bowling. Six seeds sampled different tosses and tap offsets (450, 320 and 210 ms before projected impact). The browser harness stepped the game at 60 Hz with scene drawing disabled. The sample checks functional balance across formats. Human play, manual bowling variation and other team pairings remain unsampled.
+
+| Seed | Format | First innings | Chase | Legal balls (first / chase) |
+|---|---|---|---|---|
+| 17101 | 2 overs | IND 21/1 | AUS 22/2 | 12 / 9 |
+| 17102 | 2 overs | AUS 17/3 | IND 21/0 | 12 / 6 |
+| 17103 | 5 overs | AUS 18/3 | IND 21/0 | 30 / 10 |
+| 17104 | 5 overs | AUS 22/3 | IND 26/0 | 30 / 7 |
+| 17105 | 10 overs | IND 106/0 | AUS 108/9 | 60 / 58 |
+| 17106 | 20 overs | AUS 67 all out | IND 69/0 | 66 / 26 |
+
+Seed 17106 initially stalled on a stationary ball at x = −0.34 m, z = −8.27 m. Two pursuing fielders stopped about 1.4 m away. Only one collector now approaches a nearly stationary ball, with reassignment when approach distance stops decreasing. Applying the change to the blocked play let the match advance. A fresh run of the affected seed reached the result above. The first five scores are from before the fix. All six chases succeeded, with four wicketless chases. Wider balance testing should vary bowling choices, human timing and teams before tuning scoring rates.

@@ -134,3 +134,20 @@ test('a high ball behind a fielder selects backward pursuit with a balanced arm 
   }
   assert.ok(backpedalFrames>=20);assert.ok(controller.events.some(e=>e.type==='backpedal'));
 });
+
+test('a blocked collector yields a resting ball to another fielder',()=>{
+  const blocked=makePlayer(2,0),backup=makePlayer(-4,0);
+  const controller=new FieldingController([blocked,backup]);
+  const ball=new THREE.Vector3(0,CRICKET.pitchTop+CRICKET.ballRadius,0);
+  const velocity=new THREE.Vector3();
+  for(let frame=0;frame<360;frame++){
+    blocked.position.set(2,0,0);
+    const event=controller.update({ball,previousBall:ball,velocity,bounced:true,dt:1/60});
+    if(event){
+      assert.equal(event.player,backup);
+      assert.ok(['gather','stop'].includes(event.type));
+      return;
+    }
+  }
+  assert.fail('backup failed to reach the ball');
+});

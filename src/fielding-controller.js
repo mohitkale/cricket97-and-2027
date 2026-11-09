@@ -18,7 +18,7 @@ export const handPoint=(p,i)=>p.userData.arms[i].userData.hand.getWorldPosition(
 export class FieldingController{
   constructor(players){this.players=players;this.begin();}
   begin(){
-    this.elapsed=0;this.planAt=-1;this.assignments=[];this.held=null;this.events=[];this.closestHand=Infinity;
+    this.elapsed=0;this.planAt=-1;this.assignments=[];this.held=null;this.events=[];this.closestHand=Infinity;this.groundPursuit=null;
     for(const p of this.players){p.userData.fielding={mode:'ready',elapsed:0};p.userData.motor=createMotor(p.userData.identityPhase||0);}
   }
   hold(p){this.held=p;p.userData.fielding.held=true;}
@@ -41,6 +41,26 @@ export class FieldingController{
     if(this.elapsed-this.planAt>=.12){
       const path=predictFieldingPath(ball,velocity,bounced);
       this.assignments=this.players.filter(p=>!activeAction(p.userData.fielding)).map(p=>({p,plan:planInterception(p,path)})).sort((a,b)=>a.plan.cost-b.plan.cost);
+      // A backup converging on a stationary ball can pin the collector
+      // against another capsule. Keep one collector and change the approach
+      // if that player stops making progress outside pickup range.
+      if(bounced && velocity.lengthSq()<.25 && this.assignments.length){
+        const pursuit=this.groundPursuit;
+        let index=pursuit?this.assignments.findIndex(entry=>entry.p===pursuit.player):-1;
+        if(index<0 || planar(pursuit.ball,ball)>.3){
+          index=0;
+          this.groundPursuit={player:this.assignments[0].p,ball:ball.clone(),distance:Infinity,at:this.elapsed};
+        }
+        const current=this.groundPursuit;
+        const distance=planar(current.player.position,ball);
+        if(distance<current.distance-.1){
+          current.distance=distance;current.at=this.elapsed;
+        }else if(this.elapsed-current.at>1.2 && this.assignments.length>1){
+          index=(index+1)%this.assignments.length;
+          current.player=this.assignments[index].p;current.distance=Infinity;current.at=this.elapsed;
+        }
+        this.assignments=[this.assignments[index]];
+      }else this.groundPursuit=null;
       this.path=path;this.planAt=this.elapsed;
     }
     let contact=null;
