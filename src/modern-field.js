@@ -11,10 +11,14 @@ export function fieldForDelivery({hand,spin,balls,overs}) {
   return positions.map(([x,z])=>[x*side,z]);
 }
 
-export function opponentStroke(length,pressure,random=Math.random) {
+export function opponentStroke(length,pressure,random=Math.random,{wicketsInHand=10,ballsLeft=120}={}) {
   if(length==='Yorker')return 'Defend';
   if(length==='Short'||length==='Bouncer')return random()<.7?'Pull':'Cut';
-  if(pressure>1.5&&random()<.65)return 'Attacking drive';
-  if(length==='Good'&&random()<.45)return 'Defend';
+  // With time left, the tail takes fewer lofted risks. In the final over
+  // the required rate takes priority again.
+  const protectTail=wicketsInHand<=3 && ballsLeft>6;
+  const attackChance=protectTail?.25:.65;
+  if(pressure>1.5&&random()<attackChance)return 'Attacking drive';
+  if(length==='Good'&&random()<(protectTail?.65:.45))return 'Defend';
   return random()<.5?'Straight drive':'Flick';
 }

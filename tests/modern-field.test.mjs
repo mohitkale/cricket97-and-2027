@@ -17,3 +17,9 @@ test('a chasing opponent can attack a full delivery while digging out a yorker',
   assert.equal(opponentStroke('Full',2,()=>.4),'Attacking drive');
   assert.equal(opponentStroke('Yorker',2,()=>.4),'Defend');
 });
+
+test('the last pair protects its wicket until final-over chase pressure takes priority',()=>{
+  const choose=ballsLeft=>opponentStroke('Full',2,()=>.4,{wicketsInHand:1,ballsLeft});
+  assert.equal(choose(12),'Straight drive');
+  assert.equal(choose(6),'Attacking drive');
+});

@@ -9,7 +9,7 @@ The upgrade branch includes a playable modern match from toss through rematch. T
 | Area | Evidence | Remaining validation |
 |---|---|---|
 | Players, ball and cameras | Licensed fitted bodies, bat and glove contact checks for both hands, shoulder and return camera tests, five-frame drive review | Portrait browser captures reviewed below. Physical phone review remains open. |
-| Controls, field and decisions | Assisted batting/bowling, safe-single estimates, field restrictions, wicket and extras fixtures | First-time-player usability session and representative match-balance sample. |
+| Controls, field and decisions | Assisted batting/bowling, safe-single estimates, field restrictions, wicket and extras fixtures | Six scripted matches sampled below. Broader team and bowling coverage and a first-time-player usability session remain open. |
 | Full match | Production two-over tie and rematch, normal first deliveries in 5/10/20-over formats, and an accelerated T20 chase with the final scorecards | Physical Android and iOS runs with real touch input. |
 | Rendering and release | Local stock-body fallback, shared near-player geometry, grouped stadium draws, adaptive resolution, desktop frame and input measurements | Meet and measure the frame budget on the target handset. The [baseline](delivery-baseline.md) retains the observed misses. |
 
@@ -118,3 +118,14 @@ India (assisted taps) played Australia (computer) on normal difficulty with good
 | 17106 | 20 overs | AUS 67 all out | IND 69/0 | 66 / 26 |
 
 Seed 17106 initially stalled on a stationary ball at x = −0.34 m, z = −8.27 m. Two pursuing fielders stopped about 1.4 m away. Only one collector now approaches a nearly stationary ball, with reassignment when approach distance stops decreasing. Applying the change to the blocked play let the match advance. A fresh run of the affected seed reached the result above. The first five scores are from before the fix. All six chases succeeded, with four wicketless chases. Wider balance testing should vary bowling choices, human timing and teams before tuning scoring rates.
+
+### Opponent chase decision, 10 November
+
+With three or fewer wickets in hand and more than six balls left, the opponent reduces the chance of an attacking drive and more often defends a good length. A five-over browser fixture put the last pair on 35/9 needing 25 from 12. With a full delivery and decision roll 0.4 the opponent chose a straight drive and played a dot without losing the last wicket. The same decision roll with six balls remaining selects an attacking drive in the regression test.
+
+### Pending release checks
+
+- Review balance across more teams, bowling lengths and input timings. Include human matches and an AI-versus-AI chase. Track whether the chasing advantage persists.
+- Have a first-time player complete a two-over match unaided. Record where they hesitate, miss a cue or lose track of the target.
+- On Android Chrome and iOS Safari, review the three portrait plays at game speed, rotate during play, background and resume, and measure the 33 ms p95 frame and 100 ms response targets.
+- The numbered backlog and rules inventory retain the remaining scenario-specific checks and simulation gaps, including formal dead-ball decisions and dynamic field infringements.
