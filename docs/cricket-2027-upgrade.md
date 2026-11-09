@@ -140,6 +140,10 @@ Three totals were defended and one chase succeeded. This small sample changed te
 
 The England–Australia rematch initially stalled during a pickup on its first ball. The ball lay 8 cm from Jofra Archer’s feet and both gloves missed as he repeatedly tried the same approach. A gather now holds a consistent stance target, with a side step on a failed reach. Possession still requires glove contact. Replaying the three-match sequence with the change completed both five-over innings, Australia 63/2 and England 54/0.
 
+### Paused touch controls, 10 November
+
+Modern match controls become inert during a pause and reactivate when the match resumes. On a 390 × 844 Chrome touch viewport, pausing at 1.833 s and tapping Play Shot left the swing unset across 120 simulated frames. Resuming and tapping scheduled the stroke and advanced the delivery to 1.850 s on the next frame. Physical phone background/resume remains pending.
+
 ### Pending release checks
 
 - Compare human matches and paired games with the same two teams swapping batting order before deciding whether to tune scoring.

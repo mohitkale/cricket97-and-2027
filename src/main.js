@@ -496,8 +496,13 @@ $('#audio-credits').onclick=()=>alert('Stadium ambience: Work With Sounds / Tors
 // Pause both the clock and audio when the page is hidden or another game tab
 // takes focus. Some embedded browsers keep background pages marked visible.
 const tabIdentity=Math.random().toString(36).slice(2)+Date.now().toString(36);let matchChannel=null,externallyPaused=false,manualPaused=false,pausedAt=document.hidden?performance.now():null;
-function freezeMatch(){if(pausedAt===null)pausedAt=performance.now();if(audioCtx&&audioCtx.state==='running')audioCtx.suspend().catch(()=>{});if('speechSynthesis' in window)speechSynthesis.cancel()}
-function thawMatch(){if(document.hidden||externallyPaused||manualPaused||pausedAt===null)return;let now=performance.now(),gap=now-pausedAt;pausedAt=null;let a=state.anim;if(a)for(const key of ['start','last','lastCapture','phaseAt','flightStart','wicketBrokenAt'])if(typeof a[key]==='number')a[key]+=gap;if(state.replay)state.replay.start+=gap;if(state.introUntil)state.introUntil+=gap;if(state.autoAt)state.autoAt+=gap;if(audioCtx&&!state.muted)audioCtx.resume().catch(()=>{})}
+function setPlayControlsInert(inert){
+ if(!era.modern)return;
+ $('#controls').inert=inert;$('#stage-controls').inert=inert;
+}
+setPlayControlsInert(pausedAt!==null);
+function freezeMatch(){setPlayControlsInert(true);if(pausedAt===null)pausedAt=performance.now();if(audioCtx&&audioCtx.state==='running')audioCtx.suspend().catch(()=>{});if('speechSynthesis' in window)speechSynthesis.cancel()}
+function thawMatch(){if(document.hidden||externallyPaused||manualPaused||pausedAt===null)return;let now=performance.now(),gap=now-pausedAt;pausedAt=null;setPlayControlsInert(false);let a=state.anim;if(a)for(const key of ['start','last','lastCapture','phaseAt','flightStart','wicketBrokenAt'])if(typeof a[key]==='number')a[key]+=gap;if(state.replay)state.replay.start+=gap;if(state.introUntil)state.introUntil+=gap;if(state.autoAt)state.autoAt+=gap;if(audioCtx&&!state.muted)audioCtx.resume().catch(()=>{})}
 function claimAudioFocus(){if(matchChannel)matchChannel.postMessage({type:'claim',id:tabIdentity});else{try{localStorage.setItem('cricket97-active-tab',JSON.stringify({id:tabIdentity,t:Date.now()}))}catch{}}}
 function receiveClaim(id){if(id===tabIdentity)return;if(state.phase==='ready'&&(!audioCtx||state.muted))return;externallyPaused=true;freezeMatch();$('#tab-pause').classList.remove('hidden')}
 try{if('BroadcastChannel' in window){matchChannel=new BroadcastChannel('cricket97-match-focus');matchChannel.onmessage=e=>{if(e.data?.type==='claim')receiveClaim(e.data.id)}}else window.addEventListener('storage',e=>{if(e.key==='cricket97-active-tab'&&e.newValue){try{receiveClaim(JSON.parse(e.newValue).id)}catch{}}})}catch{}
