@@ -392,12 +392,20 @@ function modernPickup(a,dt,now){
   const before=ball.position.clone(),hands=[handPoint(f,0),handPoint(f,1)];
   a.bounced=advanceBall(ball.position,a.velocity,dt,a.bounced);
   const direction=ball.position.clone().sub(f.position);direction.y=0;direction.normalize();
-  const goal=ball.position.clone().addScaledVector(direction,-athleteScale(f));goal.y=0;
+  // Keep the stance on one side throughout a gather. After a missed
+  // reach, step around the ball if the previous approach was blocked.
+  if(!a.pickOffset){
+    const offset=direction.clone();
+    if(offset.lengthSq()===0)offset.set(Math.sin(f.rotation.y),0,Math.cos(f.rotation.y));
+    if(a.missedPicker===f)offset.applyAxisAngle(new THREE.Vector3(0,1,0),Math.PI/2);
+    a.pickOffset=offset.multiplyScalar(-athleteScale(f));
+  }
+  const goal=ball.position.clone().add(a.pickOffset);goal.y=0;
   moveAthlete(f,goal,dt,2.6,{facingYaw:Math.atan2(direction.x,direction.z)});poseGroundFielding(f,ball.position,dt);
   const taken=hands.findIndex((hand,i)=>sweptContact(hand,handPoint(f,i),before,ball.position,gloveRadius(f))!==null);
-  if(taken>=0){a.carryHand=taken;a.possessionAt=now;a.liftElapsed=0;a.carryRotation=f.userData.torso.rotation.x;a.pickY=f.position.y;a.pickFeet=null;modernFielding.hold(f);gripFingers(f,taken,1);}
+  if(taken>=0){a.carryHand=taken;a.possessionAt=now;a.liftElapsed=0;a.carryRotation=f.userData.torso.rotation.x;a.pickY=f.position.y;a.pickFeet=null;a.missedPicker=null;modernFielding.hold(f);gripFingers(f,taken,1);}
   else if(Math.hypot(ball.position.x,ball.position.z)>=50){endPlay(a.bye||a.bounced?4:6,null);return;}
-  else if(elapsed>1.65){a.phase='field';modernFielding.held=null;a.pickFeet=null;f.userData.fielding.groundBlend=0;return;}
+  else if(elapsed>1.65){a.missedPicker=f;a.phase='field';modernFielding.held=null;a.pickFeet=null;f.userData.fielding.groundBlend=0;return;}
  }else{
   if(!a.pickFeet){f.updateMatrixWorld(true);a.pickFeet=f.userData.knees.map(k=>k.localToWorld(new THREE.Vector3(0,-.68,.095)));}
   a.liftElapsed=(a.liftElapsed||0)+dt;const rise=THREE.MathUtils.smoothstep(Math.min(1,a.liftElapsed/.48),0,1);
@@ -660,7 +668,7 @@ function animate(now){
      message('CLEAN GATHER','FIELDER HAS THE BALL');
     }else message(event.type==='block'?'BODY BLOCK':['dive','slide'].includes(event.player.userData.fielding.mode)?'DIVING STOP':'SHARP STOP','BALL DEADENED • STILL LIVE');
    }else if(event?.type==='gather'){
-    a.phase='pickup';a.phaseAt=now;a.pickElapsed=0;a.liftElapsed=0;a.pickFrom=ball.position.clone();a.fielder=event.player;a.pickFeet=null;a.possessionAt=null;modernFielding.held=event.player;
+    a.phase='pickup';a.phaseAt=now;a.pickElapsed=0;a.liftElapsed=0;a.pickFrom=ball.position.clone();a.fielder=event.player;a.pickOffset=null;a.pickFeet=null;a.possessionAt=null;modernFielding.held=event.player;
     message('FIELDING SIDE','FIELDER MOVES TO GATHER');
    }
    if(a.phase==='field'&&Math.hypot(ball.position.x,ball.position.z)>=50){a.boundaryOutcome=a.overthrowRuns!==undefined||a.bye||a.bounced?4:6;a.phase='boundary';a.phaseAt=now;a.live=false;}

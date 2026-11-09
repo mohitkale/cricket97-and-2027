@@ -123,9 +123,26 @@ Seed 17106 initially stalled on a stationary ball at x = −0.34 m, z = −8.27 
 
 With three or fewer wickets in hand and more than six balls left, the opponent reduces the chance of an attacking drive and more often defends a good length. A five-over browser fixture put the last pair on 35/9 needing 25 from 12. With a full delivery and decision roll 0.4 the opponent chose a straight drive and played a dot without losing the last wicket. The same decision roll with six balls remaining selects an attacking drive in the regression test.
 
+### AI chase and mixed-length balance, 10 November
+
+In a five-over browser match, both sides used the computer delivery picker, opponent stroke selection, running and fielding. Pakistan made 29/5 from 30 legal balls. England chased with 32/7 from 28 (seed 27201). The harness stepped the production game logic at 60 Hz with drawing disabled.
+
+The next four cases used assisted batting for the home side. Its bowling cycled through yorker, good, full, short, bouncer and full toss. The visitors used the computer controls. Tap offsets before projected impact were 450, 320, 210 and 260 ms respectively. Scores below are the first completed run of each case. A seed initializes match randomness after scene creation, so rematches can differ from fresh tabs.
+
+| Seed | Overs | First innings | Chase | Legal balls (first / chase) |
+|---|---|---|---|---|
+| 27301 | 2 | South Africa 9/1 | West Indies 10/1 | 12 / 8 |
+| 27302 | 5 | Pakistan 49/1 | India 28/7 | 30 / 30 |
+| 27303 | 5 | England 79/0 | Australia 54/8 | 30 / 30 |
+| 27304 | 10 | South Africa 97/8 | West Indies 90/3 | 60 / 60 |
+
+Three totals were defended and one chase succeeded. This small sample changed teams, length selection and assisted timing together. It provides no isolated estimate of a chasing advantage.
+
+The England–Australia rematch initially stalled during a pickup on its first ball. The ball lay 8 cm from Jofra Archer’s feet and both gloves missed as he repeatedly tried the same approach. A gather now holds a consistent stance target, with a side step on a failed reach. Possession still requires glove contact. Replaying the three-match sequence with the change completed both five-over innings, Australia 63/2 and England 54/0.
+
 ### Pending release checks
 
-- Review balance across more teams, bowling lengths and input timings. Include human matches and an AI-versus-AI chase. Track whether the chasing advantage persists.
+- Compare human matches and paired games with the same two teams swapping batting order before deciding whether to tune scoring.
 - Have a first-time player complete a two-over match unaided. Record where they hesitate, miss a cue or lose track of the target.
 - On Android Chrome and iOS Safari, review the three portrait plays at game speed, rotate during play, background and resume, and measure the 33 ms p95 frame and 100 ms response targets.
 - The numbered backlog and rules inventory retain the remaining scenario-specific checks and simulation gaps, including formal dead-ball decisions and dynamic field infringements.
