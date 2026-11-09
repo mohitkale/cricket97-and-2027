@@ -1,3 +1,4 @@
+import {instanceFixtures} from './stadium-fixtures.js';
 import {RenderQuality} from './render-quality.js';
 import {fieldForDelivery,opponentStroke} from './modern-field.js';
 import {modernBowlingVariation} from './bowling-profiles.js';
@@ -28,7 +29,7 @@ import { moveAthlete, resetMotor, turnAthlete, poseLocomotion, idleAthlete, grou
 import { deliveryLaunch, modernShotResponse, modernDeliveryLine, assistedStroke, outsideEdge, edgeVelocity } from './modern-cricket.js';
 import { advanceAthleticRun } from './locomotion.js';
 import { batchAthletes } from './athlete-batch.js';
-import { buildModernCrowd } from './modern-crowd.js';
+import { buildModernCrowd, markCrowdMatrices } from './modern-crowd.js';
 import { ReturnController, runnerGroundPoints, touchWicketWithBall } from './return-controller.js';
 import { FieldingController, handPoint } from './fielding-controller.js';
 import { buildModernStadium } from './modern-stadium.js';
@@ -87,6 +88,7 @@ const crowdColors=[0xded5bc,0x526d5a,0xa65346,0xdec66e,0x7c9aaa,0xe7dfc7,0x855d4
 // Instanced heads and torsos give each spectator a silhouette without thousands of draw calls.
 const crowdBody=new THREE.InstancedMesh(new THREE.CapsuleGeometry(.25,.43,2,5),mat(0xffffff),5200),crowdHead=new THREE.InstancedMesh(new THREE.SphereGeometry(.19,6,4),mat(0xffffff),5200);const dummy=new THREE.Object3D(),spectators=[];
 for(let i=0;i<5200;i++){let a=Math.random()*Math.PI*2,r=65+Math.random()*11,y=.8+(r-65)*.58;dummy.position.set(Math.sin(a)*r,y+.5,Math.cos(a)*r);dummy.rotation.set(0,-a,Math.random()*.15-.075);dummy.scale.setScalar(.75+Math.random()*.45);spectators.push({x:dummy.position.x,y:dummy.position.y,z:dummy.position.z,rotation:dummy.rotation.y,lean:dummy.rotation.z,scale:dummy.scale.x,phase:Math.random()*Math.PI*2});dummy.updateMatrix();crowdBody.setMatrixAt(i,dummy.matrix);crowdBody.setColorAt(i,new THREE.Color(crowdColors[i%crowdColors.length]));dummy.position.y=y+1.08;dummy.updateMatrix();crowdHead.setMatrixAt(i,dummy.matrix);crowdHead.setColorAt(i,new THREE.Color([0xd5a681,0x9c694d,0xe3bc96,0x714c3b][i%4]));}if(era.modern){crowdBody.geometry.dispose();crowdBody.geometry=new THREE.CapsuleGeometry(.25,.43,1,4);crowdHead.geometry.dispose();crowdHead.geometry=new THREE.SphereGeometry(.19,4,3);}
+if(era.modern)for(const mesh of [crowdBody,crowdHead])mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
 scene.add(crowdBody,crowdHead);
 const modernCrowd=era.modern?buildModernCrowd(scene,spectators):null;
 // Small team flags in the stands, rendered locally without external images.
@@ -99,9 +101,17 @@ function flagTexture(team){let c=document.createElement('canvas');c.width=180;c.
  else if(team==='West Indies'){x.fillStyle='#812c40';x.fillRect(0,0,180,110);x.fillStyle='#ecc868';x.font='bold 46px Arial';x.textAlign='center';x.fillText('WI',90,72)}
  else {x.fillStyle='#c73c39';x.fillRect(0,0,180,52);x.fillStyle='#2c5093';x.fillRect(0,58,180,52);x.strokeStyle='#fff';x.lineWidth=22;x.beginPath();x.moveTo(0,0);x.lineTo(70,55);x.lineTo(0,110);x.stroke();x.strokeStyle='#248859';x.lineWidth=13;x.beginPath();x.moveTo(0,0);x.lineTo(70,55);x.lineTo(0,110);x.moveTo(60,55);x.lineTo(180,55);x.stroke()}
  let t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return t}
-for(let i=0;i<32;i++){let a=i*Math.PI*2/32,r=69+(i%3)*3,x=Math.sin(a)*r,z=Math.cos(a)*r,y=3+(r-65)*.58;let pole=box(.07,3,.07,mat(0xeee7d1),x,y+1.3,z);let flag=new THREE.Mesh(new THREE.PlaneGeometry(2,1.2),flagMaterial[i%2]);flag.position.set(x+.95,y+2.2,z);flag.rotation.y=a;scene.add(flag);flagPoles.push(flag)}
+const fixtures=new Map();
+function groupFixture(kind,mesh){
+  if(era.modern){
+    if(!fixtures.has(kind))fixtures.set(kind,[]);
+    fixtures.get(kind).push(mesh);
+  }
+  return mesh;
+}
+for(let i=0;i<32;i++){let a=i*Math.PI*2/32,r=69+(i%3)*3,x=Math.sin(a)*r,z=Math.cos(a)*r,y=3+(r-65)*.58;groupFixture('flagpole',box(.07,3,.07,mat(0xeee7d1),x,y+1.3,z));let flag=new THREE.Mesh(new THREE.PlaneGeometry(2,1.2),flagMaterial[i%2]);flag.position.set(x+.95,y+2.2,z);flag.rotation.y=a;scene.add(flag);flagPoles.push(flag)}
 function updateCrowd(){for(let i=0;i<5200;i++){let color=i%7===0?crowdColors[i%crowdColors.length]:(i%2?teams[home].color:teams[away].color);crowdBody.setColorAt(i,new THREE.Color(color))}crowdBody.instanceColor.needsUpdate=true;[home,away].forEach((t,i)=>{if(flagMaterial[i].map)flagMaterial[i].map.dispose();flagMaterial[i].map=flagTexture(t);flagMaterial[i].needsUpdate=true})}
-for(let i=0;i<16;i++){let a=i*Math.PI*2/16,x=Math.sin(a)*78,z=Math.cos(a)*78;box(.45,12,.45,mat(0xc8c3a7),x,6,z);let roof=box(8,.5,5,mat(0x3c5949),x,12,z);roof.rotation.y=a;}
+for(let i=0;i<16;i++){let a=i*Math.PI*2/16,x=Math.sin(a)*78,z=Math.cos(a)*78;groupFixture('support',box(.45,12,.45,mat(0xc8c3a7),x,6,z));let roof=groupFixture('support-roof',box(8,.5,5,mat(0x3c5949),x,12,z));roof.rotation.y=a;}
 // Floodlight towers are visible in either mode; lamps and cool fill light switch on at night.
 const lamps=[];
 for(const [x,z] of [[-68,-68],[68,-68],[-68,68],[68,68]]){
@@ -112,6 +122,7 @@ for(const [x,z] of [[-68,-68],[68,-68],[-68,68],[68,68]]){
   lamp.position.set((col-2.5)*1.15,(row-.5)*1.1,-.4);bank.add(lamp);lamps.push(lamp);
  }
 }
+if(era.modern){const lampBatch=instanceFixtures(scene,lamps);lamps.splice(0,lamps.length,lampBatch);}
 let modernStadium=era.modern?buildModernStadium(scene,{grass,grass2,pitchmat,roof,roofLip,renderer}):null;
 let night=false;
 function setTimeOfDay(value){
@@ -132,8 +143,10 @@ function adTexture(kind){if(era.modern)return modernBoardTexture(kind);let c=doc
  if(['jio','adani','vimal'].includes(kind)){const logo=new Image();logo.onload=()=>{x.fillStyle=kind==='vimal'?'#c51e27':'#ffffff';x.fillRect(0,0,512,96);let h=kind==='jio'?84:kind==='vimal'?90:75,w=h*logo.naturalWidth/logo.naturalHeight;x.drawImage(logo,(512-w)/2,(96-h)/2,w,h);t.needsUpdate=true};logo.src=`/logos/${kind}.${kind==='vimal'?'jpg':'svg'}`}
  return t}
 const adKinds=['vimal','jio','adani','cricket','jio','oval','vimal','sport'];const adMaterials=Object.fromEntries([...new Set(adKinds)].map(k=>[k,new THREE.MeshBasicMaterial({map:adTexture(k),side:THREE.DoubleSide})]));
-for(let i=0;i<32;i++){let a=i*Math.PI*2/32,rad=61;let b=box(11,2,.3,mat(0xe8e3cc),Math.sin(a)*rad,1.12,Math.cos(a)*rad);b.rotation.y=a;let panel=new THREE.Mesh(new THREE.PlaneGeometry(10.8,1.8),adMaterials[adKinds[i%adKinds.length]]);panel.position.set(Math.sin(a)*(rad-.18),1.12,Math.cos(a)*(rad-.18));panel.rotation.y=a+Math.PI;scene.add(panel)}
-for(let i=0;i<16;i++){let a=(i+.5)*Math.PI*2/16,r=76.2;let panel=new THREE.Mesh(new THREE.PlaneGeometry(12,1.5),adMaterials[adKinds[(i+2)%adKinds.length]]);panel.position.set(Math.sin(a)*r,9,Math.cos(a)*r);panel.rotation.y=a+Math.PI;scene.add(panel)}
+for(let i=0;i<32;i++){let a=i*Math.PI*2/32,rad=61;let b=box(11,2,.3,mat(0xe8e3cc),Math.sin(a)*rad,1.12,Math.cos(a)*rad);groupFixture('boundary-board',b);b.rotation.y=a;let panel=new THREE.Mesh(new THREE.PlaneGeometry(10.8,1.8),adMaterials[adKinds[i%adKinds.length]]);panel.position.set(Math.sin(a)*(rad-.18),1.12,Math.cos(a)*(rad-.18));panel.rotation.y=a+Math.PI;scene.add(panel);groupFixture(panel.material.uuid+panel.geometry.parameters.width,panel)}
+for(let i=0;i<16;i++){let a=(i+.5)*Math.PI*2/16,r=76.2;let panel=new THREE.Mesh(new THREE.PlaneGeometry(12,1.5),adMaterials[adKinds[(i+2)%adKinds.length]]);panel.position.set(Math.sin(a)*r,9,Math.cos(a)*r);panel.rotation.y=a+Math.PI;scene.add(panel);groupFixture(panel.material.uuid+panel.geometry.parameters.width,panel)}
+for(const group of fixtures.values())instanceFixtures(scene,group);
+fixtures.clear();
 function stumps(z){let group=new THREE.Group(),wood=mat(0xe8d9ad);group.position.z=z;for(let x of [-.35,0,.35]){let o=new THREE.Mesh(new THREE.BoxGeometry(.09,1.2,.09),wood);o.position.set(x,.7,0);group.add(o)}for(let x of [-.18,.18]){let o=new THREE.Mesh(new THREE.BoxGeometry(.38,.065,.09),wood);o.position.set(x,1.34,0);group.add(o)}group.children.forEach((o,i)=>{o.castShadow=true;o.userData.initial=o.position.clone();o.userData.index=i});if(era.modern){group.scale.set(.228/.79,.711/1.275,1);group.position.y=.12-.1*group.scale.y;}scene.add(group);return group}
 const farStumps=stumps(-10.4),nearStumps=stumps(10.4),wicketParts=[...farStumps.children,...nearStumps.children];
 function resetWickets(){wicketParts.forEach(o=>{o.position.copy(o.userData.initial);o.rotation.set(0,0,0)})}
@@ -405,7 +418,9 @@ function endPlay(outcome,dismissal){let a=state.anim;if(!a||a.ending)return;dism
 const replayActors=[ball,batter,nonStriker,bowler,keeper,...fielders,...(era.modern?[umpire]:[])];
 function pose(o){return [o.position.x,o.position.y,o.position.z,o.rotation.x,o.rotation.y,o.rotation.z]}
 function applyPose(o,p){o.position.set(p[0],p[1],p[2]);o.rotation.set(p[3],p[4],p[5])}
-function captureFrame(now){let a=state.anim;if(!a||state.phase!=='animating'||(!a.captureContact&&now-(a.lastCapture||0)<(era.modern?33:55)))return;a.captureContact=false;a.lastCapture=now;let limbs=replayActors.slice(1).map(p=>p.userData.arms&&p.userData.legs?[...p.userData.arms,...p.userData.elbows,...p.userData.legs,...p.userData.knees].map(v=>[v.rotation.x,v.rotation.y,v.rotation.z]):[]);(a.frames||(a.frames=[])).push({t:now-a.start,camera:era.modern&&state.camera===0&&currentBroadcastView?{id:currentBroadcastView.id,position:camera.position.toArray(),look:currentBroadcastView.look.toArray(),fov:camera.fov}:null,actors:replayActors.map(pose),limbs,details:replayActors.slice(1).map(p=>({head:p.userData.head?pose(p.userData.head):null,torso:p.userData.torso?pose(p.userData.torso):null,bat:p.userData.bat?pose(p.userData.bat):null})),stumps:wicketParts.map(pose)});if(a.frames.length>(era.modern?600:260))a.frames.shift()}
+function captureFrame(now){
+ if(era.modern&&!replayBoundaries&&!replayWickets)return;
+ let a=state.anim;if(!a||state.phase!=='animating'||(!a.captureContact&&now-(a.lastCapture||0)<(era.modern?33:55)))return;a.captureContact=false;a.lastCapture=now;let limbs=replayActors.slice(1).map(p=>p.userData.arms&&p.userData.legs?[...p.userData.arms,...p.userData.elbows,...p.userData.legs,...p.userData.knees].map(v=>[v.rotation.x,v.rotation.y,v.rotation.z]):[]);(a.frames||(a.frames=[])).push({t:now-a.start,camera:era.modern&&state.camera===0&&currentBroadcastView?{id:currentBroadcastView.id,position:camera.position.toArray(),look:currentBroadcastView.look.toArray(),fov:camera.fov}:null,actors:replayActors.map(pose),limbs,details:replayActors.slice(1).map(p=>({head:p.userData.head?pose(p.userData.head):null,torso:p.userData.torso?pose(p.userData.torso):null,bat:p.userData.bat?pose(p.userData.bat):null})),stumps:wicketParts.map(pose)});if(a.frames.length>(era.modern?600:260))a.frames.shift()}
 function startReplay(){let a=state.anim;if(!a?.frames||a.frames.length<3){resolveDelivery();return}state.phase='replay';state.replay={frames:a.frames,start:performance.now(),base:a.frames[0].t};$('#stage-controls').classList.add('hidden');$('#replay-ui').classList.remove('hidden');$('#play-status').textContent='ACTION REPLAY';$('#broadcast').textContent='ACTION REPLAY';}
 function finishReplay(){if(state.phase!=='replay')return;state.replay=null;$('#replay-ui').classList.add('hidden');state.phase='animating';resolveDelivery()}
 $('#skip-replay').onclick=finishReplay;
@@ -493,7 +508,14 @@ function animateCrowd(now){
   dummy.position.y=v.y+.58+lift;dummy.updateMatrix();crowdHead.setMatrixAt(i,dummy.matrix);
  }
  modernCrowd?.update(crowdCursor,520,now,excited);
- crowdCursor=(crowdCursor+520)%spectators.length;crowdBody.instanceMatrix.needsUpdate=true;crowdHead.instanceMatrix.needsUpdate=true;
+ if(era.modern){
+   markCrowdMatrices(crowdBody,crowdCursor,520,spectators.length);
+   markCrowdMatrices(crowdHead,crowdCursor,520,spectators.length);
+ }else{
+   crowdBody.instanceMatrix.needsUpdate=true;
+   crowdHead.instanceMatrix.needsUpdate=true;
+ }
+ crowdCursor=(crowdCursor+520)%spectators.length;
  flagPoles.forEach((flag,i)=>flag.rotation.z=Math.sin(now*.002+i)*.07);
 }
 let previousFrame=0;
