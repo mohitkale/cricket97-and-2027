@@ -60,13 +60,14 @@ export class ReturnController{
   update(ball,dt){
     // Pose/contact decisions need the same small steps as the free ball.
     // Otherwise a fast return can pass the receiver between render frames.
-    let remaining=Math.max(0,Math.min(dt,.1)),event=null;
+    let remaining=Math.max(0,Math.min(dt,.1));
+    const events=[];
     while(remaining>1e-7){
       const step=Math.min(remaining,1/120);remaining-=step;
       syncAthletes([this.state.receiver,this.state.fielder]);
-      const next=this.step(ball,step);if(next)event=next;
+      const next=this.step(ball,step);if(next)events.push(next);
     }
-    return event;
+    return events;
   }
   step(ball,dt){
     const s=this.state;s.elapsed+=dt;

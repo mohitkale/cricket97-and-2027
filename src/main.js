@@ -685,8 +685,7 @@ function animate(now){
    if(p>=1)beginReturnThrow(a,f,now);
   }else if(a.phase==='modern-return'){
    advanceRunners(a,dt,now);
-   const event=a.returnThrow.update(ball.position,dt);
-   if(event){modernFielding.events.push({type:event.type,player:a.fielder});
+   for(const event of a.returnThrow.update(ball.position,dt)){modernFielding.events.push({type:event.type,player:a.fielder});
     if(event.type==='released'){a.overthrowRuns=overthrowAllowance(a);message('THE THROW IS AWAY','WATCH THE CREASE');announce('The fielder picks up and throws.');}
     else if(event.type==='received'){message('CLEAN TAKE','THE FIELDER MOVES TO BREAK THE WICKET');}
     else if(event.type==='wicket'){

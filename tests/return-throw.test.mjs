@@ -48,7 +48,7 @@ function playReturn(runActive=false,throwerX=20,random=()=>.5,fps=120){
   for(let i=0;i<600;i++){
     // The production loop keeps kinematic capsules in sync before ball physics.
     syncAthletes([thrower,far,keeper,...batters]);
-    const event=controller.update(ball,1/fps);if(event)events.push(event);
+    events.push(...controller.update(ball,1/fps));
     if(state.phase==='complete'||state.phase==='overthrow')break;
   }
   return {state,events,initialReceiver};
@@ -110,4 +110,14 @@ test('the keeper carries the rendered ball to the wicket with either glove',()=>
     assert.ok(hit,'the ball in the collecting glove must break the wicket');
     assert.equal(ball.geometry.type,'SphereGeometry');
   }
+});
+
+test('a catch and wicket in adjacent physics steps are both reported in frame order',()=>{
+  const controller=new ReturnController({});
+  controller.state={receiver:new THREE.Group(),fielder:new THREE.Group()};
+  const steps=[{type:'received'},{type:'wicket',out:true}];
+  controller.step=()=>steps.shift();
+  assert.deepEqual(controller.update(new THREE.Vector3(),1/30),[
+    {type:'received'},{type:'wicket',out:true}
+  ]);
 });
