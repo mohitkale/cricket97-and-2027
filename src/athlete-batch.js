@@ -48,7 +48,9 @@ export function batchAthletes(scene,players,{mobile=false}={}){
     const geometry=mobile?mobileGeometry(bucket.geometry):bucket.geometry;
     bucket.mesh=new THREE.InstancedMesh(geometry,material,bucket.objects.length);
     bucket.colors=bucket.objects.map(()=>new THREE.Color(-1,-1,-1));
-    bucket.mesh.castShadow=true;bucket.mesh.receiveShadow=true;bucket.mesh.frustumCulled=false;
+    // The skinned bodies retain the mobile contact shadows. Tiny equipment
+    // and facial primitives need not repeat every batch in the shadow pass.
+    bucket.mesh.castShadow=!mobile;bucket.mesh.receiveShadow=true;bucket.mesh.frustumCulled=false;
     bucket.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);scene.add(bucket.mesh);
   }
   function update(){

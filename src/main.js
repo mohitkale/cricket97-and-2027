@@ -242,8 +242,29 @@ if(ballGlint)scene.add(ballGlint);
 // A ground marker and short fading trail make a fast ball readable at stadium scale.
 let ballMarker=new THREE.Mesh(new THREE.RingGeometry(era.modern?.11:.5,era.modern?.15:.7,24),new THREE.MeshBasicMaterial({color:0xffdc72,transparent:true,opacity:era.modern?.25:.85,side:THREE.DoubleSide,depthTest:false}));ballMarker.rotation.x=-Math.PI/2;ballMarker.visible=false;scene.add(ballMarker);
 const trailPositions=new Float32Array(18*3),trailGeometry=new THREE.BufferGeometry();trailGeometry.setAttribute('position',new THREE.BufferAttribute(trailPositions,3));trailGeometry.setDrawRange(0,0);const ballTrail=new THREE.Line(trailGeometry,new THREE.LineBasicMaterial({color:0xffed9f,transparent:true,opacity:.8,depthTest:false}));ballTrail.visible=false;ballTrail.frustumCulled=false;scene.add(ballTrail);let trailPoints=[];
-function updateBallVisual(){let a=state.anim;const flightLabel=$('#ball-flight-label');flightLabel.hidden=!a?.outOfStadium;if(a?.outOfStadium)flightLabel.textContent='SIX • OUT OF THE STADIUM';let active=!!a&&(a.flight||(era.modern?(a.simTime||0)>1.8:((performance.now()-a.start)/1000)>1.8));if(ballGlint){ballGlint.visible=active;ballGlint.position.copy(ball.position);}ballMarker.visible=active;ballTrail.visible=active&&!era.modern;if(!active){trailPoints=[];return}ballMarker.position.set(ball.position.x,.18,ball.position.z);trailPoints.push(ball.position.clone());if(trailPoints.length>18)trailPoints.shift();let attr=trailGeometry.attributes.position;trailPoints.forEach((p,i)=>attr.setXYZ(i,p.x,p.y,p.z));attr.needsUpdate=true;trailGeometry.setDrawRange(0,trailPoints.length)}
-function updateRunInset(){let inset=$('#run-inset'),a=state.anim,offPitch=Math.abs(ball.position.x)>4||ball.position.z>12||ball.position.z< -12,show=!!a&&a.live&&['field','pickup'].includes(a.phase)&&offPitch&&state.camera===0&&state.phase!=='replay';inset.classList.toggle('hidden',!show);if(show)$('#run-inset-label').textContent=a.runActive?(a.runReturning?'GOING BACK':'BATTERS RUNNING'):'BATTERS HOLDING'}
+function updateBallVisual(){
+ const a=state.anim,flightLabel=$('#ball-flight-label'),hidden=!a?.outOfStadium;
+ if(flightLabel.hidden!==hidden)flightLabel.hidden=hidden;
+ if(a?.outOfStadium&&flightLabel.textContent!=='SIX • OUT OF THE STADIUM')flightLabel.textContent='SIX • OUT OF THE STADIUM';
+ const active=!!a&&(a.flight||(era.modern?(a.simTime||0)>1.8:((performance.now()-a.start)/1000)>1.8));
+ if(ballGlint){ballGlint.visible=active;ballGlint.position.copy(ball.position);}
+ ballMarker.visible=active;ballTrail.visible=active&&!era.modern;
+ if(!active){trailPoints=[];return}
+ ballMarker.position.set(ball.position.x,.18,ball.position.z);
+ if(era.modern)return;
+ trailPoints.push(ball.position.clone());if(trailPoints.length>18)trailPoints.shift();
+ const attr=trailGeometry.attributes.position;
+ trailPoints.forEach((p,i)=>attr.setXYZ(i,p.x,p.y,p.z));attr.needsUpdate=true;trailGeometry.setDrawRange(0,trailPoints.length);
+}
+function updateRunInset(){
+ const inset=$('#run-inset'),a=state.anim,offPitch=Math.abs(ball.position.x)>4||ball.position.z>12||ball.position.z< -12;
+ const show=!!a&&a.live&&['field','pickup'].includes(a.phase)&&offPitch&&state.camera===0&&state.phase!=='replay';
+ inset.classList.toggle('hidden',!show);
+ if(show){
+   const label=$('#run-inset-label'),text=a.runActive?(a.runReturning?'GOING BACK':'BATTERS RUNNING'):'BATTERS HOLDING';
+   if(label.textContent!==text)label.textContent=text;
+ }
+}
 const pitchCamera=new THREE.OrthographicCamera(-6.8,6.8,15.5,-15.5,.1,100);pitchCamera.position.set(0,48,0);pitchCamera.up.set(0,0,-1);pitchCamera.lookAt(0,0,0);
 function renderPitchInset(){const inset=$('#run-inset');if(inset.classList.contains('hidden'))return;const rect=$('#run-camera').getBoundingClientRect(),base=stage.getBoundingClientRect();const x=rect.left-base.left,y=base.bottom-rect.bottom;if(rect.width<1||rect.height<1)return;renderer.setScissorTest(true);renderer.setScissor(x,y,rect.width,rect.height);renderer.setViewport(x,y,rect.width,rect.height);const old=renderer.autoClear,shadowUpdate=renderer.shadowMap.autoUpdate;renderer.autoClear=false;renderer.shadowMap.autoUpdate=false;renderer.clearDepth();renderer.render(scene,pitchCamera);renderer.shadowMap.autoUpdate=shadowUpdate;renderer.autoClear=old;renderer.setScissorTest(false);renderer.setViewport(0,0,stage.clientWidth,stage.clientHeight)}
 
@@ -683,7 +704,18 @@ function animate(now){
   }
   if(!a.flight){
    if(era.modern)poseKeeping(keeper,ball.position,a.deliveryVelocity,dt);else{watchPoint(keeper,ball.position);keeper.userData.knees.forEach(k=>k.rotation.x=.45+.04*Math.sin(t*3));if(t>1.8+a.travel*.55){let move=THREE.MathUtils.clamp(a.lineX-keeper.position.x,-2.4*dt,2.4*dt);keeper.position.x+=move;keeperWalk(keeper,Math.abs(move),now);}}
-   if(humanBatting()){let ready=t>a.impact-.48;$('#play-status').textContent=ready?'COMPUTER BOWLING • HIT NOW!':'COMPUTER BOWLING • GET READY';let cue=$('#batting-cue');if(cue){cue.hidden=false;cue.textContent=ready?'HIT NOW':'GET READY';cue.classList.toggle('hit',ready)}}
+   if(humanBatting()){
+     const ready=t>a.impact-.48,status=$('#play-status');
+     const text=ready?'COMPUTER BOWLING • HIT NOW!':'COMPUTER BOWLING • GET READY';
+     if(status.textContent!==text)status.textContent=text;
+     const cue=$('#batting-cue');
+     if(cue){
+       if(cue.hidden)cue.hidden=false;
+       const cueText=ready?'HIT NOW':'GET READY';
+       if(cue.textContent!==cueText)cue.textContent=cueText;
+       cue.classList.toggle('hit',ready);
+     }
+   }
    if(era.modern){poseBowling(bowler,t,dt,a.bowlerArm);watchPoint(bowler,batter.position);}else{let run=Math.min(t/1.8,1);bowler.position.z=-20+run*9;let stride=t<1.8?Math.sin(t*15):0;stridePose(bowler,stride*.7);if(era.modern){const m=bowler.userData.motor;m.speed=t<1.8?5:0;m.vx=0;m.vz=m.speed;m.phase+=m.speed*dt/2.6*Math.PI*2;poseLocomotion(bowler,dt);}watchPoint(bowler,batter.position);bowler.rotation.x=t<1.8?.08+Math.abs(stride)*.05:0;bowler.position.y=t<1.8?Math.abs(stride)*.07:0;let deliveryArm=bowler.userData.arms[a.bowlerArm],otherArm=bowler.userData.arms[1-a.bowlerArm];otherArm.rotation.x=-stride*.5;deliveryArm.rotation.x=t<1.05?stride*.55:bowlingArmAngle(t);deliveryArm.rotation.z=0;bowler.userData.elbows[a.bowlerArm].rotation.x=t<1.05?(era.modern?-.42:.42):0;bowler.userData.elbows[1-a.bowlerArm].rotation.x=era.modern?-.55:.55;}
    if(t<1.8){ball.position.copy(handPosition(bowler,a.bowlerArm))}
    else if(era.modern){

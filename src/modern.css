@@ -103,3 +103,11 @@ body[data-era="2027"]{--modern-accent:#c3ff54;--modern-border:#ffffff17;backgrou
   [data-era='2027'] .stage:has(#pause-game:not([hidden])){min-height:0;height:calc(100svh - 78px)}
   [data-era='2027'] .stage:fullscreen{height:100svh}
 }
+
+/* Keep the live canvas on a simple compositing path on touch devices. */
+@media(pointer:coarse){
+  [data-era='2027'] .broadcast-score,
+  [data-era='2027'] .shot-pad button,
+  [data-era='2027'] .shot-extra-row button{backdrop-filter:none}
+  [data-era='2027'] .broadcast-score{background:#06151d}
+}

@@ -70,8 +70,9 @@ export function buildModernStadium(scene,{grass,grass2,pitchmat,roof,roofLip,ren
     const display=new THREE.Mesh(new THREE.PlaneGeometry(16,8),new THREE.MeshBasicMaterial({map:texture}));display.position.z=.28;frame.add(display);scene.add(frame);
   }
   // Seat rows give the contemporary bowl structure below the instanced crowd.
-  const seats=new THREE.InstancedMesh(new THREE.BoxGeometry(.48,.12,.43),new THREE.MeshStandardMaterial({color:0x2b5d72,roughness:.8}),6000);
-  const dummy=new THREE.Object3D();for(let i=0;i<6000;i++){const row=Math.floor(i/500),angle=i%500/500*Math.PI*2,r=64.6+row*.98;dummy.position.set(Math.sin(angle)*r,.7+row*.57,Math.cos(angle)*r);dummy.rotation.y=angle;dummy.updateMatrix();seats.setMatrixAt(i,dummy.matrix);}scene.add(seats);
+  const seatsPerRow=mobileRender?125:500,seatCount=seatsPerRow*12;
+  const seats=new THREE.InstancedMesh(new THREE.BoxGeometry(.48,.12,.43),new THREE.MeshStandardMaterial({color:0x2b5d72,roughness:.8}),seatCount);
+  const dummy=new THREE.Object3D();for(let i=0;i<seatCount;i++){const row=Math.floor(i/seatsPerRow),angle=i%seatsPerRow/seatsPerRow*Math.PI*2,r=64.6+row*.98;dummy.position.set(Math.sin(angle)*r,.7+row*.57,Math.cos(angle)*r);dummy.rotation.y=angle;dummy.updateMatrix();seats.setMatrixAt(i,dummy.matrix);}scene.add(seats);
   let previous='';
   return {
     setVenue(venue){grass.color.setHex(venue.turf);grass2.color.copy(grass.color).multiplyScalar(1.12);led.color.setHex(venue.accent);},
