@@ -1,5 +1,6 @@
 import {instanceFixtures} from './stadium-fixtures.js';
 import {RenderQuality} from './render-quality.js';
+import {manageRendererLifetime} from './renderer-lifetime.js';
 import {sanctionFromBall,fieldRestrictionFault,fieldForDelivery,opponentStroke} from './modern-field.js';
 import {modernBowlingVariation} from './bowling-profiles.js';
 import {firstPadContact,lbwEligible} from './pad-contact.js';
@@ -60,6 +61,7 @@ mountEditionUI(era);
 const scene=new THREE.Scene();scene.background=new THREE.Color(0x9fc5c2);scene.fog=new THREE.Fog(0x9fc5c2,100,240);
 const mobileRender=era.modern && matchMedia('(pointer: coarse)').matches;
 const renderer=new THREE.WebGLRenderer({antialias:!mobileRender});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFShadowMap;stage.prepend(renderer.domElement);
+const rendererReleased=manageRendererLifetime(renderer);
 const benchmark = import.meta.env.DEV && new URLSearchParams(location.search).has('benchmark')
   ? createDeliveryBenchmark(() => renderer.getPixelRatio()) : null;
 if (benchmark) {
@@ -655,6 +657,7 @@ function updateOverRate(now){
  }
 }
 function animate(now){
+ if(rendererReleased())return;
  updateOverRate(now);
  const elapsed=previousFrame?(now-previousFrame)/1000:1/60;
  if(renderQuality&&state.phase==='animating'&&pausedAt===null&&!document.hidden){
