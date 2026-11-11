@@ -10,3 +10,10 @@ test('quality falls under sustained load and recovers only after sustained fast 
   run(90,16.7);assert.ok(quality.ratio>1.3);
   run(1000,60);assert.equal(quality.ratio,.8);
 });
+
+test('mobile can start at the reduced ratio and recover to its device ceiling',()=>{
+  const quality=new RenderQuality(1,.8);
+  assert.equal(quality.ratio,.8);
+  for(let i=0;i<900;i++)quality.observe(16.7);
+  assert.equal(quality.ratio,1);
+});

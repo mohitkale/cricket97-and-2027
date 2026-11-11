@@ -105,3 +105,26 @@ test('the skinned body follows cricket joints with normalized skin weights',()=>
   const weights=mesh.geometry.attributes.skinWeight;
   for(let i=0;i<weights.count;i++)assert.ok(Math.abs(weights.getX(i)+weights.getY(i)+weights.getZ(i)+weights.getW(i)-1)<1e-6);
 });
+
+test('different box dimensions share a draw and keep their world extents',()=>{
+  const scene=new THREE.Scene(),actor=new THREE.Group(),material=new THREE.MeshStandardMaterial();
+  scene.add(actor);
+  const shapes=[[1,2,3],[4,1,.25]].map((dimensions,index)=>{
+    const mesh=new THREE.Mesh(new THREE.BoxGeometry(...dimensions),material);
+    mesh.position.set(index,2,-3);mesh.rotation.y=.7;mesh.scale.set(.8,.6,1.1);
+    actor.add(mesh);return mesh;
+  });
+  const batch=batchAthletes(scene,[actor]);
+  assert.equal(batch.batchCount,1);
+  const instanced=scene.children.find(o=>o.isInstancedMesh);
+  instanced.geometry.computeBoundingBox();
+  shapes.forEach((mesh,index)=>{
+    mesh.geometry.computeBoundingBox();
+    const drawMatrix=new THREE.Matrix4();
+    instanced.getMatrixAt(index,drawMatrix);
+    const drawn=instanced.geometry.boundingBox.clone().applyMatrix4(drawMatrix);
+    const expected=mesh.geometry.boundingBox.clone().applyMatrix4(mesh.matrixWorld);
+    assert.ok(drawn.min.distanceTo(expected.min)<1e-5);
+    assert.ok(drawn.max.distanceTo(expected.max)<1e-5);
+  });
+});

@@ -1,9 +1,9 @@
 // Evaluate consecutive active-play frames. Hysteresis avoids oscillating the
 // drawing buffer between sizes when a device is close to its frame budget.
 export class RenderQuality {
-  constructor(maxRatio){
+  constructor(maxRatio,initialRatio=maxRatio){
     this.max=maxRatio;
-    this.ratio=maxRatio;
+    this.ratio=Math.min(maxRatio,initialRatio);
     this.samples=0;
     this.slow=0;
     this.fast=0;

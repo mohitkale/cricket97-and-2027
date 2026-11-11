@@ -58,7 +58,8 @@ mountEditionUI(era);
 
 // A small, deliberately low-poly cricket ground.
 const scene=new THREE.Scene();scene.background=new THREE.Color(0x9fc5c2);scene.fog=new THREE.Fog(0x9fc5c2,100,240);
-const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFShadowMap;stage.prepend(renderer.domElement);
+const mobileRender=era.modern && matchMedia('(pointer: coarse)').matches;
+const renderer=new THREE.WebGLRenderer({antialias:!mobileRender});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFShadowMap;stage.prepend(renderer.domElement);
 const benchmark = import.meta.env.DEV && new URLSearchParams(location.search).has('benchmark')
   ? createDeliveryBenchmark(() => renderer.getPixelRatio()) : null;
 if (benchmark) {
@@ -66,7 +67,7 @@ if (benchmark) {
   document.addEventListener('visibilitychange', () => benchmark.interrupt());
 }
 const camera=new THREE.PerspectiveCamera(era.modern?36:43,1,.1,400);const hemi=new THREE.HemisphereLight(0xe4f3df,0x61784d,2.1);scene.add(hemi);const sun=new THREE.DirectionalLight(0xffedc4,2.1);sun.position.set(-30,60,20);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);sun.shadow.camera.left=-65;sun.shadow.camera.right=65;sun.shadow.camera.top=65;sun.shadow.camera.bottom=-65;scene.add(sun);
-if(era.modern){sun.shadow.mapSize.set(1024,1024);sun.shadow.bias=-.00015;sun.shadow.normalBias=.03;}
+if(era.modern){sun.shadow.mapSize.setScalar(mobileRender?512:1024);sun.shadow.bias=-.00015;sun.shadow.normalBias=.03;}
 const floodFill=new THREE.DirectionalLight(0xdbe8ff,0);floodFill.position.set(35,45,-30);scene.add(floodFill);
 const mat=c=>new THREE.MeshStandardMaterial({color:c,roughness:1});const grass=mat(0x4f8b40), grass2=mat(0x579647), chalk=mat(0xe9e5c8), pitchmat=mat(0xc6ad77), dark=mat(0x293f33);
 function box(w,h,d,m,x,y,z){const o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);o.position.set(x,y,z);o.receiveShadow=true;scene.add(o);return o}
@@ -86,8 +87,10 @@ let roof=new THREE.Mesh(new THREE.RingGeometry(76.5,84,96),new THREE.MeshStandar
 let roofLip=new THREE.Mesh(new THREE.CylinderGeometry(76.5,76.5,.45,96,1,true),new THREE.MeshStandardMaterial({color:0xddd8bc,side:THREE.DoubleSide}));roofLip.position.y=13.15;scene.add(roofLip);
 const crowdColors=[0xded5bc,0x526d5a,0xa65346,0xdec66e,0x7c9aaa,0xe7dfc7,0x855d4b];
 // Instanced heads and torsos give each spectator a silhouette without thousands of draw calls.
-const crowdBody=new THREE.InstancedMesh(new THREE.CapsuleGeometry(.25,.43,2,5),mat(0xffffff),5200),crowdHead=new THREE.InstancedMesh(new THREE.SphereGeometry(.19,6,4),mat(0xffffff),5200);const dummy=new THREE.Object3D(),spectators=[];
-for(let i=0;i<5200;i++){let a=Math.random()*Math.PI*2,r=65+Math.random()*11,y=.8+(r-65)*.58;dummy.position.set(Math.sin(a)*r,y+.5,Math.cos(a)*r);dummy.rotation.set(0,-a,Math.random()*.15-.075);dummy.scale.setScalar(.75+Math.random()*.45);spectators.push({x:dummy.position.x,y:dummy.position.y,z:dummy.position.z,rotation:dummy.rotation.y,lean:dummy.rotation.z,scale:dummy.scale.x,phase:Math.random()*Math.PI*2});dummy.updateMatrix();crowdBody.setMatrixAt(i,dummy.matrix);crowdBody.setColorAt(i,new THREE.Color(crowdColors[i%crowdColors.length]));dummy.position.y=y+1.08;dummy.updateMatrix();crowdHead.setMatrixAt(i,dummy.matrix);crowdHead.setColorAt(i,new THREE.Color([0xd5a681,0x9c694d,0xe3bc96,0x714c3b][i%4]));}if(era.modern){crowdBody.geometry.dispose();crowdBody.geometry=new THREE.CapsuleGeometry(.25,.43,1,4);crowdHead.geometry.dispose();crowdHead.geometry=new THREE.SphereGeometry(.19,4,3);}
+const crowdCount=mobileRender?1560:5200;
+const crowdBatchSize=crowdCount/10;
+const crowdBody=new THREE.InstancedMesh(new THREE.CapsuleGeometry(.25,.43,2,5),mat(0xffffff),crowdCount),crowdHead=new THREE.InstancedMesh(new THREE.SphereGeometry(.19,6,4),mat(0xffffff),crowdCount);const dummy=new THREE.Object3D(),spectators=[];
+for(let i=0;i<crowdCount;i++){let a=Math.random()*Math.PI*2,r=65+Math.random()*11,y=.8+(r-65)*.58;dummy.position.set(Math.sin(a)*r,y+.5,Math.cos(a)*r);dummy.rotation.set(0,-a,Math.random()*.15-.075);dummy.scale.setScalar(.75+Math.random()*.45);spectators.push({x:dummy.position.x,y:dummy.position.y,z:dummy.position.z,rotation:dummy.rotation.y,lean:dummy.rotation.z,scale:dummy.scale.x,phase:Math.random()*Math.PI*2});dummy.updateMatrix();crowdBody.setMatrixAt(i,dummy.matrix);crowdBody.setColorAt(i,new THREE.Color(crowdColors[i%crowdColors.length]));dummy.position.y=y+1.08;dummy.updateMatrix();crowdHead.setMatrixAt(i,dummy.matrix);crowdHead.setColorAt(i,new THREE.Color([0xd5a681,0x9c694d,0xe3bc96,0x714c3b][i%4]));}if(era.modern){crowdBody.geometry.dispose();crowdBody.geometry=mobileRender?new THREE.OctahedronGeometry(1).scale(.25,.465,.25):new THREE.CapsuleGeometry(.25,.43,1,4);crowdHead.geometry.dispose();crowdHead.geometry=mobileRender?new THREE.OctahedronGeometry(.19):new THREE.SphereGeometry(.19,4,3);}
 if(era.modern)for(const mesh of [crowdBody,crowdHead])mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
 scene.add(crowdBody,crowdHead);
 const modernCrowd=era.modern?buildModernCrowd(scene,spectators):null;
@@ -110,7 +113,7 @@ function groupFixture(kind,mesh){
   return mesh;
 }
 for(let i=0;i<32;i++){let a=i*Math.PI*2/32,r=69+(i%3)*3,x=Math.sin(a)*r,z=Math.cos(a)*r,y=3+(r-65)*.58;groupFixture('flagpole',box(.07,3,.07,mat(0xeee7d1),x,y+1.3,z));let flag=new THREE.Mesh(new THREE.PlaneGeometry(2,1.2),flagMaterial[i%2]);flag.position.set(x+.95,y+2.2,z);flag.rotation.y=a;scene.add(flag);flagPoles.push(flag)}
-function updateCrowd(){for(let i=0;i<5200;i++){let color=i%7===0?crowdColors[i%crowdColors.length]:(i%2?teams[home].color:teams[away].color);crowdBody.setColorAt(i,new THREE.Color(color))}crowdBody.instanceColor.needsUpdate=true;[home,away].forEach((t,i)=>{if(flagMaterial[i].map)flagMaterial[i].map.dispose();flagMaterial[i].map=flagTexture(t);flagMaterial[i].needsUpdate=true})}
+function updateCrowd(){for(let i=0;i<crowdCount;i++){let color=i%7===0?crowdColors[i%crowdColors.length]:(i%2?teams[home].color:teams[away].color);crowdBody.setColorAt(i,new THREE.Color(color))}crowdBody.instanceColor.needsUpdate=true;[home,away].forEach((t,i)=>{if(flagMaterial[i].map)flagMaterial[i].map.dispose();flagMaterial[i].map=flagTexture(t);flagMaterial[i].needsUpdate=true})}
 for(let i=0;i<16;i++){let a=i*Math.PI*2/16,x=Math.sin(a)*78,z=Math.cos(a)*78;groupFixture('support',box(.45,12,.45,mat(0xc8c3a7),x,6,z));let roof=groupFixture('support-roof',box(8,.5,5,mat(0x3c5949),x,12,z));roof.rotation.y=a;}
 // Floodlight towers are visible in either mode; lamps and cool fill light switch on at night.
 const lamps=[];
@@ -123,7 +126,7 @@ for(const [x,z] of [[-68,-68],[68,-68],[-68,68],[68,68]]){
  }
 }
 if(era.modern){const lampBatch=instanceFixtures(scene,lamps);lamps.splice(0,lamps.length,lampBatch);}
-let modernStadium=era.modern?buildModernStadium(scene,{grass,grass2,pitchmat,roof,roofLip,renderer}):null;
+let modernStadium=era.modern?buildModernStadium(scene,{grass,grass2,pitchmat,roof,roofLip,renderer,mobileRender}):null;
 let night=false;
 function setTimeOfDay(value){
  night=value;if(era.modern)renderer.shadowMap.needsUpdate=true;modernStadium?.setNight(night);scene.background.setHex(night?0x101e32:0x9fc5c2);scene.fog.color.copy(scene.background);
@@ -208,7 +211,7 @@ if(era.modern)import('./stock-striker.js')
   .then(({loadStockPlayers})=>loadStockPlayers(matchActors))
   .then(update=>{updatePlayerDetail=update;})
   .catch(error=>console.warn('Stock player bodies unavailable.',error));
-const athleteBatch=era.modern?batchAthletes(scene,matchActors):null;
+const athleteBatch=era.modern?batchAthletes(scene,matchActors,{mobile:mobileRender}):null;
 // The batch updates world matrices before copying joint transforms into instances.
 // Keep that single update for the main draw and the pitch inset.
 if(athleteBatch)scene.matrixWorldAutoUpdate=false;
@@ -521,25 +524,26 @@ $('#resume-match').onclick=()=>{externallyPaused=false;$('#tab-pause').classList
 window.addEventListener('keyup',e=>{if(SHOT_KEYS[e.code])heldShotKeys.delete(SHOT_KEYS[e.code])});window.addEventListener('blur',()=>heldShotKeys.clear());
 window.addEventListener('keydown',e=>{if($('#modal-root').children.length||/INPUT|SELECT|TEXTAREA/.test(e.target.tagName))return;if(state.phase==='replay'){if(e.code==='KeyK'||e.code==='Escape'||e.code==='Space'){e.preventDefault();finishReplay()}return}if(state.phase==='intro'){if(era.modern&&['Enter','Space'].includes(e.code)){e.preventDefault();$('#player-intro .skip-intro')?.click();}return;}if(manualPaused||externallyPaused||document.hidden)return;if(e.code==='KeyC'){cycleCamera();return}if(e.code==='KeyR'){toggleRun();return}if(!['Space','Enter','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','KeyQ','KeyE','KeyF','Digit1','Digit2','Digit3','Digit4','Digit5'].includes(e.code))return;e.preventDefault();if(state.phase==='ready'){if(e.code==='Enter'||e.code==='Space')showSetup();return}if(state.phase==='finished')return;if(era.modern&&e.code==='Enter'){if(!e.repeat&&!manualPaused&&!externallyPaused)$('#stage-controls [data-assisted]')?.click();return}if(humanBatting()){if(e.code==='ArrowDown'&&state.anim?.live){callBack();return}let shot=SHOT_KEYS[e.code];if(shot&&!e.repeat){heldShotKeys.add(shot);selectShotFromKeyboard(shot,e.shiftKey)}}else{let line={ArrowLeft:'Full',ArrowDown:'Good',ArrowUp:'Good',ArrowRight:'Short',KeyQ:'Yorker',KeyE:'Bouncer',KeyF:'Full toss'}[e.code];if(line&&state.phase==='playing'){state.line=line;startDelivery()}else if(!line&&state.phase==='playing')startDelivery()}});
 
-const renderQuality=era.modern?new RenderQuality(renderer.getPixelRatio()):null;
+const renderQuality=era.modern?new RenderQuality(renderer.getPixelRatio(),mobileRender ? .8 : renderer.getPixelRatio()):null;
+if(renderQuality)renderer.setPixelRatio(renderQuality.ratio);
 let lastCrowdFrame=0,crowdCursor=0;
 function animateCrowd(now){
  if(era.modern&&reducedMotion.matches)return;
  if(now-lastCrowdFrame<(renderQuality&&renderQuality.ratio<renderQuality.max?200:100))return;lastCrowdFrame=now;
  let excited=state.anim?.phase==='settle'&&(state.anim.dismissal||state.anim.outcome>=4);
- for(let n=0;n<520;n++){let i=(crowdCursor+n)%spectators.length,v=spectators[i],wave=Math.sin(now*.003+v.phase),lift=excited?Math.max(0,wave)*.32:Math.max(0,wave)*.045;
+ for(let n=0;n<crowdBatchSize;n++){let i=(crowdCursor+n)%spectators.length,v=spectators[i],wave=Math.sin(now*.003+v.phase),lift=excited?Math.max(0,wave)*.32:Math.max(0,wave)*.045;
   dummy.position.set(v.x,v.y+lift,v.z);dummy.rotation.set(0,v.rotation,v.lean+wave*(excited?.2:.035));dummy.scale.setScalar(v.scale);dummy.updateMatrix();crowdBody.setMatrixAt(i,dummy.matrix);
   dummy.position.y=v.y+.58+lift;dummy.updateMatrix();crowdHead.setMatrixAt(i,dummy.matrix);
  }
- modernCrowd?.update(crowdCursor,520,now,excited);
+ modernCrowd?.update(crowdCursor,crowdBatchSize,now,excited);
  if(era.modern){
-   markCrowdMatrices(crowdBody,crowdCursor,520,spectators.length);
-   markCrowdMatrices(crowdHead,crowdCursor,520,spectators.length);
+   markCrowdMatrices(crowdBody,crowdCursor,crowdBatchSize,spectators.length);
+   markCrowdMatrices(crowdHead,crowdCursor,crowdBatchSize,spectators.length);
  }else{
    crowdBody.instanceMatrix.needsUpdate=true;
    crowdHead.instanceMatrix.needsUpdate=true;
  }
- crowdCursor=(crowdCursor+520)%spectators.length;
+ crowdCursor=(crowdCursor+crowdBatchSize)%spectators.length;
  flagPoles.forEach((flag,i)=>flag.rotation.z=Math.sin(now*.002+i)*.07);
 }
 let previousFrame=0;

@@ -23,9 +23,9 @@ function surfaceTexture(kind){
 
 /** Modern architecture decorates the common ground; pitch dimensions, camera
  * scene, boundaries, and match actors remain shared across both editions. */
-export function buildModernStadium(scene,{grass,grass2,pitchmat,roof,roofLip,renderer}){
+export function buildModernStadium(scene,{grass,grass2,pitchmat,roof,roofLip,renderer,mobileRender=false}){
   renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.18;renderer.shadowMap.type=THREE.PCFShadowMap;
-  renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.shadowMap.autoUpdate=false;renderer.shadowMap.needsUpdate=true;
+  renderer.setPixelRatio(Math.min(devicePixelRatio,mobileRender?1:1.5));renderer.shadowMap.autoUpdate=false;renderer.shadowMap.needsUpdate=true;
   grass.map=surfaceTexture('grass');grass.color.setHex(0x407745);grass.needsUpdate=true;
   grass2.map=grass.map;grass2.color.setHex(0x3b6d3c);grass2.needsUpdate=true;
   pitchmat.map=surfaceTexture('pitch');pitchmat.color.setHex(0xcbb98f);pitchmat.needsUpdate=true;
