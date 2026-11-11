@@ -1,6 +1,6 @@
 import {instanceFixtures} from './stadium-fixtures.js';
 import {RenderQuality} from './render-quality.js';
-import {fieldRestrictionFault,fieldForDelivery,opponentStroke} from './modern-field.js';
+import {sanctionFromBall,fieldRestrictionFault,fieldForDelivery,opponentStroke} from './modern-field.js';
 import {modernBowlingVariation} from './bowling-profiles.js';
 import {firstPadContact,lbwEligible} from './pad-contact.js';
 import { signalOutcome } from './modern-umpire.js';
@@ -76,7 +76,7 @@ const field=new THREE.Mesh(new THREE.CircleGeometry(62,96),grass);field.rotation
 for(let x=-55;x<=55;x+=10){let half=Math.sqrt(Math.max(0,59*59-x*x));if(half<1)continue;box(4.8,.025,half*2,grass2,x,.015,0)}
 function ring(radius,tube,color,y){const mesh=new THREE.Mesh(new THREE.TorusGeometry(radius,tube,5,120),mat(color));mesh.rotation.x=Math.PI/2;mesh.position.y=y;scene.add(mesh)}ring(50,.12,0xeee6c6,.09);ring(62,.32,0xddd2ac,.1);
 // Regulation-style inner fielding circle: two 30-yard arcs joined by straight lines.
-{const pts=[];for(let i=0;i<=80;i++){let a=Math.PI*i/80;pts.push(new THREE.Vector3(Math.cos(a)*27.4,.11,-10.06-Math.sin(a)*27.4))}for(let i=0;i<=80;i++){let a=Math.PI+Math.PI*i/80;pts.push(new THREE.Vector3(Math.cos(a)*27.4,.11,10.06-Math.sin(a)*27.4))}pts.push(pts[0].clone());scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({color:0xf2ead1})));}
+{const radius=era.modern?27.43:27.4,end=era.modern?10.4:10.06;const pts=[];for(let i=0;i<=80;i++){let a=Math.PI*i/80;pts.push(new THREE.Vector3(Math.cos(a)*radius,.11,-end-Math.sin(a)*radius))}for(let i=0;i<=80;i++){let a=Math.PI+Math.PI*i/80;pts.push(new THREE.Vector3(Math.cos(a)*radius,.11,end-Math.sin(a)*radius))}pts.push(pts[0].clone());scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({color:0xf2ead1})));}
 box(5,.08,25,pitchmat,0,.08,0);box(5.6,.025,.12,chalk,0,.14,-9.3);box(5.6,.025,.12,chalk,0,.14,9.3);box(.1,.025,2.7,chalk,-2.5,.14,-10);box(.1,.025,2.7,chalk,2.5,.14,-10);box(.1,.025,2.7,chalk,-2.5,.14,10);box(.1,.025,2.7,chalk,2.5,.14,10);
 if(era.modern)for(const z of [-9.85,9.85])for(const x of [-WIDE_GUIDE,WIDE_GUIDE])box(.035,.012,1.1,chalk,x,.149,z);
 // Faceted tiers, repeated crowd and roof supports make the stadium read at a distance.
@@ -297,7 +297,12 @@ function overs(n){return `${Math.floor(n/6)}.${n%6}`}
 function renderBroadcastScore(){
  let i=state.innings,l=lineup(),innings=state.stats[i],first=batterStats(innings,l.striker),second=batterStats(innings,l.partner),bowl=bowlerStats(innings,l.bowler);
  const surname=name=>name.split(' ').slice(-1)[0].toUpperCase();
- $('#broadcast-score').innerHTML=`<div class="broadcast-score-top"><strong>${teams[l.batting].flag} ${l.batting.toUpperCase()} ${state.score[i]}/${state.wickets[i]}</strong><span>${overs(state.balls[i])} / ${matchOvers} OV</span></div><div class="batting-cue" id="batting-cue" hidden></div><div class="broadcast-figures"><span title="${l.striker}">${surname(l.striker)}* <b>${first.runs} (${first.balls}) · SR ${strikeRate(first)}</b></span><span title="${l.partner}">${surname(l.partner)} <b>${second.runs} (${second.balls}) · SR ${strikeRate(second)}</b></span><span title="${l.bowler}">${surname(l.bowler)} <b>${bowl.wickets}/${bowl.runs} · ${overs(bowl.balls)} · ECO ${economyRate(bowl)}</b></span></div>`;
+ const ballsLeft=matchOvers*6-state.balls[i];
+ const needed=state.score[0]+1-state.score[1];
+ const chasing=era.modern&&i===1&&ballsLeft>0&&needed>0&&state.phase!=='finished';
+ const chaseLine=chasing?`<div class="chase-line">Need ${needed} off ${ballsLeft} · RRR ${(needed*6/ballsLeft).toFixed(2)}</div>`:'';
+
+ $('#broadcast-score').innerHTML=`<div class="broadcast-score-top"><strong>${teams[l.batting].flag} ${l.batting.toUpperCase()} ${state.score[i]}/${state.wickets[i]}</strong><span>${overs(state.balls[i])} / ${matchOvers} OV</span></div>${chaseLine}<div class="batting-cue" id="batting-cue" hidden></div><div class="broadcast-figures"><span title="${l.striker}">${surname(l.striker)}* <b>${first.runs} (${first.balls}) · SR ${strikeRate(first)}</b></span><span title="${l.partner}">${surname(l.partner)} <b>${second.runs} (${second.balls}) · SR ${strikeRate(second)}</b></span><span title="${l.bowler}">${surname(l.bowler)} <b>${bowl.wickets}/${bowl.runs} · ${overs(bowl.balls)} · ECO ${economyRate(bowl)}</b></span></div>`;
  $('#live-badge').innerHTML=state.phase==='ready'?'<i></i> PREVIEW':'<i></i> LIVE';
 }
 const heldShotKeys=new Set();
@@ -315,6 +320,15 @@ const options=isBat?['Left cover','Right cover','Attacking drive','Defend','Swee
 const buttons=options.map((v,n)=>`<button data-choice="${v}" class="${(isBat?state.shot:state.line)===v?'selected':''}"><small>${isBat?['←','→','↑','↓','SPACE','1','2','3','4','5'][n]:['Q','←','↓','→','E','F'][n]}</small>${v}</button>`).join('');
 const runButton=running?`<button class="touch-bowl" data-run>${state.anim.queuedRun?'NEXT RUN QUEUED':state.anim.runActive?'QUEUE NEXT RUN':'RUN'}</button>`:'';
 controls.innerHTML=running?`<div class="hint">Runs: ${state.anim.runs}. Down sends them back early or queues the next run after halfway. R queues the next run.</div><div class="action-row">${runButton}</div>`:`<div class="action-row">${buttons}</div>`;
+if(era.modern&&!isBat&&state.phase==='playing'&&!state.freeHit){
+ const label=document.createElement('label');
+ label.className='field-plan';label.textContent='Field placement ';
+ const select=document.createElement('select');
+ for(const [value,name] of [['auto','Automatic'],['cover','Cover'],['midwicket','Midwicket']])select.add(new Option(name,value));
+ select.value=state.fieldPlan||'auto';
+ select.onchange=()=>{state.fieldPlan=select.value;placeModernField();resetFielders()};
+ label.append(select);controls.append(label);
+}
 let touch=$('#stage-controls');touch.classList.remove('hidden');
 const padButton=(name,symbol,area,label)=>`<button data-choice="${name}" class="pad-${area} ${(state.shot===name||state.secondaryShot===name)?'selected':''}" aria-label="${symbol}: ${name}"><b>${symbol}</b><small>${label}</small></button>`;
 const shotPad=`<div class="batting-controls"><div class="shot-pad" role="group" aria-label="Batting arrow controls">${padButton('Attacking drive','↑','up','ATTACK')}${padButton('Left cover','←','left','LEFT COVER')}${padButton('Right cover','→','right','RIGHT COVER')}${padButton('Defend','↓','down','DEFEND')}${padButton('Sweep','SPACE','space','SWEEP')}</div><div class="shot-extra-row" role="group" aria-label="More shots and power">${['Hook','Pull','Cut','Flick','Straight drive'].map((shot,i)=>`<button data-choice="${shot}" class="${state.shot===shot?'selected':''}" aria-label="${i+1}: ${shot}"><b>${i+1}</b><small>${i===4?'STRAIGHT':shot.toUpperCase()}</small></button>`).join('')}<button data-power class="power-button ${state.powerArmed?'selected':''}" aria-label="Super boost: Shift; ${powerRemaining(state.powerUsed)} of 2 remaining" aria-pressed="${!!state.powerArmed}" ${powerRemaining(state.powerUsed)===0?'disabled':''}><b>SHIFT</b><small>SUPER ${powerRemaining(state.powerUsed)}/2</small></button></div></div>`;
@@ -324,12 +338,34 @@ touch.innerHTML=isBat?(running?(era.modern?modernRunPad:runPad):shotPad):`<div c
 if(era.modern && !running){
   const runUp=!isBat&&state.phase==='animating'&&!state.anim?.releasePoint&&!state.anim?.flight;
   const label=isBat?'PLAY SHOT':runUp?'STOP RUN-UP':'BOWL GOOD LENGTH';
-  const overrides=touch.innerHTML;
+  const canEvade=isBat&&state.phase==='animating'&&!state.anim?.flight;
+  const overrides=touch.innerHTML+(canEvade?'<button type="button" data-evade>Evade delivery</button>':'');
   touch.innerHTML='<div class="touch-row"><button class="touch-bowl" data-assisted>'+label+'</button></div><details class="assist-options"><summary>'+(isBat?'Choose stroke':'Choose length')+'</summary>'+overrides+'</details>';
   touch.querySelector('[data-assisted]').disabled=isBat?state.phase!=='animating'||!!state.anim?.flight:state.phase!=='playing'&&!runUp;
   touch.querySelector('[data-assisted]').onclick=()=>runUp?stopRunUp():select(isBat?assistedStroke(state.anim):'Good');
+  const evade=touch.querySelector('[data-evade]');
+  if(evade)evade.onclick=()=>{
+    const a=state.anim;
+    if(!a||a.flight)return;
+    a.avoiding=true;a.swing=null;a.selectedShot=null;a.power=false;
+    state.shot=null;state.secondaryShot=null;state.queuedPower=false;state.powerArmed=false;state.lastShotInput=null;heldShotKeys.clear();
+    touch.querySelectorAll('.selected').forEach(button=>button.classList.remove('selected'));
+    controls.querySelectorAll('.selected').forEach(button=>button.classList.remove('selected'));
+    touch.querySelector('[data-power]')?.setAttribute('aria-pressed','false');
+    message('EVADING','BAT WITHDRAWN');
+  };
 }
-function select(v, keyboardPower=false){if(isBat){if(state.phase==='animating'&&state.anim?.flight)return;let now=performance.now(),previous=state.lastShotInput,held=[...heldShotKeys].find(name=>name!==v);state.secondaryShot=held||(previous&&previous.name!==v&&now-previous.time<650?previous.name:null);state.lastShotInput={name:v,time:now};state.shot=v;state.queuedPower=powerRemaining(state.powerUsed)>0&&!!(state.powerArmed||keyboardPower);if(state.phase==='animating')swing();else if(state.phase==='playing')state.queuedShot=v}else if(state.phase==='playing'){state.line=v;startDelivery();return}renderUI()}
+function select(v, keyboardPower=false){if(isBat){if(state.phase==='animating'&&state.anim?.flight)return;let now=performance.now(),previous=state.lastShotInput,held=[...heldShotKeys].find(name=>name!==v);state.secondaryShot=held||(previous&&previous.name!==v&&now-previous.time<650?previous.name:null);state.lastShotInput={name:v,time:now};state.shot=v;state.queuedPower=powerRemaining(state.powerUsed)>0&&!!(state.powerArmed||keyboardPower);if(state.phase==='animating'){state.anim.avoiding=false;swing()}else if(state.phase==='playing')state.queuedShot=v;
+ if(era.modern){
+   for(const panel of [controls,touch]){
+     for(const button of panel.querySelectorAll('[data-choice]')){
+       const choice=button.dataset.choice;
+       button.classList.toggle('selected',choice===state.shot||choice===state.secondaryShot);
+     }
+   }
+   return;
+ }
+}else if(state.phase==='playing'){state.line=v;startDelivery();return}renderUI()}
 function togglePower(){if(!humanBatting()||state.anim?.flight||powerRemaining(state.powerUsed)===0)return;state.powerArmed=!state.powerArmed;state.queuedPower=state.powerArmed;if(state.anim&&state.anim.swing!==null)state.anim.power=state.powerArmed;renderUI()}
 
 selectShotFromKeyboard=(shot,power)=>select(shot,power);
@@ -339,7 +375,7 @@ touch.querySelectorAll('[data-power]').forEach(b=>b.onclick=e=>{e.stopPropagatio
 touch.querySelectorAll('[data-return]').forEach(b=>b.onclick=e=>{e.stopPropagation();callBack()});
 $('#play-status').textContent=running?'BALL IN PLAY • RUN OR STOP':isBat?(state.phase==='animating'?'COMPUTER BOWLING • TIME YOUR SHOT':'COMPUTER BOWLING • NEXT DELIVERY SOON'):(state.phase==='animating'?'COMPUTER BATTING • BALL IN PLAY':'COMPUTER BATTING • CHOOSE YOUR LENGTH');
 }
-function showSetup(){let root=$('#modal-root');root.innerHTML=`<div class="modal-wrap"><div class="modal"><div class="modal-top"><div><div class="eyebrow">YOUR MATCH, YOUR RULES</div><h2>SELECT YOUR SIDES<span style="color:#e4c45f">.</span></h2></div><button class="close" aria-label="Close">×</button></div><div class="setup"><div class="setup-grid"><div class="setup-card"><div class="setup-label">01 / YOUR TEAM</div><select id="home-select">${Object.keys(teams).map(t=>`<option ${t===home?'selected':''}>${t}</option>`).join('')}</select><div class="roster" id="home-roster"></div></div><div class="setup-card"><div class="setup-label">02 / OPPOSITION</div><select id="away-select">${Object.keys(teams).map(t=>`<option ${t===away?'selected':''}>${t}</option>`).join('')}</select><div class="roster" id="away-roster"></div></div></div><div class="setup-options"><div class="option">MATCH FORMAT<b>5 OVERS / SIDE</b></div><div class="option">VENUE<b>THE GRAND OVAL</b></div><div class="option">YOUR ROLE<b>BAT & BOWL</b></div></div><label class="match-conditions" for="match-conditions">MATCH CONDITIONS <select id="match-conditions"><option value="day" ${!night?'selected':''}>DAY MATCH</option><option value="night" ${night?'selected':''}>NIGHT MATCH · FLOODLIGHTS</option></select></label><label class="match-conditions">OVERS PER SIDE <select id="match-overs">${MATCH_FORMATS.map(format=>`<option value="${format.overs}" ${format.overs===DEFAULT_MATCH_OVERS?'selected':''}>${format.label}</option>`).join('')}</select></label><label class="match-conditions">CALL THE TOSS <select id="toss-call"><option value="heads">HEADS</option><option value="tails">TAILS</option></select></label><label class="match-conditions">IF YOU WIN <select id="toss-decision"><option value="bat">BAT FIRST</option><option value="bowl">BOWL FIRST</option></select></label><label class="match-conditions">DIFFICULTY <select id="difficulty"><option value="normal">NORMAL</option><option value="easy">EASY · MORE BOUNDARIES</option></select></label><div class="setup-replays">ACTION REPLAYS <label><input type="checkbox" id="replay-boundaries"> BOUNDARIES</label><label><input type="checkbox" id="replay-wickets"> WICKETS</label></div><div class="setup-footer"><p>Move players up or down to select your XI. The first 11 play; R1–R4 are reserves. Top order bats first.</p><button class="primary" id="start">LET'S PLAY CRICKET &nbsp; →</button></div></div></div></div>`;$('.close').onclick=()=>root.innerHTML='';function roster(side){let team=side==='home'?home:away;let el=$('#'+side+'-roster');el.innerHTML=squads[team].map((p,n)=>`<div class="player ${n>=11?'reserve':''}"><b>${n>=11?'R'+(n-10):String(n+1).padStart(2,'0')}</b> ${p}${era.modern?`<em class="roster-role">${profile(p).role||'batter'}</em>`:''}<span><button data-move="${n}" data-dir="-1" title="Move up">↑</button><button data-move="${n}" data-dir="1" title="Move down">↓</button></span></div>`).join('');el.querySelectorAll('button').forEach(b=>b.onclick=()=>{let n=+b.dataset.move,to=n+(+b.dataset.dir);if(to<0||to>=squads[team].length)return;[squads[team][n],squads[team][to]]=[squads[team][to],squads[team][n]];roster(side)})}roster('home');roster('away');$('#home-select').onchange=e=>{home=e.target.value;if(home===away){away=Object.keys(teams).find(t=>t!==home);$('#away-select').value=away}roster('home');roster('away')};$('#away-select').onchange=e=>{away=e.target.value;if(away===home){home=Object.keys(teams).find(t=>t!==away);$('#home-select').value=home}roster('home');roster('away')};$('#start').onclick=async()=>{const button=$('#start');button.disabled=true;button.textContent='PREPARING MATCH…';try{await initPhysics({modern:era.modern})}catch(error){button.disabled=false;button.textContent='LET’S PLAY CRICKET →';alert('Could not initialize the local physics engine. Please reload and try again.');console.error(error);return}manualPaused=false;$('#pause-game').textContent='Ⅱ';$('#pause-game').setAttribute('aria-label','Pause match');thawMatch();difficulty=$('#difficulty').value;matchOvers=matchFormat($('#match-overs').value).overs;$('#match-format').textContent=`${matchOvers} overs per side`;replayBoundaries=$('#replay-boundaries').checked;replayWickets=$('#replay-wickets').checked;if(era.modern){venueId=$('#venue-select').value;modernStadium.setVenue(updateVenueUI(venueId));for(const[k,m]of Object.entries(adMaterials)){m.map.dispose();m.map=modernBoardTexture(k);m.needsUpdate=true;}}setTimeOfDay($('#match-conditions').value==='night');const toss=resolveToss($('#toss-call').value,$('#toss-decision').value),first=toss.userBatsFirst?home:away;root.innerHTML='';claimAudioFocus();state={...state,freeHit:false,phase:'playing',innings:0,firstBatting:first,toss,shot:null,score:[0,0],wickets:[0,0],balls:[0,0],extras:[0,0],stats:createMatchStats(),history:[],batIndex:0,striker:0,partner:1,nextBatter:2,bowlIndex:8,queuedShot:null,queuedPower:false,powerArmed:false,powerUsed:0,secondaryShot:null,lastShotInput:null,anim:null,replay:null,autoAt:performance.now()+3500};resetWickets();$('#replay-ui').classList.add('hidden');setKit();updateCrowd();if(!userMuted)enableSound();syncPlayers();renderUI();introducePlayers('start')};decorateSetup(era,venueId)}
+function showSetup(){let root=$('#modal-root');root.innerHTML=`<div class="modal-wrap"><div class="modal"><div class="modal-top"><div><div class="eyebrow">YOUR MATCH, YOUR RULES</div><h2>SELECT YOUR SIDES<span style="color:#e4c45f">.</span></h2></div><button class="close" aria-label="Close">×</button></div><div class="setup"><div class="setup-grid"><div class="setup-card"><div class="setup-label">01 / YOUR TEAM</div><select id="home-select">${Object.keys(teams).map(t=>`<option ${t===home?'selected':''}>${t}</option>`).join('')}</select><div class="roster" id="home-roster"></div></div><div class="setup-card"><div class="setup-label">02 / OPPOSITION</div><select id="away-select">${Object.keys(teams).map(t=>`<option ${t===away?'selected':''}>${t}</option>`).join('')}</select><div class="roster" id="away-roster"></div></div></div><div class="setup-options"><div class="option">MATCH FORMAT<b>5 OVERS / SIDE</b></div><div class="option">VENUE<b>THE GRAND OVAL</b></div><div class="option">YOUR ROLE<b>BAT & BOWL</b></div></div><label class="match-conditions" for="match-conditions">MATCH CONDITIONS <select id="match-conditions"><option value="day" ${!night?'selected':''}>DAY MATCH</option><option value="night" ${night?'selected':''}>NIGHT MATCH · FLOODLIGHTS</option></select></label><label class="match-conditions">OVERS PER SIDE <select id="match-overs">${MATCH_FORMATS.map(format=>`<option value="${format.overs}" ${format.overs===DEFAULT_MATCH_OVERS?'selected':''}>${format.label}</option>`).join('')}</select></label><label class="match-conditions">CALL THE TOSS <select id="toss-call"><option value="heads">HEADS</option><option value="tails">TAILS</option></select></label><label class="match-conditions">IF YOU WIN <select id="toss-decision"><option value="bat">BAT FIRST</option><option value="bowl">BOWL FIRST</option></select></label><label class="match-conditions">DIFFICULTY <select id="difficulty"><option value="normal">NORMAL</option><option value="easy">EASY · MORE BOUNDARIES</option></select></label><div class="setup-replays">ACTION REPLAYS <label><input type="checkbox" id="replay-boundaries"> BOUNDARIES</label><label><input type="checkbox" id="replay-wickets"> WICKETS</label></div><div class="setup-footer"><p>Move players up or down to select your XI. The first 11 play; R1–R4 are reserves. Top order bats first.</p><button class="primary" id="start">LET'S PLAY CRICKET &nbsp; →</button></div></div></div></div>`;$('.close').onclick=()=>root.innerHTML='';function roster(side){let team=side==='home'?home:away;let el=$('#'+side+'-roster');el.innerHTML=squads[team].map((p,n)=>`<div class="player ${n>=11?'reserve':''}"><b>${n>=11?'R'+(n-10):String(n+1).padStart(2,'0')}</b> ${p}${era.modern?`<em class="roster-role">${profile(p).role||'batter'}</em>`:''}<span><button data-move="${n}" data-dir="-1" title="Move up">↑</button><button data-move="${n}" data-dir="1" title="Move down">↓</button></span></div>`).join('');el.querySelectorAll('button').forEach(b=>b.onclick=()=>{let n=+b.dataset.move,to=n+(+b.dataset.dir);if(to<0||to>=squads[team].length)return;[squads[team][n],squads[team][to]]=[squads[team][to],squads[team][n]];roster(side)})}roster('home');roster('away');$('#home-select').onchange=e=>{home=e.target.value;if(home===away){away=Object.keys(teams).find(t=>t!==home);$('#away-select').value=away}roster('home');roster('away')};$('#away-select').onchange=e=>{away=e.target.value;if(away===home){home=Object.keys(teams).find(t=>t!==away);$('#home-select').value=home}roster('home');roster('away')};$('#start').onclick=async()=>{const button=$('#start');button.disabled=true;button.textContent='PREPARING MATCH…';try{await initPhysics({modern:era.modern})}catch(error){button.disabled=false;button.textContent='LET’S PLAY CRICKET →';alert('Could not initialize the local physics engine. Please reload and try again.');console.error(error);return}manualPaused=false;$('#pause-game').textContent='Ⅱ';$('#pause-game').setAttribute('aria-label','Pause match');thawMatch();difficulty=$('#difficulty').value;matchOvers=matchFormat($('#match-overs').value).overs;$('#match-format').textContent=`${matchOvers} overs per side`;replayBoundaries=$('#replay-boundaries').checked;replayWickets=$('#replay-wickets').checked;if(era.modern){venueId=$('#venue-select').value;modernStadium.setVenue(updateVenueUI(venueId));for(const[k,m]of Object.entries(adMaterials)){m.map.dispose();m.map=modernBoardTexture(k);m.needsUpdate=true;}}setTimeOfDay($('#match-conditions').value==='night');const toss=resolveToss($('#toss-call').value,$('#toss-decision').value),first=toss.userBatsFirst?home:away;root.innerHTML='';claimAudioFocus();state={...state,fieldPlan:'auto',overRate:[],freeHit:false,phase:'playing',innings:0,firstBatting:first,toss,shot:null,score:[0,0],wickets:[0,0],balls:[0,0],extras:[0,0],stats:createMatchStats(),history:[],batIndex:0,striker:0,partner:1,nextBatter:2,bowlIndex:8,queuedShot:null,queuedPower:false,powerArmed:false,powerUsed:0,secondaryShot:null,lastShotInput:null,anim:null,replay:null,autoAt:performance.now()+3500};resetWickets();$('#replay-ui').classList.add('hidden');setKit();updateCrowd();if(!userMuted)enableSound();syncPlayers();renderUI();introducePlayers('start')};decorateSetup(era,venueId)}
 function message(a,b=''){ $('#message').innerHTML=`${a}<br><span style="color:#aabbab">${b}</span>` }
 function stopRunUp(){
  const a=state.anim;
@@ -349,14 +385,17 @@ function stopRunUp(){
  benchmark?.interrupt();renderUI();
  message('DEAD BALL','BOWLER STOPPED BEFORE RELEASE');announce('Dead ball.');
 }
+function placeModernField(){
+   const l=lineup(),spin=bowlingProfile(l.bowler).spin;
+   const positions=fieldForDelivery({hand:profile(l.striker).bat,spin,balls:state.balls[state.innings],overs:matchOvers,slowOverRate:slowOverRateActive(),fieldPlan:humanBatting()?'auto':state.fieldPlan});
+   positions.forEach(([x,z],i)=>fielders[i].userData.home.set(x,0,z));
+   keeper.userData.standingZ=spin?11.8:15.5;
+}
 function startDelivery(){if(state.phase!=='playing')return;
  benchmark?.begin();
  const home=resetBowler();
  if(era.modern){
-   const l=lineup(),spin=bowlingProfile(l.bowler).spin;
-   const positions=fieldForDelivery({hand:profile(l.striker).bat,spin,balls:state.balls[state.innings],overs:matchOvers});
-   positions.forEach(([x,z],i)=>fielders[i].userData.home.set(x,0,z));
-   keeper.userData.standingZ=spin?11.8:15.5;
+   placeModernField();
    resetMotor(batter);resetMotor(nonStriker);}placeNonStriker();resetKeeper();resetFielders();modernFielding?.begin();applyBattingStance(batter,profile(lineup().striker).bat,true);applyBattingStance(nonStriker,profile(lineup().partner).bat,false);
  const delivery=pickDelivery(state.line,humanBatting()),length=delivery.type;
  const bowlerName=lineup().bowler, bowling=bowlingProfile(bowlerName), variation=era.modern?modernBowlingVariation(bowlerName,bowler.userData.bowlHand):bowlingVariation(bowlerName);
@@ -364,16 +403,22 @@ function startDelivery(){if(state.phase!=='playing')return;
  const ballsLeft=Math.max(1,matchOvers*6-state.balls[state.innings]);
  const requiredRate=state.innings===1?(state.score[0]+1-state.score[1])/ballsLeft:1;
  state.phase='animating';setCrowdMood('delivery');state.anim={start:performance.now(),last:performance.now(),swing:state.queuedShot?1.8+travel-.3:null,selectedShot:state.queuedShot||null,secondaryShot:state.secondaryShot,power:!!state.queuedPower,variation,freeHit:era.modern&&!!state.freeHit,spin:bowling.spin,speed,flight:false,live:false,length,lineX,travel,noBall:delivery.noBall,wide:era.modern?false:delivery.wide,guardX:batter.position.x,battingHand:profile(lineup().striker).bat,called:false,bowlerX:home.x,bowlerArm:home.arm,cpuShot:era.modern?opponentStroke(length,requiredRate,Math.random,{ballsLeft,wicketsInHand:10-state.wickets[state.innings]}):['Defend','Left cover','Right cover','Attacking drive','Sweep'][Math.floor(Math.random()*5)],impact:1.8+travel,runs:0,runProgress:0,runActive:false,runAllowed:false,dismissal:null};
- state.queuedShot=null;message(state.anim.freeHit?'FREE HIT':humanBatting()?'THE BOWLER IS IN':'RUNNING IN TO BOWL',`${length.toUpperCase()} · ${variation.name.toUpperCase()}`);renderUI()
+ state.queuedShot=null;message(state.anim.freeHit?'FREE HIT':slowOverRateActive()?'SLOW OVER RATE • FOUR OUTSIDE':humanBatting()?'THE BOWLER IS IN':'RUNNING IN TO BOWL',`${length.toUpperCase()} · ${variation.name.toUpperCase()}`);renderUI()
 }
 function swing(){if(state.phase!=='animating'||!humanBatting()||!state.anim||state.anim.flight)return;if(state.anim.swing!==null){state.anim.selectedShot=state.shot;state.anim.secondaryShot=state.secondaryShot;state.anim.power=!!state.queuedPower;message(state.shot.toUpperCase()+' SHOT',state.anim.power?'POWER SHOT':state.anim.secondaryShot?'COMBINATION SHOT':'SHOT CHANGED');return}benchmark?.swing();const pressed=era.modern?(state.anim.simTime||0):(performance.now()-state.anim.start)/1000;state.anim.swing=Math.max(pressed,state.anim.impact-.35);if(era.modern)state.anim.preparationAt=pressed;state.anim.selectedShot=state.shot;state.anim.secondaryShot=state.secondaryShot;state.anim.power=!!state.queuedPower;let timing=Math.abs(state.anim.swing-state.anim.impact);message(state.shot.toUpperCase()+' SHOT',timing<.42?'GOOD TIMING':state.anim.swing<state.anim.impact?'EARLY SHOT':'LATE SHOT');}
 function runFeedback(action){if(action==='back')message('GO BACK!','RETURN TO YOUR CREASE');else if(action==='queued')message('COMING BACK FOR ANOTHER!','NEXT RUN QUEUED');else if(action==='started')message('RUNNING!','WATCH FOR THE THROW');renderUI()}
 function toggleRun(){let a=state.anim;if(!a?.live||!humanBatting())return;runFeedback(requestRun(a))}
 function callBack(){let a=state.anim;if(!a?.live||!humanBatting())return;runFeedback(callDown(a))}
 
+function winningExtra(a){
+ if(!era.modern || state.innings!==1 || state.score[1]!==state.score[0] || !(a.wide||a.noBall))return false;
+ a.flight=true;
+ endPlay(0,null);
+ return true;
+}
 function beginFlight(now){let a=state.anim;let cue=$('#batting-cue');if(cue)cue.hidden=true;a.flight=true;a.flightStart=now;a.flightSimTime=a.simTime;const isHuman=humanBatting();if(isHuman){const boost=consumePower(state.powerUsed,!!(a.power&&a.swing!==null));state.powerUsed=boost.used;a.power=boost.enabled}const timing=isHuman?(a.swing===null?99:Math.abs(a.swing+(era.modern?.3:0)-a.impact)):.15+Math.random()*.35;
  a.lineX=ball.position.x;let shot=isHuman?(a.selectedShot||state.shot):a.cpuShot;state.shot=null;state.queuedShot=null;state.powerArmed=false;state.queuedPower=false;state.secondaryShot=null;state.lastShotInput=null;heldShotKeys.clear();let easyBatting=isHuman&&difficulty==='easy';let miss=(!era.modern&&a.wide)||!canReachDelivery(shot,era.modern?ball.position.y/CRICKET.athleteScale:ball.position.y,era.modern?a.lineX/CRICKET.athleteScale:a.lineX,easyBatting)||timing>(easyBatting?1.15:.75)||Math.random()<(easyBatting?.01:timing>.42?.2:.04);
- if(era.modern){a.contactPoint=ball.position.clone();if(!a.deliveryBounced&&ball.position.y>1.05)a.noBall=true;a.wide=judgeWide({x:a.lineX,height:ball.position.y,hand:a.battingHand,guardX:a.guardX,releaseX:a.releaseGuardX,strikerX:batter.position.x,bounced:!!a.deliveryBounced,noBall:a.noBall,touched:!miss});if(a.noBall&&!a.called){a.called=true;umpire.userData.arms[0].rotation.z=-Math.PI/2;message('NO BALL',a.fieldFault||'ONE EXTRA • BALL STILL LIVE');announce('No ball. One extra.');}}
+ if(era.modern){a.contactPoint=ball.position.clone();if(!a.deliveryBounced&&ball.position.y>1.05)a.noBall=true;a.wide=judgeWide({x:a.lineX,height:ball.position.y,hand:a.battingHand,guardX:a.guardX,releaseX:a.releaseGuardX,strikerX:batter.position.x,bounced:!!a.deliveryBounced,noBall:a.noBall,touched:!miss});if(a.noBall&&!a.called&&!a.ending){a.called=true;umpire.userData.arms[0].rotation.z=-Math.PI/2;message('NO BALL',a.fieldFault||'ONE EXTRA • BALL STILL LIVE');announce('No ball. One extra.');if(winningExtra(a))return;}}
  if(miss){state.powerArmed=false;state.queuedPower=false;setCrowdMood('tension');if(Math.abs(a.lineX)<.5)crowdReaction('gasp');let wicket=era.modern?sweptWicketHit(ball.position,ball.position.clone().addScaledVector(a.deliveryVelocity,Math.max(0,(10.5-ball.position.z)/a.deliveryVelocity.z)),'keeper'):wicketIntersection({x:a.lineX,y:ball.position.y,releaseX:a.releasePoint.x,releaseZ:a.releasePoint.z,type:a.length});
   if(!era.modern&&wicket&&!a.noBall&&!a.wide&&!a.freeHit){a.live=false;a.phase='miss';a.missStart=ball.position.clone();const padContact=(a.swing!==null||!isHuman)&&Math.abs(a.lineX-batter.position.x)<.24&&Math.random()<.18;a.dismissal=padContact?'LBW':'BOWLED';a.missTarget=padContact?new THREE.Vector3(a.lineX,.65,9.55):new THREE.Vector3(wicket.x,wicket.y,wicket.z);a.phaseAt=now}
   else {resetBallPhysics();a.bye=true;a.live=true;a.phase='keeper-chase';a.bounced=era.modern?!!a.deliveryBounced:a.length!=='Full toss';a.velocity=era.modern?a.deliveryVelocity.clone():new THREE.Vector3((a.lineX-a.releasePoint.x)/a.travel*.38,-.2,20.12/a.travel*.82);a.runAllowed=false;a.runActive=false;a.runProgress=0;a.runs=0;message(!era.modern&&a.wide?'WIDE BALL':'BEATEN','KEEPER MOVES TO COLLECT')}
@@ -430,10 +475,11 @@ function modernPickup(a,dt,now){
 }
 
 function endPlay(outcome,dismissal){let a=state.anim;if(!a||a.ending)return;dismissal=scoreDelivery({runs:outcome,dismissal,noBall:a.noBall,wide:a.wide,freeHit:a.freeHit}).dismissal;a.ending=true;a.live=false;a.outcome=outcome;a.dismissal=dismissal||null;a.phase='settle';a.phaseAt=performance.now();if(['BOWLED','RUN OUT','STUMPED','HIT WICKET'].includes(dismissal))breakWicket(a.phaseAt);
- if(dismissal){message('WICKET!',dismissal);playEffect('wicket');setCrowdMood('celebrate');crowdReaction('wicket');announce(dismissal==='HIT WICKET'?'Hit wicket!':dismissal==='STUMPED'?'Stumped! The keeper takes the bails off.':dismissal==='LBW'?'That is leg before wicket!':dismissal==='BOWLED'?'Bowled him!':dismissal==='CAUGHT & BOWLED'?'Caught and bowled!':dismissal==='RUN OUT'?'Run out! The keeper takes the bails off.':'Caught in the field!')}
+ if(a.deadReason){message('NO BALL • DEAD BALL',a.deadReason);announce('No ball. Dead ball. One extra.');}
+ else if(dismissal){message('WICKET!',dismissal);playEffect('wicket');setCrowdMood('celebrate');crowdReaction('wicket');announce(dismissal==='HIT WICKET'?'Hit wicket!':dismissal==='STUMPED'?'Stumped! The keeper takes the bails off.':dismissal==='LBW'?'That is leg before wicket!':dismissal==='BOWLED'?'Bowled him!':dismissal==='CAUGHT & BOWLED'?'Caught and bowled!':dismissal==='RUN OUT'?'Run out! The keeper takes the bails off.':'Caught in the field!')}
  else if(a.overthrowRuns!==undefined&&a.boundaryOutcome===4){message('FOUR OVERTHROWS',outcome+' RUNS');setCrowdMood('celebrate');crowdReaction('four');announce('Four overthrows.');}
  else if(outcome===4||outcome===6){message(a.wide?'FIVE WIDES!':a.legBye?'FOUR LEG BYES!':a.bye?'FOUR BYES!':outcome===4?'FOUR!':'SIX!', 'BOUNDARY');setCrowdMood('celebrate');crowdReaction(outcome===6?'six':'four');announce(outcome===4?'That has raced away for four!':'That is a magnificent six!')}
- else if(a.noBall||a.wide){setCrowdMood('tension');message(a.noBall?'NO BALL':'WIDE',outcome?`${outcome} RUN${outcome===1?'':'S'} + 1 EXTRA`:'1 EXTRA • REBOWL');if(!era.modern||!(a.called||a.wideCalled))announce(a.noBall?'No ball. One extra.':'Wide ball. One extra.') }
+ else if(a.noBall||a.wide){setCrowdMood('tension');message(a.noBall?'NO BALL':'WIDE',outcome?`${outcome} RUN${outcome===1?'':'S'} + 1 EXTRA`:state.innings===1&&state.score[1]===state.score[0]?'WINNING EXTRA':'1 EXTRA • REBOWL');if(!era.modern||!(a.called||a.wideCalled))announce(a.noBall?'No ball. One extra.':'Wide ball. One extra.') }
  else {setCrowdMood(outcome?'shot':'quiet');if(outcome>0)crowdReaction('runs');message(outcome===0?'DOT BALL':`${outcome} RUN${outcome===1?'':'S'}`,'BALL RETURNED');announce(outcome===0?'No run.':outcome===1?'They take a single.':`They come back for ${outcome}.`)}renderUI();$('#play-status').textContent=dismissal||'PLAY COMPLETE';
 }
 // Record rendered transforms so replay shows the actual delivery, shot and fielding.
@@ -476,7 +522,7 @@ function inningsCard(index){
 }
 function exitMatchFullscreen(){if(document.fullscreenElement)document.exitFullscreen().catch(()=>{})}
 function showInningsSummary(){exitMatchFullscreen();$('#modal-root').innerHTML=`<div class="modal-wrap"><div class="modal scorecard-modal"><div class="eyebrow">INNINGS BREAK · ${secondBatting().toUpperCase()} NEED ${state.score[0]+1}</div><h2>FIRST INNINGS</h2>${inningsCard(0)}<button class="primary" id="next-innings">START THE CHASE →</button></div></div>`;$('#next-innings').onclick=()=>{$('#modal-root').innerHTML='';state.innings=1;state.freeHit=false;state.striker=0;state.partner=1;state.nextBatter=2;state.powerUsed=0;setKit();message('INNINGS BREAK',`${secondBatting().toUpperCase()} NEED ${state.score[0]+1} TO WIN`);announce(`${secondBatting()} need ${state.score[0]+1} to win.`);syncPlayers();renderUI();introducePlayers('innings')}}
-function showResult(){exitMatchFullscreen();setCrowdMood('celebrate');crowdReaction('finish');let a=state.score[0],b=state.score[1],result=b>a?`${secondBatting()} win by ${10-state.wickets[1]} wickets`:a>b?`${firstBatting()} win by ${a-b} runs`:'Match tied!';$('#modal-root').innerHTML=`<div class="modal-wrap"><div class="modal scorecard-modal"><div class="eyebrow">FULL TIME AT ${era.modern?VENUES[venueId].name.toUpperCase():'THE GRAND OVAL'}</div><h2>${result}</h2>${inningsCard(0)}${inningsCard(1)}<button class="primary" id="again">PLAY AGAIN →</button></div></div>`;$('#again').onclick=()=>{state.phase='ready';$('#modal-root').innerHTML='';renderUI();showSetup()}}
+function showResult(){exitMatchFullscreen();setCrowdMood('celebrate');crowdReaction('finish');let a=state.score[0],b=state.score[1],result=b>a?`${secondBatting()} win by ${10-state.wickets[1]} wicket${state.wickets[1]===9?'':'s'}`:a>b?`${firstBatting()} win by ${a-b} run${a-b===1?'':'s'}`:'Match tied!';$('#modal-root').innerHTML=`<div class="modal-wrap"><div class="modal scorecard-modal"><div class="eyebrow">FULL TIME AT ${era.modern?VENUES[venueId].name.toUpperCase():'THE GRAND OVAL'}</div><h2>${result}</h2>${inningsCard(0)}${inningsCard(1)}<button class="primary" id="again">PLAY AGAIN →</button></div></div>`;$('#again').onclick=()=>{state.phase='ready';$('#modal-root').innerHTML='';renderUI();showSetup()}}
 
 function cycleCamera(){state.camera=(state.camera+1)%cameraNames.length;$('#camera').innerHTML=`◈ &nbsp; CAMERA: ${cameraNames[state.camera]} [C]`}
 $('#camera').onclick=cycleCamera;$('#newmatch').onclick=showSetup;$('#help').onclick=()=>{alert('BAT: The computer bowls automatically. As the ball arrives, press LEFT or RIGHT for cover drives, UP for an attacking drive, DOWN to defend, SPACE to sweep, or 1–5 for hook, pull, cut, flick and straight drive. Hold SHIFT with a shot for a super boost (twice per over); two quick shot keys blend their directions. Tap POWER on touch screens.\n\nBOWL: Choose a length with the buttons; arrows select FULL / GOOD / SHORT, Q selects YORKER, E selects BOUNCER and F selects FULL TOSS. Choosing a length bowls immediately. The computer bats.\n\nC cycles cameras. Sound starts with the match. During a run, Press DOWN early to turn back, or after halfway to queue another run. At the crease, DOWN starts another run. Press R or tap RUN/NEXT to start or queue a run. Choose 2, 5, 10 or 20 overs per side (5 by default). Bowlers can bowl at most 1, 1, 2 or 4 overs respectively.')};
@@ -513,7 +559,7 @@ function setPlayControlsInert(inert){
  $('#controls').inert=inert;$('#stage-controls').inert=inert;
 }
 setPlayControlsInert(pausedAt!==null);
-function freezeMatch(){setPlayControlsInert(true);if(pausedAt===null)pausedAt=performance.now();if(audioCtx&&audioCtx.state==='running')audioCtx.suspend().catch(()=>{});if('speechSynthesis' in window)speechSynthesis.cancel()}
+function freezeMatch(){if(state.overRate?.[state.innings])state.overRate[state.innings].last=null;setPlayControlsInert(true);if(pausedAt===null)pausedAt=performance.now();if(audioCtx&&audioCtx.state==='running')audioCtx.suspend().catch(()=>{});if('speechSynthesis' in window)speechSynthesis.cancel()}
 function thawMatch(){if(document.hidden||externallyPaused||manualPaused||pausedAt===null)return;let now=performance.now(),gap=now-pausedAt;pausedAt=null;setPlayControlsInert(false);let a=state.anim;if(a)for(const key of ['start','last','lastCapture','phaseAt','flightStart','wicketBrokenAt'])if(typeof a[key]==='number')a[key]+=gap;if(state.replay)state.replay.start+=gap;if(state.introUntil)state.introUntil+=gap;if(state.autoAt)state.autoAt+=gap;if(audioCtx&&!state.muted)audioCtx.resume().catch(()=>{})}
 function claimAudioFocus(){if(matchChannel)matchChannel.postMessage({type:'claim',id:tabIdentity});else{try{localStorage.setItem('cricket97-active-tab',JSON.stringify({id:tabIdentity,t:Date.now()}))}catch{}}}
 function receiveClaim(id){if(id===tabIdentity)return;if(state.phase==='ready'&&(!audioCtx||state.muted))return;externallyPaused=true;freezeMatch();$('#tab-pause').classList.remove('hidden')}
@@ -568,7 +614,27 @@ function updateDeliveryStats(now) {
   lastDeliveryFrame = active ? now : null;
 }
 document.addEventListener('visibilitychange', () => { lastDeliveryFrame = null; });
+function slowOverRateActive(){
+ const clock=state.overRate?.[state.innings];
+ return !!clock && state.balls[state.innings]>=clock.fromBall;
+}
+function updateOverRate(now){
+ if(!era.modern || matchOvers!==20)return;
+ const clocks=state.overRate??=[];
+ const clock=clocks[state.innings]??={elapsed:0,last:null,fromBall:Infinity};
+ // Only charge playable match time. Presentation, pause and hidden tabs
+ // have their own clocks and cannot use up the fielding side's allowance.
+ if(pausedAt!==null || document.hidden || !['playing','animating'].includes(state.phase)){
+   clock.last=null;return;
+ }
+ if(clock.last!==null)clock.elapsed+=Math.max(0,now-clock.last);
+ clock.last=now;
+ if(clock.elapsed>=85*60*1000 && clock.fromBall===Infinity){
+   clock.fromBall=sanctionFromBall(state.balls[state.innings],matchOvers,!!state.anim);
+ }
+}
 function animate(now){
+ updateOverRate(now);
  const elapsed=previousFrame?(now-previousFrame)/1000:1/60;
  if(renderQuality&&state.phase==='animating'&&pausedAt===null&&!document.hidden){
    const ratio=renderQuality.observe(elapsed*1000);
@@ -590,6 +656,13 @@ function animate(now){
   if(era.modern&&a.flight&&a.phase!=='field')modernFielding.finishActions(dt,ball.position,[a.fielder,a.receiver]);
   let swingAt=humanBatting()?a.swing:a.impact-(era.modern?.3:.22);
   const preparationAt=a.preparationAt??swingAt;
+  if(a.avoiding&&!a.flight&&a.releasePoint){
+    const away=Math.sign(a.guardX-a.lineX)||(a.battingHand==='left'?1:-1);
+    const displacement=Math.min(.3,Math.abs(batter.position.x-a.guardX)+1.6*dt);
+    batter.position.x=a.guardX+away*displacement;
+    poseBattingReady(batter,{hand:a.battingHand});
+    a.attemptedAvoidance=displacement>0;
+  }
   if(era.modern&&!a.regainingGround&&swingAt!==null&&t>=preparationAt&&(t-swingAt)<.75&&(!a.runActive||a.simTime-a.flightSimTime<.25)){
     const preparation=Math.min(.2,Math.max(0,swingAt-preparationAt)/.7);
     let phase=t<swingAt?(t-preparationAt)/.7:Math.max(preparation,(t-swingAt)/.7);
@@ -616,15 +689,19 @@ function animate(now){
    else if(era.modern){
     let flightStep=dt;
     if(!a.releasePoint){a.releasePoint=handPosition(bowler,a.bowlerArm);
-      a.fieldFault=fieldRestrictionFault({fielders,keeper,bowler,hand:a.battingHand,balls:state.balls[state.innings],overs:matchOvers});
+      a.fieldFault=fieldRestrictionFault({fielders,keeper,bowler,hand:a.battingHand,balls:state.balls[state.innings],overs:matchOvers,slowOverRate:slowOverRateActive()});
       if(a.fieldFault)a.noBall=true;
       if(!humanBatting())renderUI();ball.position.copy(a.releasePoint);flightStep=Math.min(dt,Math.max(0,t-1.8));a.releaseGuardX=batter.position.x;const launch=deliveryLaunch({release:a.releasePoint,line:a.lineX,travel:a.travel,length:a.length,movement:a.variation.movement,spin:a.spin,turn:a.variation.turn,pitch:venueId});a.deliveryVelocity=new THREE.Vector3(launch.velocity.x,launch.velocity.y,launch.velocity.z);a.deliveryForces=launch;resetBallPhysics();setBallSpin(launch.spin);$('#delivery-speed').textContent=`${a.speed} km/h`;$('#delivery-speed').hidden=false;}
     const before=ball.position.clone();const wasBounced=a.deliveryBounced;a.deliveryBounced=advanceBall(ball.position,a.deliveryVelocity,flightStep,a.deliveryBounced,a.deliveryForces);
+    if(a.deliveryBounced && ball.position.z<9.2 && a.deliveryVelocity.lengthSq()<.0001){
+      a.noBall=true;a.deadReason='DELIVERY CAME TO REST';a.flight=true;
+      endPlay(0,null);
+    }
     if(!wasBounced&&a.deliveryBounced)a.pitchX=a.deliveryForces.pitchX??ball.position.x;
     if(ball.position.z>=9.2){const fraction=(9.2-before.z)/(ball.position.z-before.z||1);ball.position.lerpVectors(before,ball.position.clone(),THREE.MathUtils.clamp(fraction,0,1));a.impact=t;}
-    if(a.noBall&&!a.called){a.called=true;umpire.userData.arms[0].rotation.z=-Math.PI/2;message('NO BALL',a.fieldFault||'ONE EXTRA • BALL STILL LIVE');announce('No ball. One extra.')}
-   }else {if(!a.releasePoint){a.releasePoint=handPosition(bowler,a.bowlerArm);$('#delivery-speed').textContent=`${a.speed} km/h`;$('#delivery-speed').hidden=false}let p=Math.min((t-1.8)/a.travel,1),height=deliveryHeight(a.length,p)+(a.releasePoint.y-2.7)*(1-p);ball.position.set(THREE.MathUtils.lerp(a.releasePoint.x,a.lineX,p)+(a.spin&&p>.62?Math.sin((p-.62)/.38*Math.PI)*a.variation.movement*.35:Math.sin(Math.PI*p)*a.variation.movement*.5),height,THREE.MathUtils.lerp(a.releasePoint.z,9.2,p));if(a.noBall&&!a.called){a.called=true;umpire.userData.arms[0].rotation.z=-Math.PI/2;message('NO BALL',a.fieldFault||'ONE EXTRA • BALL STILL LIVE');announce('No ball. One extra.')}}
-   if(era.modern?!!a.releasePoint&&ball.position.z>=9.199:t>=a.impact){if(a.wide&&!era.modern){umpire.userData.arms[0].rotation.z=-Math.PI/2;umpire.userData.arms[1].rotation.z=Math.PI/2;message('WIDE BALL','ONE EXTRA • REBOWL')}beginFlight(now)}
+    if(a.noBall&&!a.called&&!a.ending){a.called=true;umpire.userData.arms[0].rotation.z=-Math.PI/2;message('NO BALL',a.fieldFault||'ONE EXTRA • BALL STILL LIVE');announce('No ball. One extra.');winningExtra(a)}
+   }else {if(!a.releasePoint){a.releasePoint=handPosition(bowler,a.bowlerArm);$('#delivery-speed').textContent=`${a.speed} km/h`;$('#delivery-speed').hidden=false}let p=Math.min((t-1.8)/a.travel,1),height=deliveryHeight(a.length,p)+(a.releasePoint.y-2.7)*(1-p);ball.position.set(THREE.MathUtils.lerp(a.releasePoint.x,a.lineX,p)+(a.spin&&p>.62?Math.sin((p-.62)/.38*Math.PI)*a.variation.movement*.35:Math.sin(Math.PI*p)*a.variation.movement*.5),height,THREE.MathUtils.lerp(a.releasePoint.z,9.2,p));if(a.noBall&&!a.called&&!a.ending){a.called=true;umpire.userData.arms[0].rotation.z=-Math.PI/2;message('NO BALL',a.fieldFault||'ONE EXTRA • BALL STILL LIVE');announce('No ball. One extra.')}}
+   if(era.modern?!a.ending&&!!a.releasePoint&&ball.position.z>=9.199:t>=a.impact){if(a.wide&&!era.modern){umpire.userData.arms[0].rotation.z=-Math.PI/2;umpire.userData.arms[1].rotation.z=Math.PI/2;message('WIDE BALL','ONE EXTRA • REBOWL')}beginFlight(now)}
   }else if(a.phase==='miss'){
    let p=Math.min((now-a.phaseAt)/600,1);ball.position.lerpVectors(a.missStart,a.missTarget,p);if(p>=1)endPlay(0,a.dismissal);
   }else if(a.phase==='keeper-chase'&&era.modern){
@@ -645,7 +722,7 @@ function animate(now){
       const wouldHit=sweptWicketHit(pad.point,projected,'keeper');
       ball.position.copy(pad.point);
       if(lbwEligible({pitchX:a.pitchX,impactX:pad.point.x,hand:a.battingHand,playedShot,wouldHit,noBall:a.noBall,freeHit:a.freeHit}))endPlay(0,'LBW');
-      else if(!playedShot)endPlay(0,null);
+      else if(!playedShot&&!a.attemptedAvoidance)endPlay(0,null);
       else {a.legBye=true;a.phase='field';a.velocity.multiplyScalar(.22);a.velocity.z*=-1;resetBallPhysics();message('OFF THE PAD','BALL IN PLAY');renderUI();}
     }else if(wicket&&!a.noBall&&!a.freeHit){
       ball.position.set(wicket.x,wicket.y,wicket.z);a.wide=false;endPlay(0,'BOWLED');
@@ -744,7 +821,7 @@ function animate(now){
     if(strikerBreaksWicket(a.strikerWicketPoints,points))endPlay(0,'HIT WICKET');
     a.strikerWicketPoints=points;
   }
-  if(era.modern&&a.wide&&!a.wideCalled&&ball.position.z>=10.4){a.wideCalled=true;umpire.userData.arms.forEach(arm=>arm.rotation.z=arm===umpire.userData.arms[0]?-Math.PI/2:Math.PI/2);message('WIDE BALL','ONE EXTRA • BALL STILL LIVE');announce('Wide ball. One extra.');}
+  if(era.modern&&a.wide&&!a.wideCalled&&ball.position.z>=10.4){a.wideCalled=true;umpire.userData.arms.forEach(arm=>arm.rotation.z=arm===umpire.userData.arms[0]?-Math.PI/2:Math.PI/2);message('WIDE BALL','ONE EXTRA • BALL STILL LIVE');announce('Wide ball. One extra.');winningExtra(a);}
   if(era.modern&&state.anim===a&&a.caughtBall)ball.position.copy(handPoint(a.fielder,1));
  }
  updateBallVisual();updateRunInset();updateCamera();if(state.phase==='animating')captureFrame(now);renderFrame();renderPitchInset();benchmark?.rendered()

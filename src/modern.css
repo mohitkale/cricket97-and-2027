@@ -87,3 +87,19 @@ body[data-era="2027"]{--modern-accent:#c3ff54;--modern-border:#ffffff17;backgrou
   [data-era="2027"] .assist-options[open]{overflow-y:auto}
   [data-era="2027"] #stage-controls [data-assisted]:enabled{background:#c3ff54;color:#101e1c;font-weight:800}
 }
+
+[data-era='2027'] .chase-line{margin-top:3px;color:#e5f1e7;font-size:10px;white-space:nowrap;font-variant-numeric:tabular-nums}
+[data-era='2027'] #broadcast-score:has(.chase-line){height:126px}
+[data-era='2027'] .stage:has(.chase-line) #delivery-speed{top:146px}
+@media(max-width:600px){
+  [data-era='2027'] #broadcast-score:has(.chase-line){height:91px}
+  [data-era='2027'] .stage:has(.chase-line) #delivery-speed{top:106px}
+}
+[data-era='2027'] .field-plan{display:flex;align-items:center;gap:.6rem;margin-top:.7rem}
+@media (pointer:coarse) and (orientation:landscape) and (max-height:500px){
+  [data-era='2027'] .shell:has(#pause-game:not([hidden])) .herohead{display:none}
+  [data-era='2027'] .shell:has(#pause-game:not([hidden])) .topbar{height:42px}
+  [data-era='2027'] .shell:has(#pause-game:not([hidden])) .main{padding-top:6px}
+  [data-era='2027'] .stage:has(#pause-game:not([hidden])){min-height:0;height:calc(100svh - 78px)}
+  [data-era='2027'] .stage:fullscreen{height:100svh}
+}

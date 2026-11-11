@@ -1,3 +1,6 @@
+import {bodySegments} from './fielding-contact.js';
+import {CRICKET} from './cricket-scale.js';
+
 // Coordinates in metres. Positive x is off side for a right-handed striker.
 const paceOpening=[[3.2,15],[6.6,14.2],[18,9],[22,0],[13,-15],[-15,-12],[-17,7],[29,-31],[-32,-29]];
 const paceSpread=[[4,15],[18,8],[19,-3],[-14,-9],[31,-29],[-32,-27],[40,5],[-39,9],[13,-42]];
@@ -8,8 +11,16 @@ function openingOvers(balls,overs){
   return balls<6*Math.max(1,Math.round(overs*.3));
 }
 
-// Use live actor centres at release, including bowler and keeper.
-export function fieldRestrictionFault({fielders,keeper,bowler,hand,balls,overs}){
+function behindPoppingCrease(player){
+  if(!player.userData?.legs)return player.position.z>=9.3;
+  // Collision capsules include the ball radius. Remove it when testing
+  // the person alone against the popping crease.
+  return bodySegments(player).some(({a,b,r})=>
+    Math.max(a.z,b.z)+r-CRICKET.ballRadius>=9.3);
+}
+
+// Evaluate both teams' mirrored placements at release.
+export function fieldRestrictionFault({fielders,keeper,bowler,hand,balls,overs,slowOverRate=false}){
   const opening=openingOvers(balls,overs);
   const legSign=hand==='left'?1:-1;
   let outside=0,onSide=0,behindLeg=0;
@@ -18,20 +29,25 @@ export function fieldRestrictionFault({fielders,keeper,bowler,hand,balls,overs})
     if(Math.hypot(x,Math.max(0,Math.abs(z)-10.4))>27.43)outside++;
     if(x*legSign>0){
       onSide++;
-      if(player!==keeper && z>=9.3)behindLeg++;
+      if(player!==keeper && behindPoppingCrease(player))behindLeg++;
     }
   }
-  if(outside>(opening?2:5))return 'TOO MANY OUTSIDE THE CIRCLE';
+  if(outside>(opening?2:slowOverRate?4:5))return 'TOO MANY OUTSIDE THE CIRCLE';
   if(onSide>5)return 'TOO MANY ON THE LEG SIDE';
   if(behindLeg>2)return 'TOO MANY BEHIND SQUARE ON LEG';
   return null;
 }
 
-export function fieldForDelivery({hand,spin,balls,overs}) {
+export function fieldForDelivery({hand,spin,balls,overs,slowOverRate=false,fieldPlan}) {
   const opening=openingOvers(balls,overs);
   const positions=spin?(opening?spinOpening:spinSpread):(opening?paceOpening:paceSpread);
   const side=hand==='left'?-1:1;
-  return positions.map(([x,z])=>[x*side,z]);
+  return positions.map(([x,z],index)=>{
+    if(fieldPlan==='cover' && index===2)return [20*side,-7];
+    if(fieldPlan==='midwicket' && index===5)return [-21*side,-6];
+    if(slowOverRate&&!opening&&index===8)return [12*side,-17];
+    return [x*side,z];
+  });
 }
 
 export function opponentStroke(length,pressure,random=Math.random,{wicketsInHand=10,ballsLeft=120}={}) {
@@ -44,4 +60,11 @@ export function opponentStroke(length,pressure,random=Math.random,{wicketsInHand
   if(pressure>1.5&&random()<attackChance)return 'Attacking drive';
   if(length==='Good'&&random()<(protectTail?.65:.45))return 'Defend';
   return random()<.5?'Straight drive':'Flick';
+}
+
+// The fielding side is in position once the final over can start.
+// A deadline crossed during an over changes the field for the next over.
+export function sanctionFromBall(balls,overs,deliveryInProgress){
+  if(overs!==20 || balls>=6*(overs-1))return Infinity;
+  return (Math.ceil(balls/6)+(deliveryInProgress && balls%6===0?1:0))*6;
 }
