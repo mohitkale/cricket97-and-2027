@@ -53,3 +53,30 @@ On the build with partial crowd uploads, a subsequent full over recorded 100 ms 
 The checked-in benchmark runner completed its own six-ball verification on the final build: 1,737 frame intervals, 33.2 ms median, 83.3 ms p95, and five of six inputs below 100 ms. The final render ratio was 0.8. Across these runs, the preview draw-count reduction and smaller crowd transfers were reproducible; the 33 ms live-frame target was not.
 
 A separate 390 × 844 portrait run used emulated touch events on the visible Play Shot button for six deliveries. All six inputs registered. Accepted-shot-to-render times were 8.3, 28.7, 20.4, 27.9, 82.3 and 25.1 ms. Across 1,542 live intervals the median was 33.3 ms and p95 was 83.4 ms, with the render ratio dropping from 1.5 to 0.8. This validates assisted touch input at a phone viewport, not physical touch-to-display latency.
+
+## Mobile simulator verification, 10 November 2026
+
+The iPhone 17 Pro simulator ran Safari 26.5 at a 402 × 714 CSS viewport. The Pixel API 36 emulator ran Chrome 134 at 411 × 785. The browser harness selected two overs, skipped the intro and used the visible assisted controls. Timing starts at accepted input and ends at WebGL submission. Emulator rendering and synthetic input do not measure physical touch-to-display latency.
+
+Safari finished with India 37/0 and Australia successfully chasing. During a background/resume at 33/0 after 1.5 overs, the same score appeared when the tab became visible. Pixel Chrome finished with India 20/0 and Australia 22/3. A Pixel landscape check resized the live viewport to 865 × 307 before returning to portrait. The [game-speed recording](qa/portrait-game-speed.mp4) covers the left-handed yorker, spin bounce and bowler’s-end return.
+
+| Workload | Frame p95 | Accepted shot to render (ms) |
+|---|---:|---|
+| Safari batting, initial | 111 ms | 57, 14, 37, 42, 32, 14 |
+| Safari batting, reduced crowd and mobile drawing buffer | 77 ms | 18, 15, 31, 20, 32, 30 |
+| Pixel batting, before primitive batching changes | 150.1 ms | 181.9, 152.6, 79.6, 96.3, 41.9, 27.4 |
+| Pixel bowling, batched primitives and mobile geometry | 16.8 ms | No batting inputs |
+| Pixel batting, batched primitives and mobile geometry | 16.8 ms | 115.5, 10.5, 13.1, 14.8, 14.5, 8.4 |
+| Pixel batting, shot handler without full UI rebuild | 33.3 ms | 78.3, 25.4, 14.8, 8.1, 16.1, 8.8 |
+
+The final Pixel input check addressed the first-shot response miss. All six samples met 100 ms. Its first two deliveries recorded 50 ms p95 and the last four recorded 16.8 ms; the pooled 33.3 ms still misses the strict under-33-ms target. The next change starts mobile at render ratio 0.8 to avoid waiting for the initial downshift. That setting retains gradual recovery to the device ceiling.
+
+## Final Safari regression investigation, 11 November 2026
+
+On the updated mobile renderer at ratio 0.8, a six-ball Safari run recorded 107 ms p95 with responses 49, 9, 50, 93, 48 and 14 ms. A short instrumented follow-up measured the animation callback itself at 7 ms median / 16 ms p95 and draw submission at 4 ms median / 7 ms p95. The larger animation-frame intervals therefore include time outside the measured callback; this trace does not isolate WebKit, GPU or simulator scheduling.
+
+Old local QA tabs were navigated away when hidden, then the same six-ball workload was repeated to investigate tab interference. At 402 × 714, the isolated simulator run recorded 1,151 live intervals, 38 ms median and 64 ms p95. All six responses met 100 ms: 26, 17, 16, 38, 19 and 10 ms. The drawing-buffer ratio remained 0.8 throughout. These observations improve the recorded simulator result but still fail the strict under-33-ms frame target. No additional benchmark repetitions were made after that investigation.
+
+The full source suite passed 138 tests and the production build passed. Vite continues to warn about the existing large Rapier chunk. Raw browser traces, benchmark JSON and command logs stay local under `/tmp/cricket-final-qa`; only the summarized evidence and review artifacts are checked in.
+
+Production smoke at 756 × 469 completed a classic over with zero model requests. The modern check blocked the fitted-body model and applied 150 ms network latency / 150,000 bytes/s download throughput, then completed a legal delivery using the procedural fallback. Neither case reported a JavaScript exception. This functional smoke is separate from the mobile performance workload.

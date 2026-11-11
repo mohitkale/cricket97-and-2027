@@ -1,17 +1,19 @@
 # Cricket 2027 implementation handoff
 
-Start at main checkpoint dfeecc8 on branch codex/cricket-2027-realism. Read era-architecture.md and physics-realism-review.md first. Each numbered task fits a separate commit. Integrate through the existing era.modern boundary in src/main.js. Load modern assets only after selecting ?era=2027. Keep match decisions in the existing engine and feed its results to the visuals. The console reference for assisted play is [Cricket 26 on PS5](https://store.playstation.com/en-us/concept/10013889).
+Continue on branch `codex/cricket-2027-realism`. The original plan began at main checkpoint dfeecc8. Read era-architecture.md and physics-realism-review.md for the architecture and simulation limits. Each numbered task fits a separate commit. Integrate through the existing era.modern boundary in src/main.js. Load modern assets only after selecting ?era=2027. Keep match decisions in the existing engine and feed its results to the visuals. The console reference for assisted play is [Cricket 26 on PS5](https://store.playstation.com/en-us/concept/10013889).
 
-## Current handoff, 9 November 2026
+## Current handoff, 11 November 2026
 
 The upgrade branch includes a playable modern match from toss through rematch. The numbered tasks below describe the implementation sequence. Dated checkpoints at the end record what was exercised.
 
-| Area | Evidence | Remaining validation |
+| Area | Evidence | Status |
 |---|---|---|
-| Players, ball and cameras | Licensed fitted bodies, bat and glove contact checks for both hands, shoulder and return camera tests, five-frame drive review | Portrait browser captures reviewed below. Physical phone review remains open. |
-| Controls, field and decisions | Assisted batting/bowling, safe-single estimates, field restrictions, wicket and extras fixtures | Six scripted matches sampled below. Broader team and bowling coverage and a first-time-player usability session remain open. |
-| Full match | Production two-over tie and rematch, normal first deliveries in 5/10/20-over formats, and an accelerated T20 chase with the final scorecards | Physical Android and iOS runs with real touch input. |
-| Rendering and release | Local stock-body fallback, shared near-player geometry, grouped stadium draws, adaptive resolution, desktop frame and input measurements | Meet and measure the frame budget on the target handset. The [baseline](delivery-baseline.md) retains the observed misses. |
+| Players, ball and cameras · tasks 2–5, 9, 12 | Fitted bodies and both-hand contact checks; mirrored six-length flight plot at 30/60/120 Hz (maximum 1.3 mm difference); portrait yorker, spin and receiving-end game-speed recording | Local scenarios complete. |
+| Controls, field and decisions · tasks 4, 6–8, 10–11, 13 | Wickets/extras fixtures, posed-body crease restrictions, over-rate sanction, dead deliveries, optional field presets and attempted avoidance | Local scenarios complete under the [documented rules](modern-rules.md). |
+| Full match and usability · task 14 | Formats, AI chase, paired batting orders, winning extra, final-ball wicket, tie/rematch; two-over scripted Android and Safari matches; background/resume and landscape checks | Requested simulated first-time-play substitute complete. Synthetic controls cannot establish human hesitation or physical touch latency. |
+| Rendering and release · tasks 1, 15 | Primitive batching, reduced mobile geometry/crowd, adaptive drawing buffer and immediate shot preparation; measurements in the [baseline](delivery-baseline.md) | Frame-time release gate remains open. Final verification below records the result. |
+
+The user requested emulated Android/iOS and scripted first-time play in place of connected devices and a human tester. Physical-device validation is outside that substitute's evidence. The numbered list is the original acceptance plan; older dated entries below are historical checkpoints, not the current pending list.
 
 Consult the [rules inventory](modern-rules.md) for format-specific exceptions and outstanding simulation details. Main still identifies the original game checkpoint. This branch has not been released.
 
@@ -144,12 +146,12 @@ The England–Australia rematch initially stalled during a pickup on its first b
 
 Modern match controls become inert during a pause and reactivate when the match resumes. On a 390 × 844 Chrome touch viewport, pausing at 1.833 s and tapping Play Shot left the swing unset across 120 simulated frames. Resuming and tapping scheduled the stroke and advanced the delivery to 1.850 s on the next frame. Physical phone background/resume remains pending.
 
-### Pending release checks
+### Release checks queued before the simulator pass (historical)
 
 - Compare human matches and paired games with the same two teams swapping batting order before deciding whether to tune scoring.
 - Have a first-time player complete a two-over match unaided. Record where they hesitate, miss a cue or lose track of the target.
 - On Android Chrome and iOS Safari, review the three portrait plays at game speed, rotate during play, background and resume, and measure the 33 ms p95 frame and 100 ms response targets.
-- The numbered backlog and rules inventory retain the remaining scenario-specific checks and simulation gaps, including additional dead-ball causes, whole-body field-position checks and over-rate sanctions.
+- The numbered backlog and rules inventory retain the remaining scenario-specific checks and simulation gaps, including additional dead-ball causes, whole-body field-position checks and over-rate sanctions. See the later verification below for current status.
 
 ### Dead ball and field restrictions, 10 November
 
@@ -157,3 +159,25 @@ Modern match controls become inert during a pause and reactivate when the match 
 - Tasks 7 and 11. Moved a third fielder outside the opening circle before release. Chrome recorded one no-ball extra, zero legal balls and a free hit. Unit fixtures cover the end of the powerplay, both batting hands and the keeper exemption behind the popping crease. Placement uses each actor’s centre.
 
 See clauses 20.4.2.10, 28.4 and 28.7 in the [ICC Men’s T20I playing conditions](https://images.icc-cricket.com/image/upload/prd/bsxcho7ufe2pjban0wjp.pdf).
+
+### Rules, match flow and delivery calibration
+
+- With 59 legal balls complete in a T20, advancing the playable clock past 85 minutes applied the four-outfielder limit at ball 60. Putting a fifth fielder outside then produced one no-ball and a free hit. The rule applies to the full 20-over format. The clock restarts each innings and each match.
+- A third on-side fielder whose centre was in front of the striker’s popping crease but whose body overlapped it produced a no-ball. The pose check uses the rig’s limb capsules, with the ball radius removed.
+- An untouched delivery resting on the pitch at z = 2 m stopped play. Its single no-ball extra preserved the legal-ball count and set a free hit.
+- A chase tied at 20 ended on the release-time no-ball penalty, 21/0. In a separate last-ball fixture the tenth wicket fell on ball 12 of the chase, leaving India winners by one run.
+- In the five-over India–Australia batting-order pair (seed 48801), India defended 52/1 against 50/7. Australia defended 62/6 against 57/1 when the order was reversed. The assisted home side used the same tap offset and six-length rotation in both games.
+- Six delivery lengths and mirrored releases were sampled at 30, 60 and 120 Hz. The largest absolute difference in lateral position or height at the striker’s plane was 1.3 mm after interpolation. The plot shows height, lateral movement and speed for the right-side release. [Flight calibration](qa/delivery-flight.svg)
+
+### Final local completion pass, 11 November
+
+Source checkpoints: `6eef670` contains the mobile renderer changes; `8ad04cc` contains the rules, field controls and match-flow changes. The final verification commit includes the matching production output and review artifacts.
+
+- Task 10: the optional Evade delivery action clears a queued stroke and moves the striker away after release. A browser fixture generated pad contact after actual movement and retained leg-bye eligibility without marking a stroke as played.
+- Tasks 11 and 14: optional Automatic, Cover and Midwicket fields are available before human bowling, with changes locked during free hits. A browser check confirmed the mirrored Midwicket placement. The chase overlay displayed “Need 15 off 9 · RRR 10.00”; its panel and speed label reserve space for the extra line.
+- Task 14: Safari's 852 × 393 landscape document initially clipped the canvas below the viewport. The corrected live stage measured y = 71, height = 315; the canvas bottom was 385 and the primary control bottom was 342. This check resized a document in simulated Safari; it did not physically rotate an iPhone.
+- Task 15: mobile rendering uses 1,560 spectators, lower-detail draw meshes, 512-pixel shadows and an initial 0.8 drawing-buffer ratio that can recover. Differently sized boxes and spheres share primitive draws through instance scaling while retaining the original rig and contact geometry. Shot selection updates selected controls without rebuilding the match UI on the accepted-input path.
+
+The full suite passed 138 tests once at the end of implementation, and the production build passed. From built output, classic completed six legal balls without requesting a modern model. Modern completed a legal delivery with `striker-body.json` blocked, 150 ms simulated network latency and 150,000 bytes/s download throughput. Both smoke scenarios reported zero JavaScript exceptions. Final Safari isolation improved live-frame p95 from 107 to 64 ms; its six accepted-shot responses ranged from 10 to 38 ms. See the [baseline](delivery-baseline.md) for the trace and limits.
+
+Pending release gate: demonstrate repeatable live-frame p95 below 33 ms on the agreed target. Existing simulator and desktop misses remain recorded. The branch is not promoted or released while this gate is open. Human usability and hardware latency remain unmeasured; the requested simulation substitutes are recorded above.
