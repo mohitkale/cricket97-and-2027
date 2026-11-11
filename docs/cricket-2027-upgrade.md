@@ -4,14 +4,14 @@ Continue on branch `codex/cricket-2027-realism`. The original plan began at main
 
 ## Current handoff, 11 November 2026
 
-The upgrade branch includes a playable modern match from toss through rematch. The numbered tasks below describe the implementation sequence. Dated checkpoints at the end record what was exercised.
+The upgrade branch includes a playable modern match from toss through rematch. The [task completion audit](cricket-2027-completion.md) records all 15 task rows and the one unresolved release criterion. The numbered tasks below describe the implementation sequence. Dated checkpoints at the end record what was exercised.
 
 | Area | Evidence | Status |
 |---|---|---|
 | Players, ball and cameras · tasks 2–5, 9, 12 | Fitted bodies and both-hand contact checks; mirrored six-length flight plot at 30/60/120 Hz (maximum 1.3 mm difference); portrait yorker, spin and receiving-end game-speed recording | Local scenarios complete. |
 | Controls, field and decisions · tasks 4, 6–8, 10–11, 13 | Wickets/extras fixtures, posed-body crease restrictions, over-rate sanction, dead deliveries, optional field presets and attempted avoidance | Local scenarios complete under the [documented rules](modern-rules.md). |
 | Full match and usability · task 14 | Formats, AI chase, paired batting orders, winning extra, final-ball wicket, tie/rematch; two-over scripted Android and Safari matches; background/resume and landscape checks | Requested simulated first-time-play substitute complete. Synthetic controls cannot establish human hesitation or physical touch latency. |
-| Rendering and release · tasks 1, 15 | Primitive batching, reduced mobile geometry/crowd, adaptive drawing buffer and immediate shot preparation; measurements in the [baseline](delivery-baseline.md) | Frame-time release gate remains open. Final verification below records the result. |
+| Rendering and release · tasks 1, 15 | Primitive batching, reduced mobile geometry/crowd, adaptive drawing buffer, immediate shot preparation, two-match resource checks and explicit renderer cleanup; measurements in the [baseline](delivery-baseline.md) | Frame-time release gate remains open. Final verification below records the result. |
 
 The user requested emulated Android/iOS and scripted first-time play in place of connected devices and a human tester. Physical-device validation is outside that substitute's evidence. The numbered list is the original acceptance plan; older dated entries below are historical checkpoints, not the current pending list.
 
@@ -181,3 +181,13 @@ Source checkpoints: `6eef670` contains the mobile renderer changes; `8ad04cc` co
 The full suite passed 138 tests once at the end of implementation, and the production build passed. From built output, classic completed six legal balls without requesting a modern model. Modern completed a legal delivery with `striker-body.json` blocked, 150 ms simulated network latency and 150,000 bytes/s download throughput. Both smoke scenarios reported zero JavaScript exceptions. Final Safari isolation improved live-frame p95 from 107 to 64 ms; its six accepted-shot responses ranged from 10 to 38 ms. See the [baseline](delivery-baseline.md) for the trace and limits.
 
 Pending release gate: demonstrate repeatable live-frame p95 below 33 ms on the agreed target. Existing simulator and desktop misses remain recorded. The branch is not promoted or released while this gate is open. Human usability and hardware latency remain unmeasured; the requested simulation substitutes are recorded above.
+
+### Task audit and resource close-out, 11 November
+
+The final audit found two remaining functional verification gaps in task 15: a recorded two-match resource comparison and explicit renderer disposal when changing editions. Both are now complete. The two matches ended with the same 170 uploaded geometries, 58 textures, 26 shader programs and 530 DOM nodes. The fitted body was downloaded once. Page exit now releases renderer allocations and the WebGL context, and history return creates a fresh game. Two lifecycle regression tests and the navigation browser scenario passed.
+
+The follow-up mobile rendering changes are in `61dbef7`; the lifecycle fix is in `138eb9a`. The 138-test full suite passed once, the two new lifecycle tests passed separately, and the final build passed. No full-suite or benchmark loop was scheduled.
+
+The live-frame criterion remains unverified for release. Safari simulator overs recorded 58 and 61 ms p95; a matched empty WebGL clear alone recorded 36 ms p95, versus 21 ms without WebGL. This environment cannot certify the strict under-33-ms target. The [completion audit](cricket-2027-completion.md) distinguishes that remaining sign-off from completed implementation and the user-approved simulated functional coverage.
+
+Final production verification passed in Headless Chrome 157: classic completed an over with no modern model requests; cold modern play completed a scoring delivery after loading the fitted body; slow-network modern play completed a scoring delivery with that body blocked. All three cases reported zero JavaScript exceptions. The [task audit](cricket-2027-completion.md) contains the final status and mobile visual review. No other planned functional implementation or simulated acceptance scenario remains pending.

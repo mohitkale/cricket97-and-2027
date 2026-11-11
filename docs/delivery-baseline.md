@@ -80,3 +80,40 @@ Old local QA tabs were navigated away when hidden, then the same six-ball worklo
 The full source suite passed 138 tests and the production build passed. Vite continues to warn about the existing large Rapier chunk. Raw browser traces, benchmark JSON and command logs stay local under `/tmp/cricket-final-qa`; only the summarized evidence and review artifacts are checked in.
 
 Production smoke at 756 × 469 completed a classic over with zero model requests. The modern check blocked the fitted-body model and applied 150 ms network latency / 150,000 bytes/s download throughput, then completed a legal delivery using the procedural fallback. Neither case reported a JavaScript exception. This functional smoke is separate from the mobile performance workload.
+
+## Final task audit and remaining frame criterion, 11 November
+
+The follow-up pass removed redundant live cue and visibility mutations, stopped updating the invisible modern ball trail and removed mobile backdrop blur. A six-ball Safari simulator over at 402 × 714 / ratio 0.8 recorded 1,192 intervals, 36 ms median and 58 ms p95. Accepted-shot responses were 46, 38, 27, 14, 36 and 36 ms.
+
+The next change reduced mobile seats from 6,000 to 1,500 and removed small equipment batches from the shadow pass, retaining skinned-body shadows. Ordinary mobile frames fell from about 200,080 to 146,080 triangles. The specific follow-up over recorded 1,278 intervals, 36 ms median and 61 ms p95, with responses 41, 22, 22, 21, 41 and 13 ms. The lower geometry cost is reproducible; these simulator observations do not establish a frame-time improvement or meet 33 ms. Match randomness was retained, so these are not isolated estimates of either change's effect.
+
+To distinguish scene cost from simulator scheduling, a separate page sampled eight seconds without WebGL, then eight seconds clearing a 321 × 392 WebGL canvas. The matched context disabled antialiasing and alpha, as in the mobile game. The blank phase recorded 467 intervals, 17 ms median / 21 ms p95. The minimal WebGL phase recorded 329 intervals, 27 ms median / 36 ms p95. Even that minimal WebGL workload missed the strict frame target in this environment. This establishes a limitation of the available validation environment; it does not predict physical handset performance or certify a release pass.
+
+The original physical-device and human-player requests remain replaced by the user-approved simulations. No additional benchmark repetitions followed the scheduling investigation. Raw logs for this pass stay local under `/tmp/cricket-closeout`.
+
+### Two-match resource and renderer-lifetime checks
+
+Chrome used a 411 × 785 touch viewport and the visible assisted controls with deterministic decision randomness (0.25). Both two-over matches reached a result after 12 legal balls in each innings. The same renderer was reused for the rematch. Heap samples below follow explicit garbage collection and cover JavaScript heap, not total process or native GPU memory.
+
+| Checkpoint | Uploaded geometries | Textures | Shader programs | DOM nodes | JavaScript heap |
+|---|---:|---:|---:|---:|---:|
+| result-1 | 170 | 58 | 26 | 530 | 15.50 MB |
+| result-2 | 170 | 58 | 26 | 530 | 15.77 MB |
+
+GPU resource counts, shader programs and DOM nodes were unchanged between results. Heap increased by about 0.27 MB across this bounded sample; this is not proof of indefinite-session memory stability. The fitted body was requested once across both matches. Classic requested no modern model after edition navigation.
+
+The edition check exposed the browser retaining the old document in history. The renderer now explicitly disposes its allocations and releases the WebGL context on page exit. Animation stops after disposal. A cached history return opens a fresh game; ordinary tab background/resume preserves the existing game. In the follow-up navigation scenario, uploaded geometries and textures became zero, context loss was confirmed, and history return rendered a fresh match preview without a JavaScript exception.
+
+Validation ran the 138-test full suite once, then the two newly added renderer-lifetime tests separately after that implementation. All passed. The production build passed after the lifecycle addition. The source checkpoints are `61dbef7` (mobile rendering work) and `138eb9a` (renderer lifecycle).
+
+### Final production cold-load and fallback smoke
+
+Headless Chrome 157 loaded the built output with the browser cache cleared before each case. Classic used 880 × 693; modern used a 411 × 785 touch viewport. Setup-ready time is the driver's first observation of the setup control. Transfer totals include the resources loaded through the first completed delivery (or the classic over), including physics and audio. The local Python server served raw files without HTTP compression, so these byte counts are not compressed hosting estimates.
+
+| Case | Legal balls | First observed setup-ready | Encoded resource bytes | Model bytes | JavaScript errors |
+|---|---:|---:|---:|---:|---:|
+| 97 | 6 | 485 ms | 6,069,923 | 0 | 0 |
+| 2027 | 1 | 998 ms | 6,143,162 | 150,374 | 0 |
+| 2027-fallback | 1 | 6390 ms | 5,992,788 | 0 | 0 |
+
+Classic requested zero modern models. The cold modern case loaded the 150,374-byte fitted body once and completed a legal scoring delivery. The fallback case blocked that model, applied 150 ms network latency and 150,000 bytes/s download throughput, and completed the same functional check with the procedural body. Both mobile cases confirmed that the score overlay had no backdrop blur. All three production cases passed.
