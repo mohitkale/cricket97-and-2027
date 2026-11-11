@@ -117,3 +117,11 @@ Headless Chrome 157 loaded the built output with the browser cache cleared befor
 | 2027-fallback | 1 | 6390 ms | 5,992,788 | 0 | 0 |
 
 Classic requested zero modern models. The cold modern case loaded the 150,374-byte fitted body once and completed a legal scoring delivery. The fallback case blocked that model, applied 150 ms network latency and 150,000 bytes/s download throughput, and completed the same functional check with the procedural body. Both mobile cases confirmed that the score overlay had no backdrop blur. All three production cases passed.
+
+## Simulation-only scope confirmation, 11 November
+
+A physical-device availability check found a paired iPhone 12 Pro Max, but iOS refused the Safari launch because the device was locked. No physical benchmark was collected. The user explicitly chose “Continue with simulation only,” so hardware sign-off is deferred and is not treated as a passed release criterion.
+
+One final Pixel API 36 / Chrome 134 over checked the earlier 33.3 ms miss against the latest rendering changes. The emulator booted cold using SwiftShader Vulkan software rendering. At 411 × 785 and ratio 0.8, it completed six legal deliveries and recorded 1,449 intervals: 16.8 ms median, 83.4 ms p95. Accepted-shot response times were 34, 25, 28.5, 44.9, 38.7, 4.7 ms, all below 100 ms. Delivery p95 values were 183.4, 150.1, 66.7, 50.1, 66.6, 50 ms. This cold-emulator result misses the frame target; it is not evidence that the lower geometry cost made frame times worse, since it is not an isolated before/after comparison.
+
+No benchmark repetition followed this result. Raw reports and CPU snapshots remain local under `/tmp/cricket-sim-final`. Game code was unchanged in this verification pass, so the previously passing tests, build and production smoke were not repeated. All functional implementation and agreed simulated acceptance scenarios are complete. The recorded frame-time misses remain limitations of the validation evidence, and the branch stays unpromoted.
