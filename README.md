@@ -1,14 +1,18 @@
 # Cricket: Then. Now. Always.
 
+> **Status: being rebuilt.** The code on `main` is an early prototype kept as a reference. The plan is in [docs/PLAN.md](docs/PLAN.md), the tasks are in the [issues](../../issues) grouped by [milestone](../../milestones), and contributor and agent rules are in [AGENTS.md](AGENTS.md). The rest of this page describes the prototype.
+
 A local Three.js cricket game with two eras over one shared match engine. Open the page to choose **Cricket ’97**, the original low-poly arcade homage, or **Cricket ’2027**, a contemporary presentation with athletic characters, coloured kits, modern stadium treatments, and upgraded movement and ball flight.
 
 Cricket ’97 preserves its existing squads, presentation, controls, and arcade mechanics. Cricket ’2027 uses self-contained procedural characters rather than scanned likenesses, and a dated 2026 international T20 squad snapshot rather than predicted 2027 selections. Both editions work offline once built. This is an original game, not a reproduction of a licensed cricket title.
 
 ## Play
 
-The production build is included and needs Python 3 and npm to run the command below. From this folder run:
+With Node 24 and Python 3 installed, from this folder run:
 
 ```sh
+npm ci
+npm run build
 npm start
 ```
 
@@ -27,7 +31,7 @@ Choose an era on the opening screen. Direct links also work: `/?era=97` and `/?e
 - Return wind-ups, clean takes, direct-hit attempts, and live overthrows. Run-outs in 2027 require ball contact with the wicket while the threatened batter’s feet/bat remain short of the crease; runners stretch and lower their bats approaching it.
 - Floodlit stadium canopies, LED ribbons, live stadium score screens, seating rows, crowd arms/flags/phones, a new matchday/setup design, and interpolated replays.
 
-The editions share scoring, shot definitions, running decisions, bowling rotation, toss, match statistics, input handling, audio, replay recording, and the scene. There is no cloned modern game. See [the architecture notes](docs/era-architecture.md) for extension points and remaining simulation limits.
+The editions share scoring, shot definitions, running decisions, bowling rotation, toss, match statistics, input handling, audio, replay recording, and the scene. There is no cloned modern game. See [the architecture notes](docs/legacy/era-architecture.md) for extension points and remaining simulation limits.
 
 To play on a phone connected to the same trusted Wi-Fi network, stop the local server and run `python3 -m http.server 4173 --bind 0.0.0.0 --directory dist` from this folder. On the phone, open `http://<your-computer-local-IP>:4173/`. This makes the game available to other devices on that local network while the server is running.
 
@@ -49,7 +53,7 @@ The local boundary artwork includes the [Jio logo](https://commons.wikimedia.org
 
 ## Development
 
-The source uses Vite, Three.js 0.187.0 and Rapier 0.21.0. With network access, run `npm install`, then `npm run dev` or `npm run build`. The included `dist/` can be played without installing packages. Run `npm test` for the shared/classic and modern regression suites. In development, `/?era=2027&fieldingLab=1` opens slow-motion drills for catches, dives, rope saves, backward pursuit, return throws, run-out attempts, and missed returns. Open them with Fielding Checks; close the panel with × or Escape. The drills use live physics and contact decisions; this panel is excluded from production.
+The source uses Vite, Three.js 0.187.0 and Rapier 0.21.0. With network access, run `npm install`, then `npm run dev` or `npm run build`. Run `npm test` for the shared/classic and modern regression suites. In development, `/?era=2027&fieldingLab=1` opens slow-motion drills for catches, dives, rope saves, backward pursuit, return throws, run-out attempts, and missed returns. Open them with Fielding Checks; close the panel with × or Escape. The drills use live physics and contact decisions; this panel is excluded from production.
 
 ## Audio credits
 

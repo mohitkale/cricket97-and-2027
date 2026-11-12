@@ -1,0 +1,28 @@
+name: Bug or play feedback
+description: Something is broken, looks wrong or feels wrong
+labels: ["type:bug", "status:triage"]
+body:
+  - type: dropdown
+    id: edition
+    attributes:
+      label: Edition
+      options: ["1997", "2027", "Both", "Menus"]
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Device and browser
+      placeholder: "Pixel 8, Chrome 142"
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps, screenshot or recording

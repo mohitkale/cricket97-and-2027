@@ -1,2 +1,7 @@
 node_modules/
 .vite-cache/
+dist/
+.DS_Store
+test-results/
+captures/
+*.blend1
