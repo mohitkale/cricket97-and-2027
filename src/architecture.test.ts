@@ -52,6 +52,10 @@ export function violations(files: string[]): string[] {
         problems.push(`${name} imports package "${specifier}"`);
         continue;
       }
+      // The sim also runs under plain Node (headless matches), which needs full file names.
+      if (layer === 'sim' && !specifier.endsWith('.ts')) {
+        problems.push(`${name} imports "${specifier}" without the .ts extension`);
+      }
       const target = layerOf(resolve(dirname(file), specifier));
       if (!allowed.includes(target)) problems.push(`${name} imports from "${target}"`);
     }

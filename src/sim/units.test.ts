@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { BALL, PITCH, SIM_DT, SIM_HZ, WICKET } from './units';
+import { BALL, PITCH, SIM_DT, SIM_HZ, WICKET } from './units.ts';
 
 test('step size matches the step rate', () => {
   expect(SIM_DT * SIM_HZ).toBeCloseTo(1, 12);

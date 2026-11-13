@@ -63,6 +63,13 @@ async function startLegacyMatch(page: Page, advance: (ms: number) => Promise<voi
 }
 
 export const SCENARIOS: Record<string, Scenario> = {
+  'ball-flight': {
+    kind: 'lab',
+    scene: 'ball-flight',
+    duration: 0.8,
+    viewport: PHONE_LANDSCAPE,
+    seed: 1,
+  },
   'pitch-plan': {
     kind: 'lab',
     scene: 'pitch-plan',
