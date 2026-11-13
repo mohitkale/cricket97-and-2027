@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lab</title>
+    <style>
+      html, body { margin: 0; height: 100%; background: #10161a; color: #e8eef0; font: 14px system-ui, sans-serif; }
+      #stage { position: fixed; inset: 0; }
+      #stage canvas { width: 100%; height: 100%; display: block; }
+      #menu { position: fixed; top: 8px; left: 8px; display: flex; gap: 8px; flex-wrap: wrap; }
+      #menu a { color: #c3ff54; }
+    </style>
+  </head>
+  <body>
+    <div id="stage"></div>
+    <nav id="menu"></nav>
+    <script type="module" src="/src/lab/main.ts"></script>
+  </body>
+</html>

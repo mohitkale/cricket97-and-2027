@@ -50,6 +50,8 @@ New code is TypeScript (strict). The prototype's JavaScript is excluded from lin
 
 - Every PR from a branch in this repository gets a playable preview at `https://mohitkale.github.io/cricket97-and-2027/pr/<number>/`; the link is commented on the PR. `main` is published at the site root.
 - Any PR that changes what the player sees or how input feels must attach captures (contact sheet and short video) produced by the capture harness, plus the preview link.
+- Capture locally with `npm run capture -- --scenario <name>` (`--list` shows names; first run `npx playwright-core install chromium-headless-shell`). Output goes to `captures/<name>/sheet.png` and `clip.webm`. **Look at the sheet yourself before claiming anything about it.**
+- To post captures on a PR, put a line `Capture: <name> <name>` in the PR description and add the `capture` label. Add new scenes under `src/lab/scenes/` and register them in `tools/capture/scenarios.ts`. Scenes must be deterministic: no wall clock, no `Math.random`.
 - State plainly what you could not verify (for example, real phone performance). Never write "complete" for something only checked in an emulator.
 - Issues labelled `gate:owner-feel` or `gate:owner-look` are closed by the owner after playing the preview, not by the PR merging. Use `Refs #<issue>` instead of `Closes` for those.
 
