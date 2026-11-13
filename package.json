@@ -12,7 +12,8 @@
     "typecheck": "tsc --noEmit",
     "check": "npm run lint && npm run typecheck && npm test && npm run build",
     "format": "biome check --write .",
-    "capture": "node tools/capture/capture.ts"
+    "capture": "node tools/capture/capture.ts",
+    "determinism": "node tools/determinism.mjs"
   },
   "dependencies": {
     "@dimforge/rapier3d-compat": "0.21.0",

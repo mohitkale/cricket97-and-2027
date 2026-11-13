@@ -38,6 +38,7 @@ New code is TypeScript (strict). The prototype's JavaScript is excluded from lin
 ## Rules that are easy to break
 
 1. **`src/sim` is pure.** No three.js, DOM, timers, `Date.now()` or `Math.random()`. Use the sim clock and seeded PRNG. Every sim change comes with tests.
+   Sim state is plain data. Use only `+ - * /` and `Math.sqrt` for anything that affects match state. When you add a sim subsystem, add it to `src/sim/fingerprint.ts` and run `npm run determinism` (compares Node with Chromium, Firefox and WebKit).
 2. **The sim decides outcomes.** Presentation never decides a catch, a wicket or a run. It reads sim state and predicted events.
 3. **Do not generate human motion in code.** No sine-wave strides, no hand-posed joints for cricket actions. Motion comes from clips; code blends, warps and applies IK.
 4. **Do not draw characters or stadiums from primitives** in shipped code. Geometry comes from the asset pipeline. Grey-box placeholders are allowed only in issues that say so.
