@@ -1,6 +1,6 @@
 # Cricket: Then. Now. Always.
 
-> **Status: being rebuilt.** The code on `main` is an early prototype kept as a reference. The plan is in [docs/PLAN.md](docs/PLAN.md), the tasks are in the [issues](../../issues) grouped by [milestone](../../milestones), and contributor and agent rules are in [AGENTS.md](AGENTS.md). The rest of this page describes the prototype.
+> **Status: being rebuilt.** The code on `main` is an early prototype kept as a reference. The plan is in [docs/PLAN.md](docs/PLAN.md), the tasks are in the [issues](../../issues) grouped by [milestone](../../milestones), and contributor and agent rules are in [AGENTS.md](AGENTS.md). The prototype now lives in `legacy/` and is served at `/legacy/`; the rest of this page describes it.
 
 A local Three.js cricket game with two eras over one shared match engine. Open the page to choose the **1997 Edition**, a low-poly arcade game, or the **2027 Edition**, a contemporary presentation with athletic characters, coloured kits, modern stadium treatments, and upgraded movement and ball flight.
 
@@ -18,7 +18,7 @@ npm start
 
 Open http://127.0.0.1:4173 in a browser with WebGL. No internet connection is required to play.
 
-Choose an era on the opening screen. Direct links also work: `/?era=97` and `/?era=2027`. **Change Era** returns to the opening screen; switching editions starts a fresh match. In the modern setup you can select Horizon Arena, Coastal Oval, or Riverside Ground: fictional venues sharing a common stadium model with different turf, lighting, and graphic palettes.
+Choose an era on the opening screen. Direct links also work: `/legacy/?era=97` and `/legacy/?era=2027`. **Change Era** returns to the opening screen; switching editions starts a fresh match. In the modern setup you can select Horizon Arena, Coastal Oval, or Riverside Ground: fictional venues sharing a common stadium model with different turf, lighting, and graphic palettes.
 
 ### What changes in 2027
 
@@ -51,7 +51,7 @@ This is an arcade simulation: deliveries vary in line, length and pace; shots us
 
 ## Development
 
-The source uses Vite, Three.js 0.187.0 and Rapier 0.21.0. With network access, run `npm install`, then `npm run dev` or `npm run build`. Run `npm test` for the shared/classic and modern regression suites. In development, `/?era=2027&fieldingLab=1` opens slow-motion drills for catches, dives, rope saves, backward pursuit, return throws, run-out attempts, and missed returns. Open them with Fielding Checks; close the panel with × or Escape. The drills use live physics and contact decisions; this panel is excluded from production.
+The source uses Vite, Three.js 0.187.0 and Rapier 0.21.0. With network access, run `npm install`, then `npm run dev` or `npm run build`. Run `npm test` for the shared/classic and modern regression suites. In development, `/legacy/?era=2027&fieldingLab=1` opens slow-motion drills for catches, dives, rope saves, backward pursuit, return throws, run-out attempts, and missed returns. Open them with Fielding Checks; close the panel with × or Escape. The drills use live physics and contact decisions; this panel is excluded from production.
 
 ## Audio credits
 

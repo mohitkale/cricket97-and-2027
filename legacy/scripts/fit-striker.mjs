@@ -61,4 +61,4 @@ geometry.setIndex(groups.flat().map(index => compact.get(index)));
 geometry.addGroup(0,groups[0].length,0);
 geometry.addGroup(groups[0].length,groups[1].length,1);
 geometry.computeVertexNormals();
-fs.writeFileSync('public/models/striker-body.json', JSON.stringify(geometry.toJSON()));
+fs.writeFileSync('public/legacy/models/striker-body.json', JSON.stringify(geometry.toJSON()));

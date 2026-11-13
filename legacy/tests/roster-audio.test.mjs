@@ -16,6 +16,6 @@ test('each classic squad member has a full name and handedness', () => {
 
 test('introduction and commentary clips are bundled', () => {
   for (const clip of ['intro-openers', 'intro-bowler', 'intro-batter', 'intro-new-bowler', 'keeper_runout']) {
-    assert.ok(statSync(new URL(`../public/audio/${clip}.mp3`, import.meta.url)).size > 1000);
+    assert.ok(statSync(new URL(`../../public/legacy/audio/${clip}.mp3`, import.meta.url)).size > 1000);
   }
 });

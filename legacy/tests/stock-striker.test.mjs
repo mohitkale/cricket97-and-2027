@@ -8,7 +8,7 @@ import {CRICKET} from '../src/cricket-scale.js';
 
 test('the shipped striker geometry follows the match skeleton through a drive', () => {
   globalThis.document = {createElement: () => ({})};
-  const file = new URL('../public/models/striker-body.json', import.meta.url);
+  const file = new URL('../../public/legacy/models/striker-body.json', import.meta.url);
   const geometry = new THREE.BufferGeometryLoader().parse(JSON.parse(readFileSync(file)));
   for (const hand of ['left', 'right']) {
     const player = createAthlete(new THREE.Scene(), hand === 'left' ? .35 : -.35, 9.8, 0x2266aa, 0, 'batter');
