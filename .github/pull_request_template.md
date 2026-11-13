@@ -3,7 +3,7 @@ Closes #
 ## What changed
 
 ## How it was verified
-- [ ] `npm test` and `npm run build` pass
+- [ ] `npm run check` passes
 - [ ] Each acceptance check in the issue is shown below (test name, capture or measurement)
 
 ## Captures and preview

@@ -26,12 +26,13 @@ These rules apply to every agent and model working in this repository, whatever 
 
 ```sh
 npm ci           # install
-npm test         # unit tests, must stay under 30 s
-npm run build    # production build
+npm run check    # lint + typecheck + tests + build: run this before every PR
+npm test         # unit tests only, must stay under 30 s
+npm run format   # apply Biome formatting and safe fixes
 npm run dev      # local dev server
 ```
 
-Run tests and build before opening a PR. As the toolchain issue lands, `npm run check` (lint + typecheck + tests + build) becomes the single pre-PR command; use it once it exists.
+New code is TypeScript (strict). The prototype's JavaScript is excluded from lint and typecheck.
 
 ## Rules that are easy to break
 
@@ -53,6 +54,6 @@ Run tests and build before opening a PR. As the toolchain issue lands, `npm run 
 ## Definition of done
 
 - Acceptance checks in the issue are each shown to pass (test name, capture, or measurement).
-- `npm test` and `npm run build` pass locally and in CI.
+- `npm run check` passes locally and in CI.
 - New behaviour has tests; new assets have licence entries; docs touched by the change are updated.
 - The PR description lists what changed, how it was verified, and what remains unverified.
