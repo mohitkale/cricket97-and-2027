@@ -69,6 +69,13 @@ export function violations(files: string[]): string[] {
   return problems;
 }
 
+test('no general physics engine under src (decision 0001)', () => {
+  const offenders = sourceFiles(SRC).filter((file) =>
+    imports(file).some((specifier) => /rapier|cannon|ammo|physx|jolt/i.test(specifier)),
+  );
+  expect(offenders.map((file) => relative(SRC, file))).toEqual([]);
+});
+
 test('sim is pure and layers only import what they are allowed to', () => {
   expect(violations(sourceFiles(SRC))).toEqual([]);
 });

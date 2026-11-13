@@ -1,6 +1,6 @@
 # 0001: Ball physics without a general physics engine
 
-- Status: **proposed, waiting for the owner's approval** (issue #9)
+- Status: **accepted** by the owner on 2026-11-13 (issue #9)
 - Date: 2026-11-13
 
 ## Question
