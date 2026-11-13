@@ -24,7 +24,7 @@ All numbers were measured on this repository; the scripts are in `tools/spikes/`
 
 **Agreement with the prototype** (`node tools/spikes/physics-compare.mjs`). Twenty deliveries (five lengths, four paces) were launched with the prototype's own launch solver and run through both systems, with the integrator set to the prototype's coefficients. Worst differences when the ball reaches the batting crease: line 0.4 cm, speed 1.1 %, arrival time one step (8 ms), height 11 cm. The height difference is largest for bouncers and comes from Rapier's different treatment of spin during the bounce and its extra linear damping, neither of which the prototype had tuned on purpose. First-bounce positions agree to within the distance the ball travels in one step.
 
-**Cross-engine determinism** (`node tools/spikes/determinism.mjs`). Twenty deliveries of two seconds each, with spin and bounces, gave the same SHA-256 of the raw float bits in Node 24, Chromium 158, Firefox 159 and WebKit 27. This holds because the integrator uses only `+ - * /` and `Math.sqrt`, which IEEE 754 defines exactly. It was tested on one Mac; other CPU architectures were not tested, though the same guarantee applies.
+**Cross-engine determinism** (`npm run determinism`). Twenty deliveries of two seconds each, with spin and bounces, gave the same SHA-256 of the raw float bits in Node 24, Chromium 158, Firefox 159 and WebKit 27. This holds because the integrator uses only `+ - * /` and `Math.sqrt`, which IEEE 754 defines exactly. It was tested on one Mac; other CPU architectures were not tested, though the same guarantee applies.
 
 **Visual check.** The `ball-flight` lab scene draws five deliveries from the integrator in side view; see the capture on the pull request.
 
