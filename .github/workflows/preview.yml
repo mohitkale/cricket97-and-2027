@@ -55,9 +55,10 @@ jobs:
           fi
           if [ -n "$PR" ]; then
             rm -rf "site/pr/$PR"
+            if [ "$CLOSED" = "true" ]; then rm -rf "site/captures/$PR"; fi
             if [ "$CLOSED" != "true" ]; then mkdir -p site/pr && cp -r dist "site/pr/$PR"; fi
           else
-            find site -mindepth 1 -maxdepth 1 ! -name .git ! -name pr -exec rm -rf {} +
+            find site -mindepth 1 -maxdepth 1 ! -name .git ! -name pr ! -name captures -exec rm -rf {} +
             cp -r dist/. site/
           fi
           touch site/.nojekyll

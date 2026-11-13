@@ -1,0 +1,84 @@
+name: capture
+
+# On request only: add the "capture" label to a pull request, or run manually.
+# A pull request chooses its scenarios with a line in its description:
+#   Capture: pitch-plan legacy-2027-delivery
+on:
+  workflow_dispatch:
+    inputs:
+      scenarios:
+        description: Space-separated scenario names (see npm run capture -- --list)
+        default: pitch-plan
+  pull_request:
+    types: [labeled]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+# Shares the preview group so two jobs never push to gh-pages at once.
+concurrency:
+  group: preview-pages
+  cancel-in-progress: false
+
+jobs:
+  capture:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.label.name == 'capture' &&
+       github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      PR: ${{ github.event.pull_request.number }}
+      SITE: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
+      GH_TOKEN: ${{ github.token }}
+      REQUESTED: ${{ inputs.scenarios }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npx playwright-core install --with-deps chromium-headless-shell
+      - name: Capture
+        run: |
+          names="$REQUESTED"
+          if [ -n "$PR" ]; then
+            names=$(gh pr view "$PR" --repo "$GITHUB_REPOSITORY" --json body --jq .body | sed -n 's/^Capture:[[:space:]]*//p' | head -1 | tr -d '\r')
+          fi
+          names=${names:-pitch-plan}
+          echo "NAMES=$names" >> "$GITHUB_ENV"
+          args=""
+          for name in $names; do args="$args --scenario $name"; done
+          npm run capture -- $args
+      - uses: actions/upload-artifact@v4
+        with:
+          name: captures
+          path: captures
+          retention-days: 14
+      - name: Publish sheets and comment
+        if: env.PR != ''
+        run: |
+          remote="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git clone --quiet --depth 1 --branch gh-pages "$remote" site
+          rm -rf "site/captures/$PR"
+          mkdir -p "site/captures/$PR"
+          cp -r captures/. "site/captures/$PR/"
+          cd site
+          git add -A
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit --quiet -m "Captures for PR #$PR (${GITHUB_SHA::7})"
+          git push --quiet origin gh-pages
+          cd ..
+          {
+            echo "Captures for ${GITHUB_SHA::7} (allow a minute for Pages to refresh):"
+            for name in $NAMES; do
+              echo
+              echo "**$name** · [video]($SITE/captures/$PR/$name/clip.webm)"
+              echo
+              echo "![$name]($SITE/captures/$PR/$name/sheet.png?v=${GITHUB_SHA::7})"
+            done
+          } > comment.md
+          gh pr comment "$PR" --repo "$GITHUB_REPOSITORY" --body-file comment.md
