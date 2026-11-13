@@ -79,7 +79,7 @@ export function buildModernStadium(scene,{grass,grass2,pitchmat,roof,roofLip,ren
     setNight(night){renderer.toneMappingExposure=night?1.26:1.05;},
     update(match){
       const key=JSON.stringify(match);if(key===previous)return;previous=key;
-      const x=canvas.getContext('2d');x.fillStyle='#091d2a';x.fillRect(0,0,1024,512);x.fillStyle='#c3ff54';x.fillRect(0,0,1024,9);x.font='700 29px Arial';x.textAlign='left';x.fillText('CRICKET 2027',50,65);x.textAlign='right';x.fillStyle='#91b7b1';x.font='24px Arial';x.fillText(match.venue.toUpperCase(),974,65);x.textAlign='center';x.fillStyle='#f0f8e8';x.font='bold 55px Arial';x.fillText(match.team.toUpperCase(),512,165);x.font='bold 135px Arial';x.fillText(match.score,512,315);x.fillStyle='#c3ff54';x.font='32px Arial';x.fillText(`${match.overs} OVERS   •   INTERNATIONAL`,512,395);x.fillStyle='#70978c';x.font='20px Arial';x.fillText('THEN. NOW. ALWAYS.',512,465);texture.needsUpdate=true;
+      const x=canvas.getContext('2d');x.fillStyle='#091d2a';x.fillRect(0,0,1024,512);x.fillStyle='#c3ff54';x.fillRect(0,0,1024,9);x.font='700 29px Arial';x.textAlign='left';x.fillText('2027 EDITION',50,65);x.textAlign='right';x.fillStyle='#91b7b1';x.font='24px Arial';x.fillText(match.venue.toUpperCase(),974,65);x.textAlign='center';x.fillStyle='#f0f8e8';x.font='bold 55px Arial';x.fillText(match.team.toUpperCase(),512,165);x.font='bold 135px Arial';x.fillText(match.score,512,315);x.fillStyle='#c3ff54';x.font='32px Arial';x.fillText(`${match.overs} OVERS   •   INTERNATIONAL`,512,395);x.fillStyle='#70978c';x.font='20px Arial';x.fillText('THEN. NOW. ALWAYS.',512,465);texture.needsUpdate=true;
     },
   };
 }
