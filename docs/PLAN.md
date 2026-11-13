@@ -4,7 +4,7 @@ This is the stable reference every task links to. The live task list is the GitH
 
 ## 1. What we are building
 
-A free, open-source browser cricket game with two editions over one match engine:
+*Cricket: Then. Now. Always.* is a free, open-source browser cricket game with two editions over one match engine:
 
 - **1997 Edition** — an original retro game in the style of late-90s PC sports titles: low resolution, low-poly players, chunky HUD, sparse dry commentary, fast arcade matches. Nostalgia.
 - **2027 Edition** — a modern broadcast-style presentation: believable athletes, a living stadium, TV cameras and graphics, layered crowd and two-voice commentary. The "wow".

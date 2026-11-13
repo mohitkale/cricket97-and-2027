@@ -1,4 +1,3 @@
-import { ROSTER_SOURCE } from './eras.js';
 
 export const VENUES = {
   horizon: { name:'Horizon Arena', city:'Mumbai, India', description:'A full house. A fresh innings.', turf:0x276d3b, accent:0xc3ff54, sky:0x101e32 },
@@ -13,7 +12,7 @@ export function mountEditionUI(era) {
   chooser.setAttribute('aria-label','Return to era selection');
   document.querySelector('.top-right').prepend(chooser);
   if (!era.modern) return;
-  document.querySelector('.brand-name').innerHTML = 'CRICKET<span> ’<em>2027</em></span><small>THE NEXT INNINGS</small>';
+  document.querySelector('.brand-name').innerHTML = 'CRICKET<span> <em>2027</em></span><small>THE NEXT INNINGS</small>';
   nav.innerHTML = '<span class="active">PLAY</span><span>INTERNATIONAL</span><span class="nav-season">SEASON 2027</span>';
   document.querySelector('.edition').innerHTML = '<i class="live-dot"></i> MODERN EDITION';
   document.querySelector('.herohead .eyebrow').textContent = 'THE GAME HAS MOVED ON. SO HAVE YOU.';
@@ -41,7 +40,7 @@ export function decorateSetup(era, venueId) {
   modal.querySelector('.setup-options').after(venue);
   modal.querySelector('.setup-options').innerHTML = '<div class="option">THE EXPERIENCE<b>MODERN INTERNATIONAL</b></div><div class="option">THE MOVEMENT<b>ATHLETIC & RESPONSIVE</b></div><div class="option">THE SQUADS<b>CONTEMPORARY GENERATION</b></div>';
   const source = document.createElement('p'); source.className = 'roster-source';
-  source.innerHTML = `2027 is the edition. Squads use the <a href="${ROSTER_SOURCE}" target="_blank" rel="noopener noreferrer">2026 international T20 snapshot</a>, checked 1 Nov 2026. Reorder to select your XI.`;
+  source.textContent = 'Squads are fictional. Reorder to select your XI.';
   modal.querySelector('.setup-footer').before(source);
   modal.querySelector('#start').textContent = 'TAKE THE FIELD ↗';
   modal.querySelector('.setup-footer p').textContent = 'Your first 11 take the field. Move players up or down to shape your side; the remaining four are your reserves.';

@@ -5,13 +5,13 @@ import {MATCH_FORMATS,DEFAULT_MATCH_OVERS,matchFormat} from '../src/match-format
 import { bowlingProfile, bowlingOrder, bowlingVariation, keeperIndex } from '../src/bowling-profiles.js';
 
 test('real bowlers have their own styles and variations', () => {
-  assert.equal(bowlingProfile('Wasim Akram').style, 'fast');
-  assert.equal(rosters.Pakistan.find(p => p.name === 'Wasim Akram').bowl, 'left');
-  assert.equal(bowlingVariation('Wasim Akram', () => .9).name, 'Reverse swing');
-  assert.equal(bowlingProfile('Shane Warne').style, 'leg spin');
-  assert.equal(bowlingVariation('Shane Warne', () => .2).name, 'Leg break');
-  assert.equal(bowlingVariation('Shane Warne', () => .9).name, 'Googly');
-  assert.equal(bowlingVariation('Saqlain Mushtaq', () => .9).name, 'Doosra');
+  assert.equal(bowlingProfile('Saad Lodhi').style, 'fast');
+  assert.equal(rosters.Pakistan.find(p => p.name === 'Saad Lodhi').bowl, 'left');
+  assert.equal(bowlingVariation('Saad Lodhi', () => .9).name, 'Reverse swing');
+  assert.equal(bowlingProfile('Darcy Lockhart').style, 'leg spin');
+  assert.equal(bowlingVariation('Darcy Lockhart', () => .2).name, 'Leg break');
+  assert.equal(bowlingVariation('Darcy Lockhart', () => .9).name, 'Googly');
+  assert.equal(bowlingVariation('Rehan Kazmi', () => .9).name, 'Doosra');
 });
 test('rotation respects the keeper, squad and over limits for all match lengths', () => {
   for (const players of Object.values(rosters)) {

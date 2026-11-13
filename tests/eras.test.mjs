@@ -8,9 +8,9 @@ test('era selection is explicit and rejects inherited or unknown keys',()=>{
   for(const value of [null,'2026','__proto__','constructor'])assert.equal(resolveEra(value),null);
 });
 test('squads are isolated data over one shared match engine',()=>{
-  assert.equal(squadForEra('97','India')[0].name,'Sachin Tendulkar');
+  assert.equal(squadForEra('97','India')[0].name,'Arvind Mehta');
   const modern=squadForEra('2027','India');modern[0].name='Changed';
-  assert.equal(squadForEra('2027','India')[0].name,'Abhishek Sharma');
+  assert.equal(squadForEra('2027','India')[0].name,'Neel Joshi');
   assert.deepEqual(squadForEra('2027','Unknown'),[]);
 });
 test('each modern squad has 15 unique players and a viable five-bowler XI',()=>{
@@ -22,6 +22,6 @@ test('each modern squad has 15 unique players and a viable five-bowler XI',()=>{
     assert.equal(players[keeper].role,'keeper');assert.equal(order.length,5);
     assert.ok(order.every(p=>p.index!==keeper&&p.skill>=4));
   }
-  assert.equal(bowlingProfile('Jasprit Bumrah').style,'fast');
-  assert.equal(bowlingProfile('Adam Zampa').style,'leg spin');
+  assert.equal(bowlingProfile('Pranav Bose').style,'fast');
+  assert.equal(bowlingProfile('Flynn Mullane').style,'leg spin');
 });
