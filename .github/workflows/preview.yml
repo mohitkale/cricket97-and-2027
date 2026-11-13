@@ -1,0 +1,74 @@
+name: preview
+
+# Publishes main to the site root and each pull request to /pr/<number>/ on the gh-pages branch.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+# One publish at a time so two runs never race on the gh-pages branch.
+concurrency:
+  group: preview-pages
+  cancel-in-progress: false
+
+jobs:
+  preview:
+    # Pull requests from forks get a read-only token, so they are skipped.
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      PR: ${{ github.event.pull_request.number }}
+      CLOSED: ${{ github.event.action == 'closed' }}
+      REPO_NAME: ${{ github.event.repository.name }}
+      SITE: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        if: env.CLOSED != 'true'
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Build
+        if: env.CLOSED != 'true'
+        run: |
+          if [ -n "$PR" ]; then
+            export BASE_PATH="/$REPO_NAME/pr/$PR/" PREVIEW_LABEL="Preview of PR #$PR"
+          else
+            export BASE_PATH="/$REPO_NAME/" PREVIEW_LABEL="Work in progress"
+          fi
+          npm ci
+          npm run build
+      - name: Publish to gh-pages
+        run: |
+          remote="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          if git ls-remote --exit-code --heads "$remote" gh-pages >/dev/null; then
+            git clone --quiet --depth 1 --branch gh-pages "$remote" site
+          else
+            mkdir site && git -C site init --quiet -b gh-pages && git -C site remote add origin "$remote"
+          fi
+          if [ -n "$PR" ]; then
+            rm -rf "site/pr/$PR"
+            if [ "$CLOSED" != "true" ]; then mkdir -p site/pr && cp -r dist "site/pr/$PR"; fi
+          else
+            find site -mindepth 1 -maxdepth 1 ! -name .git ! -name pr -exec rm -rf {} +
+            cp -r dist/. site/
+          fi
+          touch site/.nojekyll
+          cd site
+          git add -A
+          if git diff --cached --quiet; then echo "Nothing to publish"; exit 0; fi
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit --quiet -m "Publish ${PR:+PR #}${PR:-main} (${GITHUB_SHA::7})"
+          git push --quiet origin gh-pages
+      - name: Comment the preview link
+        if: env.PR != '' && env.CLOSED != 'true'
+        run: |
+          gh pr comment "$PR" --repo "$GITHUB_REPOSITORY" --edit-last --create-if-none \
+            --body "Preview: $SITE/pr/$PR/ (updated for ${GITHUB_SHA::7}; allow a minute for Pages to refresh)"

@@ -48,6 +48,7 @@ New code is TypeScript (strict). The prototype's JavaScript is excluded from lin
 
 ## Proving visual and feel work
 
+- Every PR from a branch in this repository gets a playable preview at `https://mohitkale.github.io/cricket97-and-2027/pr/<number>/`; the link is commented on the PR. `main` is published at the site root.
 - Any PR that changes what the player sees or how input feels must attach captures (contact sheet and short video) produced by the capture harness, plus the preview link.
 - State plainly what you could not verify (for example, real phone performance). Never write "complete" for something only checked in an emulator.
 - Issues labelled `gate:owner-feel` or `gate:owner-look` are closed by the owner after playing the preview, not by the PR merging. Use `Refs #<issue>` instead of `Closes` for those.
