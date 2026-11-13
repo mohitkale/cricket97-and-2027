@@ -1,9 +1,9 @@
 {
-  "name": "cricket-97-reimagined",
-  "version": "1.0.0",
+  "name": "cricket-then-now-always",
+  "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "test": "node --test tests/*.test.mjs && vitest run",
+    "test": "node --test legacy/tests/*.test.mjs && vitest run",
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0",

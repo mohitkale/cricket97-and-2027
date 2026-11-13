@@ -7,6 +7,7 @@ These rules apply to every agent and model working in this repository, whatever 
 1. `docs/PLAN.md` — what we are building, the architecture, budgets and milestones.
 2. The issue you were given. Work on exactly one issue.
 3. Nothing in `docs/legacy/` or `legacy/` is a specification. It is the previous attempt, kept for reference.
+4. New code goes in `src/` (see the README in each folder). `legacy/` holds the runnable prototype, served at `/legacy/`; change it only when an issue says so.
 
 ## Picking up work
 
