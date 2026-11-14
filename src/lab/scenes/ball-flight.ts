@@ -1,4 +1,4 @@
-import { createBall, defaultEnvironment, stepBall } from '../../sim/ball/ball';
+import { createBall, groundEnvironment, stepBall } from '../../sim/ball/ball';
 import { PITCH, SIM_DT, WICKET } from '../../sim/units';
 import type { LabSceneFactory } from '../scene';
 
@@ -29,13 +29,13 @@ export const ballFlight: LabSceneFactory = ({ stage }) => {
   if (!maybeContext) throw new Error('2D canvas is not available');
   const g: CanvasRenderingContext2D = maybeContext;
 
-  const env = defaultEnvironment({ height: 0, restitution: 0.55, friction: 0.35 });
+  const env = groundEnvironment('hard');
   const speed = 138 / 3.6;
   const paths: Path[] = DELIVERIES.map(({ label, colour, down }) => {
     const ball = createBall(
       { x: 0, y: 2.1, z: PITCH.poppingCrease },
       { x: 0, y: -down, z: speed },
-      { x: -25, y: 0, z: 0 },
+      { spin: { x: -25, y: 0, z: 0 } },
     );
     const points = [{ z: ball.pos.z, y: ball.pos.y }];
     while (ball.pos.z < PITCH.length + 1.5 && points.length < 400) {

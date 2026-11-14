@@ -3,6 +3,7 @@
  * is thrown on request, with a little random variation, and reports its bounces.
  */
 import { type BallState, createBall, defaultEnvironment, stepBall } from '../ball/ball.ts';
+import { SURFACES } from '../ball/coefficients.ts';
 import type { SimDefinition } from './kernel.ts';
 
 export interface DemoState {
@@ -12,7 +13,7 @@ export interface DemoState {
 export type DemoInput = { type: 'throw'; speed: number };
 export type DemoEvent = { type: 'thrown'; speed: number } | { type: 'bounce'; z: number };
 
-const ENV = defaultEnvironment({ height: 0, restitution: 0.55, friction: 0.3 });
+const ENV = defaultEnvironment(SURFACES.hard);
 
 export const demoSim: SimDefinition<DemoState, DemoInput, DemoEvent> = {
   init: () => ({
@@ -26,7 +27,7 @@ export const demoSim: SimDefinition<DemoState, DemoInput, DemoEvent> = {
       state.ball = createBall(
         { x: 0, y: 2, z: 0 },
         { x: wobble.range(-0.5, 0.5), y: -2, z: speed },
-        { x: -20, y: 0, z: wobble.range(-60, 60) },
+        { spin: { x: -20, y: 0, z: wobble.range(-60, 60) } },
       );
       state.throws += 1;
       emit({ type: 'thrown', speed });
