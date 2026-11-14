@@ -3,7 +3,12 @@
  * computes them in Node and in real browsers and fails if any engine disagrees.
  * Add an entry here whenever a new sim subsystem lands.
  */
+
+import { groundEnvironment } from './ball/ball.ts';
 import { ballFingerprint } from './ball/fingerprint.ts';
+import { playStroke } from './contact/contact.ts';
+import { FEEDS, feedBall } from './contact/feeds.ts';
+import { ASSIST, STROKES, type StrokeId } from './contact/strokes.ts';
 import { demoSim } from './core/demo-sim.ts';
 import { Kernel } from './core/kernel.ts';
 import { hashString, Rng } from './core/prng.ts';
@@ -84,9 +89,34 @@ function rulesFingerprint(): string {
   return combined;
 }
 
+/** Every stroke at several timings, for both hands: the exact bits of where the ball went. */
+function contactFingerprint(): string {
+  const env = groundEnvironment('dry');
+  const values: number[] = [];
+  for (const id of Object.keys(STROKES) as StrokeId[]) {
+    for (const side of [1, -1] as const) {
+      for (const timingError of [-0.03, 0, 0.02, 0.05]) {
+        const ball = feedBall(FEEDS[id], env, side);
+        const hand = side === 1 ? 'right' : 'left';
+        const result = playStroke(ball, env, {
+          stroke: id,
+          hand,
+          timingError,
+          assist: ASSIST.classic,
+        });
+        values.push(ball.vel.x, ball.vel.y, ball.vel.z, result.phase, result.quality);
+      }
+    }
+  }
+  return hashString(Array.from(new Uint8Array(new Float64Array(values).buffer)).join(',')).toString(
+    16,
+  );
+}
+
 export function simFingerprints(): Record<string, string> {
   return {
     ball: ballFingerprint(),
+    contact: contactFingerprint(),
     kernel: kernelFingerprint(),
     rules: rulesFingerprint(),
   };
