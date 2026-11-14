@@ -1,8 +1,9 @@
 import { describe, expect, test } from 'vitest';
 import { BALL, SIM_DT } from '../units.ts';
 import { type BallEnvironment, createBall, defaultEnvironment, stepBall } from './ball.ts';
+import { SURFACES } from './coefficients.ts';
 
-const TURF = { height: 0, restitution: 0.55, friction: 0.3 };
+const TURF = { ...SURFACES.hard, restitution: 0.55, friction: 0.3 };
 const vacuum = (): BallEnvironment => ({ ...defaultEnvironment(TURF), dragK: 0, magnusK: 0 });
 
 function run(
@@ -45,7 +46,7 @@ describe('flight', () => {
     const launch = () => ({ pos: { x: 0, y: 2, z: 0 }, vel: { x: 0, y: 0, z: 30 } });
     const height = (spinX: number) => {
       const { pos, vel } = launch();
-      return run(createBall(pos, vel, { x: spinX, y: 0, z: 0 }), 0.3, env).pos.y;
+      return run(createBall(pos, vel, { spin: { x: spinX, y: 0, z: 0 } }), 0.3, env).pos.y;
     };
     expect(height(-30)).toBeGreaterThan(height(0));
     expect(height(30)).toBeLessThan(height(0));
@@ -88,7 +89,7 @@ describe('bounce', () => {
       const ball = createBall(
         { x: 0, y: 2, z: 0 },
         { x: 0, y: -2, z: 22 },
-        { x: 0, y: 0, z: spinZ },
+        { spin: { x: 0, y: 0, z: spinZ } },
       );
       const env = vacuum();
       while (ball.bounces === 0) stepBall(ball, SIM_DT, env);
@@ -113,7 +114,11 @@ test('pos, vel and spin objects keep their identity across a bounce', () => {
 
 describe('determinism', () => {
   const sample = () =>
-    createBall({ x: 0.2, y: 2.1, z: 0 }, { x: -0.4, y: -1.5, z: 36 }, { x: -20, y: 5, z: 40 });
+    createBall(
+      { x: 0.2, y: 2.1, z: 0 },
+      { x: -0.4, y: -1.5, z: 36 },
+      { spin: { x: -20, y: 5, z: 40 } },
+    );
 
   test('two runs give bit-identical results', () => {
     const a = run(sample(), 1.5, defaultEnvironment(TURF));
