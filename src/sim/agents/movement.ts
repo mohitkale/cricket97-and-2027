@@ -85,8 +85,14 @@ export function createAgent(
 
 /** Give the agent somewhere to go. A player who was idle reacts before moving. */
 export function sendTo(agent: Agent, target: Point, runThrough = false): void {
-  if (agent.target === null) agent.delay = agent.limits.reaction;
-  agent.target = { ...target };
+  if (agent.target === null) {
+    agent.delay = agent.limits.reaction;
+    agent.target = { x: target.x, z: target.z };
+  } else {
+    // Re-aimed every step while chasing: reuse the object instead of making garbage.
+    agent.target.x = target.x;
+    agent.target.z = target.z;
+  }
   agent.runThrough = runThrough;
 }
 
@@ -99,6 +105,8 @@ export const distance = (a: Point, b: Point): number =>
 
 /** Advance one agent by one step. */
 export function stepAgent(agent: Agent, dt: number): void {
+  // Standing still with nothing to do: most fielders, most of the time.
+  if (agent.target === null && agent.speed === 0 && agent.delay <= 0) return;
   const { limits, heading, pos } = agent;
   let wanted = 0;
 

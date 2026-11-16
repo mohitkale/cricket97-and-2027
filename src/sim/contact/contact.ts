@@ -11,7 +11,7 @@
  * Then timing error moves the real bat away from that plan: a late bat is further
  * back, slower and its face has not come round; an early one has gone past.
  */
-import { type BallEnvironment, type BallState, stepBall } from '../ball/ball.ts';
+import { type BallEnvironment, type BallState, cloneBall, stepBall } from '../ball/ball.ts';
 import type { RandomStream } from '../core/prng.ts';
 import {
   add,
@@ -106,7 +106,6 @@ export interface Swing {
   result: ContactResult | null;
 }
 
-const copyBall = (ball: BallState): BallState => structuredClone(ball);
 const mirror = (v: Vec3, side: number): Vec3 => vec(v.x * side, v.y, v.z);
 
 /** Exit velocity for a clean hit on a face with the given normal, bat velocity and efficiency. */
@@ -135,7 +134,7 @@ export function planSwing(
   const planeZ = stumpsZ - stroke.contactDistance;
 
   // Fly a copy of the ball to the contact plane.
-  const probe = copyBall(ball);
+  const probe = cloneBall(ball);
   let steps = 0;
   let before = { ...probe.pos };
   while (probe.pos.z < planeZ) {
@@ -287,7 +286,7 @@ export function stepSwing(
   const phase0 = swing.time - swing.arrival - swing.late;
   const from = { ...ball.pos };
   const velocityIn = { ...ball.vel };
-  const saved = copyBall(ball);
+  const saved = cloneBall(ball);
   stepBall(ball, dt, env, random);
   swing.time += dt;
   const phase1 = phase0 + dt;

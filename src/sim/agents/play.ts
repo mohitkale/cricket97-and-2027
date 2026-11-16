@@ -111,7 +111,7 @@ export function resolvePlay(setup: PlaySetup): PlayResult {
   let runs = 0;
   let boundary: 0 | 4 | 6 = 0;
   let dismissal = null as PlayResult['dismissal'];
-  let path: BallPath = predictPath(ball, env, 12, 1, PLAN_DT);
+  let path: BallPath = predictPath(ball, env, 12, 2, PLAN_DT);
   let primary = -1;
   let primaryTime = Number.POSITIVE_INFINITY;
   let primaryPoint: Point = { x: ball.pos.x, z: ball.pos.z };
@@ -119,7 +119,7 @@ export function resolvePlay(setup: PlaySetup): PlayResult {
   /** Decide who goes for the ball and who covers the stumps. */
   /** `fresh` when the situation has changed (start, fumble, overthrow); otherwise a routine refresh. */
   function plan(fresh = true): void {
-    path = predictPath(ball, env, 12, 1, PLAN_DT);
+    path = predictPath(ball, env, 12, 2, PLAN_DT);
     // A ball that has already stopped has no path: it is simply where it lies.
     if (path.points.length === 0) {
       path.points.push({ t: 0, x: ball.pos.x, y: ball.pos.y, z: ball.pos.z, bounces: 1 });
@@ -339,11 +339,14 @@ export function resolvePlay(setup: PlaySetup): PlayResult {
         if (wantRun()) startRun();
       } else {
         // Decide on the way whether to turn, so they slow into the crease only if they will.
-        const turn = wantRunAfterThis();
-        striker.turning = turn;
-        partner.turning = turn;
+        // Judged ten times a second, as a batter glancing up would.
+        if (step % 12 === 0) {
+          const turn = wantRunAfterThis();
+          striker.turning = turn;
+          partner.turning = turn;
+        }
       }
-    } else if (mode.kind === 'free' && wantRun()) {
+    } else if (mode.kind === 'free' && step % 12 === 0 && wantRun()) {
       // Things change while the ball is loose (a misfield, an overthrow): look again.
       startRun();
     }
@@ -362,11 +365,14 @@ export function resolvePlay(setup: PlaySetup): PlayResult {
         events.push({ type: 'boundary', runs: boundary, t });
         break;
       }
-      if (t > 0.15) {
+      if (t > 0.15 && ball.pos.y <= CATCH_HEIGHT) {
         for (const agent of fielders) {
-          if ((cooldown.get(agent.id) ?? 0) > t || ball.pos.y > CATCH_HEIGHT) continue;
-          const gap = distance(agent.pos, ball.pos);
-          if (gap > REACH) continue;
+          // Cheap rejection first: nearly every fielder is nowhere near the ball.
+          const dx = agent.pos.x - ball.pos.x;
+          const dz = agent.pos.z - ball.pos.z;
+          if (dx * dx + dz * dz > REACH * REACH) continue;
+          if ((cooldown.get(agent.id) ?? 0) > t) continue;
+          const gap = Math.sqrt(dx * dx + dz * dz);
           const speed = Math.sqrt(
             ball.vel.x * ball.vel.x + ball.vel.y * ball.vel.y + ball.vel.z * ball.vel.z,
           );

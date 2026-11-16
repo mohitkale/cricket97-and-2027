@@ -153,7 +153,7 @@ export function playDelivery(input: DeliveryInput): DeliveryResult {
   const line = intent.line * side + spread(random, 0.1 + 0.3 * wayward);
   const length = Math.max(0.3, intent.length + spread(random, 0.35 + 1.1 * wayward));
   const kmh = intent.kmh + spread(random, 3);
-  const overstepped = random.chance(0.004 + 0.022 * wayward);
+  const overstepped = random.chance(0.002 + 0.012 * wayward);
 
   const from = {
     x: bowler.hand === 'right' ? -0.45 : 0.45,

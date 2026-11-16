@@ -19,6 +19,7 @@ import { Kernel } from './core/kernel.ts';
 import { hashString, Rng } from './core/prng.ts';
 import { playDelivery } from './match/delivery.ts';
 import { standardTeam } from './match/players.ts';
+import { simulateMatch } from './match/runner.ts';
 import {
   applyBall,
   type BallOutcome,
@@ -258,6 +259,24 @@ function deliveryFingerprint(): string {
   );
 }
 
+/** Complete AI matches in both formats: the final scorecards. */
+function matchFingerprint(): string {
+  let combined = '';
+  for (const [id, seed] of [
+    ['2027-t20', 7],
+    ['1997-odi', 8],
+  ] as const) {
+    const report = simulateMatch({
+      rules: ruleSet(id, 5),
+      teams: [standardTeam(seed), standardTeam(seed + 100)],
+      levels: ['pro', 'classic'],
+      seed,
+    });
+    combined += hashString(JSON.stringify(report.match)).toString(16);
+  }
+  return combined;
+}
+
 export function simFingerprints(): Record<string, string> {
   return {
     agents: agentsFingerprint(),
@@ -265,6 +284,7 @@ export function simFingerprints(): Record<string, string> {
     contact: contactFingerprint(),
     delivery: deliveryFingerprint(),
     kernel: kernelFingerprint(),
+    match: matchFingerprint(),
     play: playFingerprint(),
     rules: rulesFingerprint(),
   };

@@ -113,6 +113,21 @@ export function createBall(pos: Vec3, vel: Vec3, options: BallOptions = {}): Bal
   };
 }
 
+/** An independent copy of a ball. Written out by hand: it runs many times per delivery. */
+export function cloneBall(ball: BallState): BallState {
+  return {
+    pos: { x: ball.pos.x, y: ball.pos.y, z: ball.pos.z },
+    vel: { x: ball.vel.x, y: ball.vel.y, z: ball.vel.z },
+    spin: { x: ball.spin.x, y: ball.spin.y, z: ball.spin.z },
+    seamTilt: ball.seamTilt,
+    seamUpright: ball.seamUpright,
+    age: ball.age,
+    bounces: ball.bounces,
+    landed: { x: ball.landed.x, z: ball.landed.z },
+    rolling: ball.rolling,
+  };
+}
+
 /**
  * Swing strength for a speed and ball age, from 1 (full conventional) through 0 to
  * -reverseStrength (reverse). Piecewise linear so it needs no transcendental functions.
