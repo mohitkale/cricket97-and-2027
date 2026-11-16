@@ -1,6 +1,6 @@
 # 0003: Where cricket animation clips come from
 
-- Status: **proposed**. The tested route does not cover batting; the owner needs to choose how to fill the gap (issue #11)
+- Status: **proposed**. Library clips do not cover batting. Capture from video is built and validated on known motion, and now needs a real video from the owner to judge (issue #11)
 - Date: 2026-11-17
 
 ## Question
@@ -49,14 +49,46 @@ Batting strokes and stance, the bowling action for pace and spin, wicketkeeping 
 
 ## Options for the missing motion
 
-The owner chooses. None is tested yet.
+The owner chooses. Option 1 has since been spiked; see the next section. The others are untested.
 
 1. **Capture from the owner's own video, in the browser.** Route (b) of the original issue, without any install: a lab page runs a pose-estimation model on a phone video of someone playing the stroke, and repository tooling retargets the result to this skeleton. Licence position is clean (own work). Risks: hands and bat are tracked poorly, depth from one camera is noisy, and clean-up without a modelling tool is limited to filtering and IK. Worth a spike on one cover drive before committing.
 2. **Widen the licence rule to admit the CMU motion capture database.** It has golf and baseball swings, which are two-handed and side-on, so closer than a sword slash. They are still not cricket strokes, and its terms are permissive but not CC0 or CC BY 4.0, so rule 6 in `AGENTS.md` would have to change.
 3. **Have the clips made by someone with a modelling tool**, the owner on another machine or a commissioned animator, delivered as glTF on this skeleton under CC0 or CC BY 4.0. Best quality; costs time or money and is outside this repository.
 4. **Allow a modelling tool after all**, restoring route (a).
 
-My recommendation is to spike option 1 next, because it is the only one that needs nothing installed, bought or relicensed, and to keep option 3 in reserve if the result is not good enough for the feel gate.
+My recommendation was to spike option 1 first, because it is the only one that needs nothing installed, bought or relicensed, and to keep option 3 in reserve if the result is not good enough for the feel gate. The owner agreed on 2026-11-17.
+
+## Capture from video: what was built and what it shows
+
+**Built** (nothing installed; the pose model is the MediaPipe Pose Landmarker, Apache 2.0, running in the browser):
+
+1. `lab/capture.html` (dev server only) reads a video frame by frame, runs the pose model on each, and saves 33 body landmarks per frame to `assets/src/capture/<name>.json`. The video stays on the computer. The model file, about 30 MB, is fetched from Google's servers when the page runs.
+2. `src/anim/retarget.ts` solves joint rotations for the shared skeleton from those landmarks, and puts the body back in the room by keeping the lower foot planted on the ground. It only solves from the landmarks; it does not pose anything by hand.
+3. `tools/assets/retarget-capture.ts <name>` writes the result as a clip, `assets/src/clips/capture-<name>.glb`, which `npm run assets` builds and the lab plays.
+
+**Validated on motion whose truth is known**, since there is no cricket video yet. The library's `OverhandThrow` was put through the pipeline twice:
+
+| Input to the retargeter | Result |
+| --- | --- |
+| The clip's true joint positions (`OverhandThrow-truth`) | Looks the same as the original from the front and the side, lunge included (`clip-capture-OverhandThrow-truth`). Unit tests recover a posed skeleton to within 1 cm at every limb joint |
+| What the pose model saw in a front render of the clip (`OverhandThrow-seen`) | From the front, recognisably the same throw. From the side, wrong: the step forward into the throw is missing and the feet tilt (`clip-capture-OverhandThrow-seen`) |
+
+The pose model's landmarks were on average 18 cm from the truth after levelling (21 cm before), split very unevenly: about 3 cm across the image, 7 cm vertically, 15 cm in depth. It also saw a bend at the hips that was not there (torso 23° forward, legs 9°, where the truth is 4° back and 2°). The `--level` option removes the constant part of that tilt and nothing more.
+
+**What this means**
+
+- The retargeting half works and is tested. Whatever produces good landmarks will produce a good clip.
+- One camera gives good motion across the picture and poor motion toward or away from it. A stroke filmed so that the bat swing crosses the frame should fare better than this throw, which lunges at the camera, but the depth part of any stroke (the stride, the shoulder turn) will be weak.
+- The test subject was a purple mannequin render, not a person. The pose model is trained on people, so a real video may do better. That is not known until one is tried.
+- Hands: the pose model gives three points per hand. That is enough for the hand's direction, not for a grip on a bat. The bat would be attached to the hands by IK in the animation runtime (issue #20).
+
+**To judge the route, the owner supplies one video**: a right-handed cover drive, shadow-batted, whole body in frame, phone held still at about chest height, starting from standing upright for a second. Two takes would be better: one from side-on (point, looking at the batter's chest) and one from the bowler's end. Then:
+
+1. `npm run dev`, open `/lab/capture.html`, pick the video, name it `cover-drive`, press Capture.
+2. `node tools/assets/retarget-capture.ts cover-drive --level`
+3. `npm run assets`, add the `ASSETS.md` rows (own work), add the name to `CANDIDATE_CLIPS` and `CLIP_REVIEWS`, capture and look.
+
+If one camera is not good enough, the next step within this route is to combine the two takes, using each for the axes it sees well. That is not built.
 
 ## Recipe for a library clip (the part that works)
 
@@ -68,4 +100,4 @@ My recommendation is to spike option 1 next, because it is the only one that nee
 
 ## Not covered
 
-Retargeting to a character with different proportions, foot sliding when a clip is played while moving, and whether the mannequin itself is the base body for issue #19 (it is a stylised female figure; the plan calls for a 1.80 m adult default).
+Any real video, two-camera capture, retargeting to a character with different proportions, foot sliding when a clip is played while moving, and whether the mannequin itself is the base body for issue #19 (it is a stylised female figure; the plan calls for a 1.80 m adult default).

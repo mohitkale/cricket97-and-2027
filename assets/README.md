@@ -26,3 +26,7 @@ Textures are WebP, not KTX2: the KTX2 encoder is a separately installed command-
 ## Clips from an animation library
 
 Do not commit a whole library. Cut out the clips in use with `node tools/assets/extract-clips.ts <library.glb> assets/src/clips/<set>.glb --clips Name_One,Name_Two` (or `--mesh` to keep only the character), then build as above. Clips bind by bone name, so a clip file drives any character on the same skeleton; load them with `loadClips()` from `src/render/assets.ts`. See `docs/decisions/0003-animation-source.md`.
+
+## Clips captured from video
+
+`lab/capture.html` (run `npm run dev`) turns a video of a person into pose landmarks in `assets/src/capture/<name>.json`. `node tools/assets/retarget-capture.ts <name> --level` turns those into `assets/src/clips/capture-<name>.glb`. Then build as above. The landmark file is the source of the clip and is committed; the video is not. See `docs/decisions/0003-animation-source.md` for what this can and cannot capture.
