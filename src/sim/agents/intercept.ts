@@ -32,26 +32,32 @@ export interface BallPath {
   onTheFull: boolean;
 }
 
-/** The ball's path for the next `seconds`, sampled every `every` sim steps. Does not change the ball. */
+/**
+ * The ball's path for the next `seconds`, sampled every `every` steps of `dt`. Does not
+ * change the ball. Planning may use a coarser `dt` than the simulation: it only has to
+ * be good enough to choose who runs where.
+ */
 export function predictPath(
   ball: BallState,
   env: BallEnvironment,
   seconds = 12,
   every = 4,
+  dt = SIM_DT,
 ): BallPath {
   const probe = structuredClone(ball);
   const startBounces = probe.bounces;
   const points: PathPoint[] = [];
-  const steps = Math.round(seconds / SIM_DT);
+  const steps = Math.round(seconds / dt);
   for (let step = 1; step <= steps; step++) {
-    stepBall(probe, SIM_DT, env);
+    stepBall(probe, dt, env);
     const bounces = probe.bounces - startBounces;
     if (!insideBoundary(probe.pos)) {
-      points.push({ t: step * SIM_DT, x: probe.pos.x, y: probe.pos.y, z: probe.pos.z, bounces });
+      points.push({ t: step * dt, x: probe.pos.x, y: probe.pos.y, z: probe.pos.z, bounces });
       return { points, end: 'boundary', onTheFull: bounces === 0 };
     }
-    if (step % every === 0)
-      points.push({ t: step * SIM_DT, x: probe.pos.x, y: probe.pos.y, z: probe.pos.z, bounces });
+    if (step % every === 0) {
+      points.push({ t: step * dt, x: probe.pos.x, y: probe.pos.y, z: probe.pos.z, bounces });
+    }
     if (probe.rolling && probe.vel.x * probe.vel.x + probe.vel.z * probe.vel.z < 0.01) {
       return { points, end: 'stopped', onTheFull: false };
     }
