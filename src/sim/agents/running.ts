@@ -16,7 +16,7 @@ export const CREASE: Record<End, number> = {
 /** A batter makes their ground when the bat, held out in front, is over the line. Metres. */
 export const BAT_REACH = 1.1;
 /** Pads, bat and helmet cost a little speed [tuned]. */
-const KIT = 0.92;
+const KIT = 0.95;
 
 export interface Runner {
   /** Which batter this is, by where they stood when the ball was bowled. */
@@ -42,12 +42,12 @@ export function createRunner(role: Runner['role'], ratings: Ratings): Runner {
   return {
     role,
     // The non-striker backs up a little as the ball is bowled.
-    z: striker ? CREASE.striker : CREASE.bowler + 1.2,
+    z: striker ? CREASE.striker : CREASE.bowler + 1.8,
     v: 0,
     goal: striker ? 'striker' : 'bowler',
     home: striker,
     turning: false,
-    delay: striker ? 0.25 : 0,
+    delay: striker ? 0.15 : 0,
     limits: { ...limits, topSpeed: limits.topSpeed * KIT },
   };
 }
