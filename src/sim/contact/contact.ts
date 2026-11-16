@@ -49,6 +49,16 @@ export interface SwingInput {
   /** Seconds. Positive: the batter started the swing late. Negative: early. */
   timingError: number;
   assist: Assist;
+  /**
+   * How hard the batter swings, as a share of the stroke's full bat speed. Default 1.
+   * A checked stroke (around 0.6) is what most balls get; full power is a big hit.
+   */
+  power?: number;
+  /**
+   * How far the batter misjudged where the ball would be, metres across and up. The
+   * middle of the bat goes to the judged position, so a misread is met off-centre.
+   */
+  misread?: { x: number; y: number };
 }
 
 export type ContactKind = 'middled' | 'mistimed' | 'edge' | 'miss';
@@ -115,7 +125,12 @@ export function planSwing(
   input: SwingInput,
   stumpsZ = PITCH.length,
 ): Swing | null {
-  const stroke = STROKES[input.stroke];
+  const full = STROKES[input.stroke];
+  const power = input.power ?? 1;
+  const stroke: Stroke =
+    power === 1
+      ? full
+      : { ...full, batSpeed: full.batSpeed * power, batAcceleration: full.batAcceleration * power };
   const side = input.hand === 'right' ? 1 : -1;
   const planeZ = stumpsZ - stroke.contactDistance;
 
@@ -173,8 +188,8 @@ export function planSwing(
   const [x0, x1] = stroke.zone.x;
   const [low, high] = side === 1 ? [x0, x1] : [-x1, -x0];
   const sweet = vec(
-    clamp(touch.x, low, high),
-    clamp(touch.y, stroke.zone.y[0], stroke.zone.y[1]),
+    clamp(touch.x + (input.misread?.x ?? 0), low, high),
+    clamp(touch.y + (input.misread?.y ?? 0), stroke.zone.y[0], stroke.zone.y[1]),
     touch.z,
   );
 

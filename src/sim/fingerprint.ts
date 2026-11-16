@@ -17,6 +17,8 @@ import { ASSIST, STROKES, type StrokeId } from './contact/strokes.ts';
 import { demoSim } from './core/demo-sim.ts';
 import { Kernel } from './core/kernel.ts';
 import { hashString, Rng } from './core/prng.ts';
+import { playDelivery } from './match/delivery.ts';
+import { standardTeam } from './match/players.ts';
 import {
   applyBall,
   type BallOutcome,
@@ -196,11 +198,72 @@ function playFingerprint(): string {
   );
 }
 
+/** Whole deliveries, bowler's hand to dead ball, against a range of strokes. */
+function deliveryFingerprint(): string {
+  const env = groundEnvironment('hard');
+  const batting = standardTeam(41);
+  const bowling = standardTeam(42);
+  const random = new Rng(43).stream('delivery');
+  const strokes = [
+    'forward-defence',
+    'cover-drive',
+    'pull',
+    'leave',
+    'straight-drive',
+    'sweep',
+    'glance',
+  ] as const;
+  const values: number[] = [];
+  for (let ball = 0; ball < 120; ball++) {
+    const bowlerIndex = 5 + (ball % 6);
+    const bowler = bowling[bowlerIndex]?.bowling;
+    const striker = batting[ball % 11];
+    const nonStriker = batting[(ball + 1) % 11];
+    if (!bowler || !striker || !nonStriker) continue;
+    const result = playDelivery({
+      bowler,
+      intent: {
+        line: random.range(-0.6, 0.3),
+        length: random.range(1.5, 10),
+        kmh: bowler.kmh,
+        swing: random.range(-1, 1),
+        turn: random.range(-1, 1),
+      },
+      batting: {
+        stroke: strokes[ball % strokes.length] ?? 'leave',
+        lofted: ball % 5 === 0,
+        timingError: random.range(-0.05, 0.05),
+        assist: ASSIST.classic,
+        power: random.range(0.4, 1),
+        misread: { x: random.range(-0.06, 0.06), y: random.range(-0.06, 0.06) },
+      },
+      striker,
+      nonStriker,
+      fieldingTeam: bowling,
+      bowlerIndex,
+      field: ball % 2 ? 'pace-spread' : 'new-ball',
+      env,
+      ballAge: ball / 6,
+      random,
+    });
+    values.push(
+      result.kmh,
+      result.outcome.boundary ?? result.outcome.runsRun ?? 0,
+      result.play?.duration ?? 0,
+      result.contact?.exitSpeed ?? 0,
+    );
+  }
+  return hashString(Array.from(new Uint8Array(new Float64Array(values).buffer)).join(',')).toString(
+    16,
+  );
+}
+
 export function simFingerprints(): Record<string, string> {
   return {
     agents: agentsFingerprint(),
     ball: ballFingerprint(),
     contact: contactFingerprint(),
+    delivery: deliveryFingerprint(),
     kernel: kernelFingerprint(),
     play: playFingerprint(),
     rules: rulesFingerprint(),

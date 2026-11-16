@@ -18,6 +18,8 @@ import { CREASE, type End, etaHome, type Runner, runTime, setOff, stepRunner } f
 const STUMPS: Record<End, Point> = { striker: { x: 0, z: PITCH.length }, bowler: { x: 0, z: 0 } };
 /** Extra seconds a batter loses turning for another run, as the batters judge it [tuned]. */
 const TURN = 0.4;
+/** Fielders plan against a coarser flight of the ball than the one actually simulated: three times cheaper. */
+const PLAN_DT = 1 / 40;
 /** Seconds to break the wicket after taking a throw. */
 const TAKE = 0.3;
 /** Within this distance a fielder throws straight at the stumps. Metres. */
@@ -109,7 +111,7 @@ export function resolvePlay(setup: PlaySetup): PlayResult {
   let runs = 0;
   let boundary: 0 | 4 | 6 = 0;
   let dismissal = null as PlayResult['dismissal'];
-  let path: BallPath = predictPath(ball, env);
+  let path: BallPath = predictPath(ball, env, 12, 1, PLAN_DT);
   let primary = -1;
   let primaryTime = Number.POSITIVE_INFINITY;
   let primaryPoint: Point = { x: ball.pos.x, z: ball.pos.z };
@@ -117,7 +119,7 @@ export function resolvePlay(setup: PlaySetup): PlayResult {
   /** Decide who goes for the ball and who covers the stumps. */
   /** `fresh` when the situation has changed (start, fumble, overthrow); otherwise a routine refresh. */
   function plan(fresh = true): void {
-    path = predictPath(ball, env);
+    path = predictPath(ball, env, 12, 1, PLAN_DT);
     // A ball that has already stopped has no path: it is simply where it lies.
     if (path.points.length === 0) {
       path.points.push({ t: 0, x: ball.pos.x, y: ball.pos.y, z: ball.pos.z, bounces: 1 });
@@ -193,11 +195,14 @@ export function resolvePlay(setup: PlaySetup): PlayResult {
       if (path.end === 'boundary' && primary < 0) return Number.POSITIVE_INFINITY;
       if (primary < 0) return Number.POSITIVE_INFINITY;
       const fielder = agentOf(primary);
-      return primaryTime + 0.45 + distance(primaryPoint, stumps) / throwSpeed(fielder) + TAKE;
+      const range = distance(primaryPoint, stumps);
+      // From close in the fielder can hit the stumps direct, with nobody needing to take the throw.
+      return primaryTime + 0.45 + range / throwSpeed(fielder) + (range <= SHY_RANGE ? 0 : TAKE);
     }
     if (mode.kind === 'held') {
       const fielder = agentOf(mode.by);
-      return mode.until + distance(fielder.pos, stumps) / throwSpeed(fielder) + TAKE;
+      const range = distance(fielder.pos, stumps);
+      return mode.until + range / throwSpeed(fielder) + (range <= SHY_RANGE ? 0 : TAKE);
     }
     if (mode.kind === 'thrown') {
       if (mode.target === end) return mode.arrive + (mode.shy ? 0 : TAKE);
