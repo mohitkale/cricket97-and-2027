@@ -4,7 +4,10 @@
  * Add an entry here whenever a new sim subsystem lands.
  */
 
-import { groundEnvironment } from './ball/ball.ts';
+import { fieldPositions } from './agents/field.ts';
+import { planFielding, predictPath } from './agents/intercept.ts';
+import { createAgent, sendTo, stepAgent } from './agents/movement.ts';
+import { createBall, groundEnvironment } from './ball/ball.ts';
 import { ballFingerprint } from './ball/fingerprint.ts';
 import { playStroke } from './contact/contact.ts';
 import { FEEDS, feedBall } from './contact/feeds.ts';
@@ -113,8 +116,39 @@ function contactFingerprint(): string {
   );
 }
 
+/** Fielders chasing a spread of shots: who went, where, and where everyone ended up. */
+function agentsFingerprint(): string {
+  const env = groundEnvironment('hard');
+  const random = new Rng(23).stream('shots');
+  const values: number[] = [];
+  for (let shot = 0; shot < 12; shot++) {
+    const fielders = fieldPositions(shot % 2 ? 'pace-spread' : 'new-ball').map((point, id) =>
+      createAgent(id, point.x, point.z, {
+        pace: random.next(),
+        agility: random.next(),
+        hands: 0.5,
+        arm: 0.5,
+      }),
+    );
+    const ball = createBall(
+      { x: 0, y: 0.5, z: 18 },
+      { x: random.range(-25, 25), y: random.range(0, 9), z: random.range(-25, 12) },
+    );
+    const plan = planFielding(fielders, predictPath(ball, env));
+    const chosen = fielders.find((agent) => agent.id === plan.primary?.fielder);
+    if (plan.primary && chosen) sendTo(chosen, plan.primary.point);
+    for (let step = 0; step < 360; step++) for (const agent of fielders) stepAgent(agent, 1 / 120);
+    values.push(plan.primary?.time ?? -1, plan.backup?.fielder ?? -1);
+    for (const agent of fielders) values.push(agent.pos.x, agent.pos.z, agent.speed);
+  }
+  return hashString(Array.from(new Uint8Array(new Float64Array(values).buffer)).join(',')).toString(
+    16,
+  );
+}
+
 export function simFingerprints(): Record<string, string> {
   return {
+    agents: agentsFingerprint(),
     ball: ballFingerprint(),
     contact: contactFingerprint(),
     kernel: kernelFingerprint(),
