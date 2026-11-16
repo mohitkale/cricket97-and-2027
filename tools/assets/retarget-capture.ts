@@ -8,6 +8,10 @@
  *                                                            also report how far the two captures'
  *                                                            landmarks are apart
  *   --smoothing <frames>   temporal smoothing, default 1
+ *   --face                 the subject stands square in the first frame: turn the clip so that
+ *                          it faces the skeleton's forward, whichever way the camera looked
+ *                          (needed for side-on filming). Applied before --level
+ *   --yaw <degrees>        with --face, turn this much further about the vertical
  *   --level                the subject stands upright in the first frame: remove the constant
  *                          forward or backward tilt that single-camera capture adds
  */
@@ -17,6 +21,7 @@ import { NodeIO } from '@gltf-transform/core';
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
 import { prune } from '@gltf-transform/functions';
 import {
+  faceForwardAtFirstFrame,
   type LandmarkFrame,
   LM,
   levelToFirstFrame,
@@ -34,7 +39,9 @@ const option = (flag: string) => {
   return at < 0 ? undefined : args[at + 1];
 };
 if (!name || name.startsWith('--')) {
-  console.error('usage: retarget-capture.ts <name> [--against <other>] [--smoothing <frames>]');
+  console.error(
+    'usage: retarget-capture.ts <name> [--face [--yaw <degrees>]] [--level] [--against <other>] [--smoothing <frames>]',
+  );
   process.exit(1);
 }
 
@@ -42,9 +49,13 @@ const load = (capture: string): LandmarkFrame[] =>
   JSON.parse(readFileSync(join(ROOT, `assets/src/capture/${capture}.json`), 'utf8')).frames;
 
 const restJoints = await readRestJoints(CHARACTER);
+const captured = load(name);
+const faced = args.includes('--face')
+  ? faceForwardAtFirstFrame(captured, Number(option('--yaw') ?? 0))
+  : captured;
 const frames = args.includes('--level')
-  ? levelToFirstFrame(load(name), restBodyLean(restJoints))
-  : load(name);
+  ? levelToFirstFrame(faced, restBodyLean(restJoints))
+  : faced;
 const clip = retarget(restJoints, frames, {
   smoothing: Number(option('--smoothing') ?? 1),
 });

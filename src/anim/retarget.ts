@@ -210,6 +210,40 @@ export function levelToFirstFrame(frames: LandmarkFrame[], restLean = 0): Landma
   });
 }
 
+/**
+ * The pose model reports the body relative to the camera, so a clip faces whichever way the
+ * camera looked: a stroke filmed side-on would play turned 90 degrees. Assuming the subject
+ * stands square in the first frame, turn every frame about the vertical by one angle so that
+ * the first frame's chest faces the skeleton's forward (+Z). `extraDegrees` turns further,
+ * for a first frame that is not square to the intended forward. Run before levelling, which
+ * removes tilt in the forward-vertical plane only.
+ */
+export function faceForwardAtFirstFrame(
+  frames: LandmarkFrame[],
+  extraDegrees = 0,
+): LandmarkFrame[] {
+  const first = frames[0]?.points;
+  if (!first) return frames;
+  const at = (i: number, axis: number) => first[i * 4 + axis] ?? 0;
+  // Left minus right across hips and shoulders together; forward is across × up.
+  const acrossX = at(LM.hipL, 0) - at(LM.hipR, 0) + at(LM.shoulderL, 0) - at(LM.shoulderR, 0);
+  const acrossZ = at(LM.hipL, 2) - at(LM.hipR, 2) + at(LM.shoulderL, 2) - at(LM.shoulderR, 2);
+  const facing = Math.atan2(-acrossZ, acrossX);
+  const angle = -facing + (extraDegrees * Math.PI) / 180;
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+  return frames.map(({ t, points }) => {
+    const turned = points.slice();
+    for (let i = 0; i < points.length; i += 4) {
+      const x = points[i] ?? 0;
+      const z = points[i + 2] ?? 0;
+      turned[i] = x * cos + z * sin;
+      turned[i + 2] = z * cos - x * sin;
+    }
+    return { t, points: turned };
+  });
+}
+
 export interface RetargetOptions {
   /** Temporal smoothing of the landmarks, in frames. */
   smoothing?: number;

@@ -1,6 +1,6 @@
 # 0003: Where cricket animation clips come from
 
-- Status: **proposed**. Library clips do not cover batting. Capture from video is built, validated on known motion, and its video-file path now works on a stand-in video; it still needs a real video from the owner to judge (issue #11)
+- Status: **proposed**. Library clips do not cover batting. Capture from video is built, validated on known motion, and its video-file path, including side-on filming, now works on a stand-in video; it still needs a real video from the owner to judge (issue #11)
 - Date: 2026-11-17
 
 ## Question
@@ -84,7 +84,7 @@ The pose model's landmarks were on average 18 cm from the truth after levelling 
 
 ## The video-file path, exercised with a stand-in (2026-11-17)
 
-The owner had no video yet and asked for the work to continue without one. So, instead of a cover drive, the same library throw was rendered to two ordinary video files (MP4, H.264, 30 fps, 720 x 660, one from the front and one from the side) and each was read through the page's file picker exactly as a phone video would be: pick the file, name it, press Capture. Then `retarget-capture.ts <name> --level`, `npm run assets`, and the contact sheets `clip-capture-standin-throw-front` and `clip-capture-standin-throw-side`. The videos are not in the repository; the landmarks and clips are.
+The owner had no video yet and asked for the work to continue without one. So, instead of a cover drive, the same library throw was rendered to two ordinary video files (MP4, H.264, 30 fps, 720 x 660, one from the front and one from the side) and each was read through the page's file picker exactly as a phone video would be: pick the file, name it, press Capture. Then `retarget-capture.ts <name> --face --level` (`--face` was added afterwards; see below), `npm run assets`, and the contact sheets `clip-capture-standin-throw-front` and `clip-capture-standin-throw-side`. The videos are not in the repository; the landmarks and clips are.
 
 **The path works.** Both files were decoded, seeked and read with a person found in all 40 frames. Two defects were found and fixed in `src/lab/capture/main.ts`: the last frame was dropped (the frame count rounded down a duration of 1.3333 s), and seeks landed exactly on frame boundaries, where a decoder may return either neighbour; seeks now aim at the middle of each 1/30 s. A video that reports no length (common for recordings saved by a browser) now fails with a message instead of looping.
 
@@ -102,15 +102,23 @@ The front take from a file matches the earlier in-browser result, so video compr
 
 - Side take, seen from the camera it was filmed with (its left panel): the lunge is there, a long stride with the back leg straight and the body bent over the front knee, close to the original's side view. This is the step that the front take loses.
 - Side take, from 90 degrees to that camera (its right panel): wrong in the way the numbers predict. The feet stay too close together, the legs look pinched inward, and the bend toward the camera is much weaker than in the original.
-- The whole side-take clip faces 90 degrees away from the original. The pose model reports the body relative to the camera, so a clip faces whichever way the camera looked. A cover drive filmed from point would play facing point. Turning the clip to face down the pitch is a fixed rotation in the retargeting tool that is not built yet; it needs the camera position stated at capture time.
+- Before facing was added (below), the whole side-take clip faced 90 degrees away from the original. The pose model reports the body relative to the camera, so a clip faced whichever way the camera looked.
 - Front take: as before, the step forward is missing from the side and the feet tilt.
+
+**Facing a clip forward (`--face`).** `retarget-capture.ts <name> --face` turns every frame about the vertical by one angle, chosen so that the chest faces the skeleton's forward (+Z) in the first frame, where the subject is asked to stand square. No camera position needs to be stated. `--yaw <degrees>` turns further when the first frame is not square. It runs before `--level`, which only removes tilt in the forward-vertical plane; without it, levelling a side take corrected tilt in the wrong plane. Unit test: a body turned a quarter turn comes back facing forward, and later frames keep their turn relative to the first.
+
+With `--face`, the side take lands within 6 degrees of the best fitting turn (14.5 cm mean against 14.1 cm at the best turn; both captures and the truth faced the same way). The library throw itself starts about 17 degrees from square, so both faced clips turn by that much against the original.
+
+The faced side take's sheet (`clip-capture-standin-throw-side`): it stands and finishes facing forward like the original, and from the side the lunge is a long stride with the body bent over the front knee. What is wrong: through the lunge (0.4 to 0.9 s) the body turns too far toward profile, so from the front the stride looks partly sideways. That is the side camera's depth axis, which is the subject's left and right.
+
+For batting, "forward" is the batter's chest in the stance, which faces point for a right-hander, not down the pitch. Placing a batting clip at the crease is the animation runtime's job (issue #20).
 
 **What this means for a cover drive.** Film it from point (side-on), as already asked. The stride and the downswing then cross the picture, which is the axis the pose model gets right. The shoulder turn and how far the front foot lands toward or away from the off side will be the weak part. The stand-in is still a purple mannequin, not a person, so none of this is a judgement of real footage.
 
 **To judge the route, the owner supplies one video**: a right-handed cover drive, shadow-batted, whole body in frame, phone held still at about chest height, starting from standing upright for a second. Two takes would be better: one from side-on (point, looking at the batter's chest) and one from the bowler's end. Then:
 
 1. `npm run dev`, open `/lab/capture.html`, pick the video, name it `cover-drive`, press Capture.
-2. `node tools/assets/retarget-capture.ts cover-drive --level`
+2. `node tools/assets/retarget-capture.ts cover-drive --face --level`
 3. `npm run assets`, add the `ASSETS.md` rows (own work), add the name to `CANDIDATE_CLIPS` and `CLIP_REVIEWS`, capture and look.
 
 If one camera is not good enough, the next step within this route is to combine the two takes, using each for the axes it sees well. That is not built.
@@ -125,4 +133,4 @@ If one camera is not good enough, the next step within this route is to combine 
 
 ## Not covered
 
-Any real video (the stand-in is a render of a library clip), phone formats (portrait, 60 fps, HEVC `.mov`) beyond the one MP4 tried, turning a clip filmed side-on to face down the pitch, two-camera capture, retargeting to a character with different proportions, foot sliding when a clip is played while moving, and whether the mannequin itself is the base body for issue #19 (it is a stylised female figure; the plan calls for a 1.80 m adult default).
+Any real video (the stand-in is a render of a library clip), phone formats (portrait, 60 fps, HEVC `.mov`) beyond the one MP4 tried, a first frame that is not square (only `--yaw` by hand), two-camera capture, retargeting to a character with different proportions, foot sliding when a clip is played while moving, and whether the mannequin itself is the base body for issue #19 (it is a stylised female figure; the plan calls for a 1.80 m adult default).

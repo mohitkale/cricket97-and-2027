@@ -4,6 +4,7 @@ import { beforeAll, expect, test } from 'vitest';
 import { readRestJoints } from '../../tools/assets/skeleton.ts';
 import {
   DRIVEN_JOINTS,
+  faceForwardAtFirstFrame,
   type LandmarkFrame,
   landmarksFromPose,
   levelToFirstFrame,
@@ -171,4 +172,36 @@ test('levelling stands a tilted first frame upright and turns later frames by th
   );
   expect(pelvis(0).angleTo(restPelvis)).toBeLessThan(0.02);
   expect(Math.abs(pelvis(1).angleTo(restPelvis) - (25 * Math.PI) / 180)).toBeLessThan(0.02);
+});
+
+test('facing turns a side-on first frame to face forward and later frames by the same angle', () => {
+  const rest = solve(restLocal);
+  const sideOn = solve((joint) =>
+    // The whole body turned a quarter turn about the vertical, as when filmed from the side.
+    joint.name === 'root' ? turn(0, 1, 0, 90).multiply(restLocal(joint)) : restLocal(joint),
+  );
+  const head = (pose: typeof rest) => pose.rotationOf.get('Head') ?? new Quaternion();
+  const points = (pose: typeof rest) =>
+    landmarksFromPose((name) => pose.position.get(name) ?? new Vector3(), head(pose), head(rest));
+  const restPelvis = new Quaternion(
+    ...(joints.find((joint) => joint.name === 'pelvis')?.rotation ?? [0, 0, 0, 1]),
+  );
+  const pelvisAngle = (frames: LandmarkFrame[], frame: number) => {
+    const clip = retarget(joints, frames, { smoothing: 0 });
+    return new Quaternion(...(clip.rotations.pelvis ?? []).slice(frame * 4, frame * 4 + 4)).angleTo(
+      restPelvis,
+    );
+  };
+  const raw = [
+    { t: 0, points: points(sideOn) },
+    { t: 1, points: points(rest) },
+  ];
+  expect(Math.abs(pelvisAngle(raw, 0) - Math.PI / 2)).toBeLessThan(0.02);
+  const faced = faceForwardAtFirstFrame(raw);
+  expect(pelvisAngle(faced, 0)).toBeLessThan(0.02);
+  expect(Math.abs(pelvisAngle(faced, 1) - Math.PI / 2)).toBeLessThan(0.02);
+  // A square first frame is left as it is, apart from any extra turn asked for.
+  expect(pelvisAngle(faceForwardAtFirstFrame([raw[1] as LandmarkFrame]), 0)).toBeLessThan(0.02);
+  const extra = faceForwardAtFirstFrame([raw[1] as LandmarkFrame], 30);
+  expect(Math.abs(pelvisAngle(extra, 0) - Math.PI / 6)).toBeLessThan(0.02);
 });
