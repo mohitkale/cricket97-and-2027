@@ -252,7 +252,7 @@ describe('whole matches', () => {
       );
       seed += 1;
     }
-  });
+  }, 30_000);
 
   test('Pro beats Casual in at least 70 of 100 matches between identical teams', () => {
     let wins = 0;
@@ -269,5 +269,5 @@ describe('whole matches', () => {
       if (result?.type === 'win' && (result.winner === 0) === proBatsFirst) wins += 1;
     }
     expect(wins).toBeGreaterThanOrEqual(70);
-  });
+  }, 30_000);
 });

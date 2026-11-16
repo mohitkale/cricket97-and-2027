@@ -207,7 +207,8 @@ export function chooseStroke(
   const intent = aggression(situation);
   const reading = read(bowled, bowler.kind === 'spin');
   const late = lateness(situation);
-  const sound = random.chance(level.judgement * (0.55 + 0.45 * striker.batting));
+  // Lapses come from the difficulty level, and a better batter has fewer of them.
+  const sound = random.chance(1 - (1 - level.judgement) * (1.6 - striker.batting));
 
   let stroke: StrokeId | 'leave';
   let power: number;

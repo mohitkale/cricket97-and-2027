@@ -4,7 +4,7 @@
  * The ball's future is known to the sim (fly a copy forward), so fielders can run to
  * where the ball will be instead of chasing where it is.
  */
-import { type BallEnvironment, type BallState, stepBall } from '../ball/ball.ts';
+import { type BallEnvironment, type BallState, cloneBall, stepBall } from '../ball/ball.ts';
 import { SIM_DT } from '../units.ts';
 import { insideBoundary } from './field.ts';
 import { type Agent, distance, type Point, timeToCover } from './movement.ts';
@@ -44,7 +44,7 @@ export function predictPath(
   every = 4,
   dt = SIM_DT,
 ): BallPath {
-  const probe = structuredClone(ball);
+  const probe = cloneBall(ball);
   const startBounces = probe.bounces;
   const points: PathPoint[] = [];
   const steps = Math.round(seconds / dt);
