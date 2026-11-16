@@ -13,5 +13,9 @@ Schema: one table row per file (or per group, with `{a,b}` braces) giving the fi
 | `public/legacy/audio/intro-{batter,bowler,new-bowler,openers}.mp3` | Prototype commentary clips | Unrecorded | **Provenance not recorded** | As above. No longer played |
 | `assets/src/equipment/cricket-ball.glb` | Written by `tools/assets/make-sample.ts` | Project contributors | Own work, CC0 | None. Pipeline sample: sphere at the sim's ball radius with a stitched-seam texture |
 | `public/assets/equipment/cricket-ball.glb` | Built from `assets/src/equipment/cricket-ball.glb` by `npm run assets` | Project contributors | Own work, CC0 | Welded, meshopt-compressed, texture resized to 1024 px and converted to WebP |
+| `assets/src/characters/mannequin.glb` | [Universal Animation Library 2, Standard](https://quaternius.itch.io/universal-animation-library-2), `Mannequin_F.glb` | Quaternius | CC0 1.0 | None; `tools/assets/extract-clips.ts --mesh` found no clips to remove |
+| `assets/src/clips/ual1-candidates.glb` | [Universal Animation Library, Standard](https://quaternius.itch.io/universal-animation-library), `UAL1_Standard.glb` | Quaternius | CC0 1.0 | Mesh removed; clips cut to Sword_Attack, Sword_Idle, Idle_Loop with `tools/assets/extract-clips.ts` |
+| `assets/src/clips/ual2-candidates.glb` | [Universal Animation Library 2, Standard](https://quaternius.itch.io/universal-animation-library-2), `UAL2_Standard.glb` | Quaternius | CC0 1.0 | Mesh removed; clips cut to TreeChopping_Loop, Sword_Regular_A, Sword_Regular_B, Sword_Regular_C, Sword_Heavy_Combo, Farm_Harvest, OverhandThrow with `tools/assets/extract-clips.ts` |
+| `public/assets/{characters/mannequin,clips/ual1-candidates,clips/ual2-candidates}.glb` | Built from the matching file under `assets/src/` by `npm run assets` | Quaternius | CC0 1.0 | Welded, resampled, meshopt-compressed |
 
 Removed from the repository: three company logos, spoken real-player names, and a football-crowd ambience recording.

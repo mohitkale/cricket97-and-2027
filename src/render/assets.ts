@@ -1,4 +1,4 @@
-import type { Object3D } from 'three';
+import type { AnimationClip, Object3D } from 'three';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
@@ -11,4 +11,10 @@ export const assetUrl = (path: string) => `${import.meta.env.BASE_URL}assets/${p
 export async function loadModel(path: string): Promise<Object3D> {
   const gltf = await loader.loadAsync(assetUrl(path));
   return gltf.scene;
+}
+
+/** Load the animation clips from a built .glb. They bind by bone name to any character on the same skeleton. */
+export async function loadClips(path: string): Promise<AnimationClip[]> {
+  const gltf = await loader.loadAsync(assetUrl(path));
+  return gltf.animations;
 }
