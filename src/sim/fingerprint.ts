@@ -7,6 +7,8 @@
 import { fieldPositions } from './agents/field.ts';
 import { planFielding, predictPath } from './agents/intercept.ts';
 import { createAgent, sendTo, stepAgent } from './agents/movement.ts';
+import { resolvePlay } from './agents/play.ts';
+import { createRunner } from './agents/running.ts';
 import { createBall, groundEnvironment } from './ball/ball.ts';
 import { ballFingerprint } from './ball/fingerprint.ts';
 import { playStroke } from './contact/contact.ts';
@@ -146,12 +148,61 @@ function agentsFingerprint(): string {
   );
 }
 
+/** Whole plays, with fumbles, throws and running: runs, duration and where everyone finished. */
+function playFingerprint(): string {
+  const env = groundEnvironment('green');
+  const random = new Rng(31).stream('plays');
+  const values: number[] = [];
+  for (let shot = 0; shot < 30; shot++) {
+    const ratings = {
+      pace: random.next(),
+      agility: random.next(),
+      hands: random.next(),
+      arm: random.next(),
+    };
+    const fielders = fieldPositions(shot % 3 ? 'pace-spread' : 'new-ball').map((point, id) =>
+      createAgent(id, point.x, point.z, ratings),
+    );
+    fielders.push(createAgent(9, 0, 30, ratings), createAgent(10, 0.8, 3, ratings));
+    const runners: [ReturnType<typeof createRunner>, ReturnType<typeof createRunner>] = [
+      createRunner('striker', ratings),
+      createRunner('non-striker', ratings),
+    ];
+    const ball = createBall(
+      { x: 0, y: 0.5, z: 18 },
+      { x: random.range(-28, 28), y: random.range(0, 12), z: random.range(-28, 14) },
+    );
+    const result = resolvePlay({
+      ball,
+      env,
+      fielders,
+      guards: { striker: 9, bowler: 10 },
+      runners,
+      random: new Rng(shot).stream('fielding'),
+      caution: random.range(-0.5, 0.6),
+    });
+    values.push(
+      result.runs,
+      result.duration,
+      result.events.length,
+      ball.pos.x,
+      ball.pos.z,
+      runners[0].z,
+      runners[1].z,
+    );
+  }
+  return hashString(Array.from(new Uint8Array(new Float64Array(values).buffer)).join(',')).toString(
+    16,
+  );
+}
+
 export function simFingerprints(): Record<string, string> {
   return {
     agents: agentsFingerprint(),
     ball: ballFingerprint(),
     contact: contactFingerprint(),
     kernel: kernelFingerprint(),
+    play: playFingerprint(),
     rules: rulesFingerprint(),
   };
 }
