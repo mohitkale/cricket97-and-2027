@@ -61,6 +61,8 @@ export interface BattingIntent {
   power: number;
   /** Misjudgement of the ball's position, metres. See SwingInput.misread. */
   misread: { x: number; y: number };
+  /** Placement either side of the stroke's line. See SwingInput.steer. */
+  steer?: number;
 }
 
 export interface DeliveryInput {
@@ -185,6 +187,7 @@ export function playDelivery(input: DeliveryInput): DeliveryResult {
           assist: batting.assist,
           power: batting.power,
           misread: batting.misread,
+          steer: batting.steer ?? 0,
         });
 
   // Fly the ball to the batter. Note where it pitches and how high it passes the crease.

@@ -13,7 +13,8 @@
     "check": "npm run lint && npm run typecheck && npm test && npm run build",
     "format": "biome check --write .",
     "capture": "node tools/capture/capture.ts",
-    "determinism": "node tools/determinism.mjs"
+    "determinism": "node tools/determinism.mjs",
+    "sim": "node tools/sim.ts"
   },
   "dependencies": {
     "@dimforge/rapier3d-compat": "0.21.0",

@@ -5,10 +5,12 @@
  * changes the rules or the physics: a Casual batter picks the wrong stroke more often
  * and times it worse, and that is all.
  */
-import { ASSIST, type StrokeId } from '../contact/strokes.ts';
+import type { Point } from '../agents/movement.ts';
+import { ASSIST, STROKES, type StrokeId } from '../contact/strokes.ts';
 import type { RandomStream } from '../core/prng.ts';
 import type { BattingIntent, BowlingIntent } from '../match/delivery.ts';
 import type { Bowling, SimPlayer } from '../match/players.ts';
+import { PITCH } from '../units.ts';
 
 export type AiLevel = 'casual' | 'classic' | 'pro';
 
@@ -121,7 +123,8 @@ export function aggression(situation: Situation): number {
   let want = 0.22 + 0.55 * between(spare / 0.7, 0, 1) + 0.15 * lateness(situation);
   if (situation.toWin !== null && situation.ballsLeft > 0) {
     const required = (situation.toWin * 6) / situation.ballsLeft;
-    const chase = 0.25 + (required - 5) / 9;
+    // Calibrated so that the scoring rate it produces roughly matches the rate required.
+    const chase = 0.6 + (required - 8) / 8;
     // Ahead of the rate there is no need to take the risks the resources would allow.
     want = chase < want ? (chase + want) / 2 : chase;
   }
@@ -176,6 +179,9 @@ function read(intent: BowlingIntent, spin: boolean): Reading {
   return { attack: 'pull', defend: 'back-defence', loose: 0.6 };
 }
 
+/** Bat speed share for a ball worked into the field for one, not hit for four [tuned]. */
+const WORKED = 0.62;
+
 const ATTACKS: StrokeId[] = [
   'cover-drive',
   'straight-drive',
@@ -185,6 +191,51 @@ const ATTACKS: StrokeId[] = [
   'sweep',
   'lofted-drive',
 ];
+
+const STEERS = [-0.3, -0.15, 0, 0.15, 0.3];
+
+/**
+ * Where to place a stroke: the steer that sends the ball furthest, in angle, from any
+ * fielder who could cut it off. Ground strokes mind every fielder in front of the shot;
+ * a lofted stroke only minds the ones in the deep.
+ */
+export function placeStroke(
+  stroke: StrokeId,
+  hand: 'right' | 'left',
+  lofted: boolean,
+  fielders: readonly Point[],
+): number {
+  const side = hand === 'right' ? 1 : -1;
+  const ax = STROKES[stroke].aim.x * side;
+  const az = STROKES[stroke].aim.z;
+  const batZ = PITCH.length - 1.5;
+  let best = 0;
+  let bestGap = -1;
+  for (const steer of STEERS) {
+    const dx = ax - az * steer;
+    const dz = az + ax * steer;
+    const size = Math.sqrt(dx * dx + dz * dz);
+    let gap = 10;
+    for (const fielder of fielders) {
+      const fx = fielder.x;
+      const fz = fielder.z - batZ;
+      const range = Math.sqrt(fx * fx + fz * fz);
+      if (range < 3 || (lofted && range < 40)) continue;
+      const along = (fx * dx + fz * dz) / (size * range);
+      if (along <= 0.2) continue; // behind or well to the side of the shot
+      const across = (fx * dz - fz * dx) / (size * range);
+      const tangent = (across < 0 ? -across : across) / along;
+      if (tangent < gap) gap = tangent;
+    }
+    // Prefer the natural line when there is little to choose.
+    const score = gap - 0.15 * (steer < 0 ? -steer : steer);
+    if (score > bestGap) {
+      bestGap = score;
+      best = steer;
+    }
+  }
+  return best;
+}
 
 export interface BattingChoice {
   intent: BattingIntent;
@@ -203,6 +254,8 @@ export function chooseStroke(
   situation: Situation,
   level: AiProfile,
   random: RandomStream,
+  /** Where the fielders stand for this ball. Without it the batter cannot pick gaps. */
+  fielders: readonly Point[] = [],
 ): BattingChoice {
   const intent = aggression(situation);
   const reading = read(bowled, bowler.kind === 'spin');
@@ -235,28 +288,43 @@ export function chooseStroke(
     // Working the ball for one: a checked drive instead of a dead bat, when in the mood.
     if (stroke === 'forward-defence' && random.chance(0.4 + 0.5 * intent)) {
       stroke = bowled.line > 0 ? 'on-drive' : 'straight-drive';
-      power = 0.42;
+      power = WORKED;
     }
   } else {
     // A scoring chance turned down: push it into a gap.
     stroke = reading.attack;
-    power = 0.42;
+    power = WORKED;
   }
+
+  // A lofted stroke is a full swing: half-hit ones are what get caught in the deep.
+  if (lofted && power < 0.92) power = 0.92;
+  // Placement: a batter thinking clearly steers the ball into the biggest gap.
+  const steer =
+    sound && stroke !== 'leave' && fielders.length > 0
+      ? placeStroke(stroke, striker.hand, lofted, fielders)
+      : 0;
 
   // Execution: better batters time it and judge it better; pace, movement and a big swing make it harder.
   const flaw = 1 - striker.batting;
   const movement = 1 + 0.5 * Math.abs(bowled.swing) + 0.7 * Math.abs(bowled.turn);
   const timing = (0.011 + 0.03 * flaw) * level.execution * (0.7 + 0.6 * power) * (bowled.kmh / 135);
-  const judging = (0.014 + 0.055 * flaw) * level.execution * movement;
+  const judging = (0.01 + 0.04 * flaw) * level.execution * movement;
+  // Now and then the ball simply beats the bat: it does more than the batter allowed for.
+  // That is where bowled and lbw come from, and the plays-and-misses that go with them.
+  const beaten = random.chance(between((0.02 + 0.09 * flaw) * level.execution * movement, 0, 0.6));
+  const across = beaten
+    ? (random.chance(0.5) ? 1 : -1) * random.range(0.09, 0.2)
+    : bell(random, judging * 1.7);
   return {
     intent: {
       stroke,
       lofted,
       power,
+      steer,
       timingError: bell(random, timing * 1.7),
-      misread: { x: bell(random, judging * 1.7), y: bell(random, judging * 1.2) },
+      misread: { x: across, y: bell(random, judging * 1.2) },
       assist: ASSIST.pro, // the AI gets no help: its skill is in the numbers above
     },
-    caution: 0.6 - 0.25 * intent,
+    caution: 0.55 - 0.3 * intent,
   };
 }

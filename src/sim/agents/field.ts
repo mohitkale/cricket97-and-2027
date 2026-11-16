@@ -67,17 +67,17 @@ export const FIELDS = {
     'third-man',
     'deep-fine-leg',
   ],
-  /** Middle overs to pace: five out. */
+  /** Middle overs to pace: a ring of four, and five out covering the arc batters hit into. */
   'pace-spread': [
     'point',
-    'cover',
     'mid-off',
     'mid-wicket',
+    'short-fine-leg',
     'third-man',
-    'deep-fine-leg',
-    'deep-square-leg',
     'deep-cover',
     'long-on',
+    'deep-mid-wicket',
+    'deep-square-leg',
   ],
   /** Middle overs to spin: a slip, the ring, and five out straight and square. */
   'spin-spread': [

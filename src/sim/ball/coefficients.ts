@@ -93,14 +93,14 @@ export const SURFACES = {
     rolling: 1.8,
     rollingPerSpeed: 0.06,
   },
-  /** Mown grass: a ground shot at 25 m/s runs roughly 80 to 100 m [tuned]. */
+  /** Mown grass: a ground shot at 25 m/s runs roughly 60 to 70 m [tuned]. */
   outfield: {
     height: 0,
     restitution: 0.42,
     friction: 0.4,
     seamDeviation: 0,
-    rolling: 2.0,
-    rollingPerSpeed: 0.04,
+    rolling: 2.4,
+    rollingPerSpeed: 0.05,
   },
 } as const satisfies Record<string, SurfaceProfile>;
 

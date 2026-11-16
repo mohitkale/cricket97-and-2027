@@ -121,3 +121,25 @@ export function runTime(runner: Runner): number {
   const toTop = (topSpeed * topSpeed) / (2 * accel);
   return gap <= toTop ? Math.sqrt((2 * gap) / accel) : topSpeed / accel + (gap - toTop) / topSpeed;
 }
+
+/**
+ * Seconds for this batter to get to the other end from where they are and however they
+ * are moving now. A batter who ran through the crease has to pull up and come back,
+ * which costs far more than a turn at the line.
+ */
+export function nextRunTime(runner: Runner): number {
+  const { accel, brake, topSpeed } = runner.limits;
+  // The next run goes away from the end the batter is at now.
+  const away = runner.goal === 'striker' ? -1 : 1;
+  const wrongWay = -runner.v * away; // speed still carrying them the wrong way
+  const stopTime = wrongWay > 0 ? wrongWay / brake : 0;
+  const overrun = wrongWay > 0 ? (wrongWay * wrongWay) / (2 * brake) : 0;
+  const far = runner.goal === 'striker' ? CREASE.bowler : CREASE.striker;
+  const from = runner.z - away * overrun;
+  const gap = (far - away * BAT_REACH - from) * away;
+  if (gap <= 0) return stopTime;
+  const toTop = (topSpeed * topSpeed) / (2 * accel);
+  const run =
+    gap <= toTop ? Math.sqrt((2 * gap) / accel) : topSpeed / accel + (gap - toTop) / topSpeed;
+  return (runner.delay > 0 ? runner.delay : 0) + stopTime + run;
+}

@@ -13,13 +13,29 @@ import { GRAVITY, PITCH, SIM_DT } from '../units.ts';
 import { insideBoundary } from './field.ts';
 import { type BallPath, CATCH_HEIGHT, planFielding, predictPath, REACH } from './intercept.ts';
 import { type Agent, distance, halt, type Point, sendTo, stepAgent } from './movement.ts';
-import { CREASE, type End, etaHome, type Runner, runTime, setOff, stepRunner } from './running.ts';
+import {
+  CREASE,
+  type End,
+  etaHome,
+  nextRunTime,
+  type Runner,
+  runTime,
+  setOff,
+  stepRunner,
+} from './running.ts';
 
 const STUMPS: Record<End, Point> = { striker: { x: 0, z: PITCH.length }, bowler: { x: 0, z: 0 } };
 /** Extra seconds a batter loses turning for another run, as the batters judge it [tuned]. */
 const TURN = 0.4;
 /** Fielders plan against a coarser flight of the ball than the one actually simulated: three times cheaper. */
 const PLAN_DT = 1 / 40;
+/** Seconds from stopping the ball to letting it go, for the cleanest hands [tuned]. */
+const GATHER = 0.6;
+/**
+ * Close in, a fielder may hit the stumps direct, but most shies miss. Batters count
+ * this share of the time a taken throw would need: they accept some risk for a single.
+ */
+const SHY_DOUBT = 0.6;
 /** Seconds to break the wicket after taking a throw. */
 const TAKE = 0.3;
 /** Within this distance a fielder throws straight at the stumps. Metres. */
@@ -197,12 +213,19 @@ export function resolvePlay(setup: PlaySetup): PlayResult {
       const fielder = agentOf(primary);
       const range = distance(primaryPoint, stumps);
       // From close in the fielder can hit the stumps direct, with nobody needing to take the throw.
-      return primaryTime + 0.45 + range / throwSpeed(fielder) + (range <= SHY_RANGE ? 0 : TAKE);
+      return (
+        primaryTime +
+        GATHER +
+        range / throwSpeed(fielder) +
+        (range <= SHY_RANGE ? TAKE * SHY_DOUBT : TAKE)
+      );
     }
     if (mode.kind === 'held') {
       const fielder = agentOf(mode.by);
       const range = distance(fielder.pos, stumps);
-      return mode.until + range / throwSpeed(fielder) + (range <= SHY_RANGE ? 0 : TAKE);
+      return (
+        mode.until + range / throwSpeed(fielder) + (range <= SHY_RANGE ? TAKE * SHY_DOUBT : TAKE)
+      );
     }
     if (mode.kind === 'thrown') {
       if (mode.target === end) return mode.arrive + (mode.shy ? 0 : TAKE);
@@ -214,8 +237,8 @@ export function resolvePlay(setup: PlaySetup): PlayResult {
   /** Would the batters take another run now? Both must make it with `caution` to spare. */
   function wantRun(): boolean {
     if (mode.kind === 'taken') return false;
-    const time =
-      (striker.delay > 0 ? striker.delay : 0) + Math.max(runTime(striker), runTime(partner));
+    // From where each batter actually is: one who ran on past the crease has further to come.
+    const time = Math.max(nextRunTime(striker), nextRunTime(partner));
     // After this run the striker would be heading for the end the partner is at now, and the reverse.
     const strikerEnd: End = striker.goal === 'striker' ? 'bowler' : 'striker';
     const partnerEnd: End = partner.goal === 'striker' ? 'bowler' : 'striker';
@@ -334,9 +357,16 @@ export function resolvePlay(setup: PlaySetup): PlayResult {
         runs += 1;
         running = false;
         events.push({ type: 'run', total: runs, t });
+        // Batters who slowed to turn have already judged this run; they go unless it has
+        // clearly gone wrong. Batters who ran through have to pull up first, and judge afresh.
+        const committed = striker.turning && mode.kind !== 'taken';
         striker.turning = false;
         partner.turning = false;
-        if (wantRun()) startRun();
+        const go = committed
+          ? t + Math.max(runTime(striker), runTime(partner)) + caution <
+            Math.min(threatAt('striker'), threatAt('bowler'))
+          : wantRun();
+        if (go) startRun();
       } else {
         // Decide on the way whether to turn, so they slow into the crease only if they will.
         // Judged ten times a second, as a batter glancing up would.
@@ -411,7 +441,7 @@ export function resolvePlay(setup: PlaySetup): PlayResult {
                 if (other.id !== currentGuards.striker && other.id !== currentGuards.bowler)
                   halt(other);
               }
-              mode = { kind: 'held', by: agent.id, until: t + 0.45 + 0.3 * (1 - hands) };
+              mode = { kind: 'held', by: agent.id, until: t + GATHER + 0.3 * (1 - hands) };
               break;
             }
             events.push({ type: 'misfield', fielder: agent.id, t });

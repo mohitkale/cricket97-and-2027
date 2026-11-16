@@ -39,6 +39,8 @@ export interface MatchTally {
   noBalls: number;
   dismissals: Partial<Record<DismissalKind, number>>;
   endings: Partial<Record<DeliveryEnding, number>>;
+  /** Balls on which 0, 1, 2 or 3 runs were run (index is the number of runs). */
+  ran: [number, number, number, number];
   /** Fields or bowling changes that broke the playing conditions. Must stay at zero. */
   illegalFields: number;
   illegalBowlers: number;
@@ -95,6 +97,7 @@ export function simulateMatch(setup: MatchSetup): MatchReport {
     noBalls: 0,
     dismissals: {},
     endings: {},
+    ran: [0, 0, 0, 0],
     illegalFields: 0,
     illegalBowlers: 0,
   };
@@ -146,6 +149,7 @@ export function simulateMatch(setup: MatchSetup): MatchReport {
       situation,
       battingLevel,
       rng.stream('batting'),
+      fieldPositions(field, striker.hand),
     );
     // A weaker AI also lands the ball less accurately.
     const control = bowler.skill / bowlingLevel.execution;
@@ -171,6 +175,8 @@ export function simulateMatch(setup: MatchSetup): MatchReport {
       tally.dismissals[summary.wicket] = (tally.dismissals[summary.wicket] ?? 0) + 1;
     if (result.outcome.illegal === 'wide') tally.wides += 1;
     else if (!summary.legal) tally.noBalls += 1;
+    const run = result.outcome.runsRun ?? 0;
+    if (!result.outcome.boundary && run >= 1 && run <= 3) tally.ran[run as 1 | 2 | 3] += 1;
     if (result.outcome.boundary === 4) tally.fours += 1;
     if (result.outcome.boundary === 6) tally.sixes += 1;
     if (summary.runs === 0 && summary.legal) tally.dots += 1;
