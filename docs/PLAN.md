@@ -94,7 +94,7 @@ Import rule, enforced by lint: `sim` imports nothing outside `sim`. `game` impor
 | Rendering | three.js. WebGL2 baseline; WebGPU only if the renderer decision issue says so |
 | Tests | Vitest for sim and logic; Playwright (Chromium only) for the capture harness, never in the required CI path |
 | Lint, format | Biome |
-| Assets | Blender run headless from scripts, glTF Transform (meshopt, KTX2), audio sprites |
+| Assets | glTF sources built by glTF Transform in Node (meshopt, WebP textures; no Blender or other installed tools, see `assets/README.md`), audio sprites |
 | Hosting | GitHub Pages, with per-PR preview folders |
 
 ## 5. Budgets
