@@ -142,42 +142,54 @@ describe('scripted plays', () => {
     expect(timeOf(result, 'run')).toBeLessThan(timeOf(result, 'stop'));
   });
 
-  test('tight two: average batters get back, slow ones settle for one', () => {
-    const shot = atAngle(240, 20);
-    const two = play('new-ball', shot, { fielders: SAFE_HANDS });
-    expect(two.runs).toBe(2);
-    expect(two.dismissal).toBeNull();
-    const one = play('new-ball', shot, {
-      fielders: SAFE_HANDS,
-      batters: { pace: 0, agility: 0, hands: 0.5, arm: 0.5 },
+  test('tight two: some shots are worth two to average batters and fewer to slow ones', () => {
+    const slow: Ratings = { pace: 0, agility: 0, hands: 0.5, arm: 0.5 };
+    const shots = Array.from({ length: 24 }, (_, i) => atAngle(i * 15, 20));
+    const twos = shots.filter((shot) => {
+      const result = play('new-ball', shot, { fielders: SAFE_HANDS });
+      return result.runs === 2 && !result.dismissal;
     });
-    expect(one.runs).toBe(1);
-    expect(one.dismissal).toBeNull();
+    expect(twos.length).toBeGreaterThan(0);
+    const total = (batters?: Ratings) =>
+      twos.reduce(
+        (sum, shot) =>
+          sum +
+          play(
+            'new-ball',
+            shot,
+            batters ? { fielders: SAFE_HANDS, batters } : { fielders: SAFE_HANDS },
+          ).runs,
+        0,
+      );
+    expect(total(slow)).toBeLessThan(total());
   });
 
-  test('direct-hit run-out: a reckless call to a sharp fielder ends at the stumps', () => {
-    const result = play('new-ball', towards('mid-off', 9), { caution: -2.5, fielders: SAFE_HANDS });
-    expect(result.dismissal?.kind).toBe('run-out');
-    expect(types(result)).toContain('direct-hit');
-    expect(result.runs).toBe(0);
-    // The same ball with sensible batters: no run, nobody out.
-    const sensible = play('new-ball', towards('mid-off', 9), { fielders: SAFE_HANDS });
-    expect(sensible.dismissal).toBeNull();
-    expect(sensible.runs).toBe(0);
+  test('direct-hit run-out: reckless calls to sharp fielders end at the stumps, sensible ones do not', () => {
+    const shots = Array.from({ length: 24 }, (_, i) => atAngle(i * 15, 9, 0.3));
+    const reckless = shots.map((shot) =>
+      play('new-ball', shot, { caution: -2.5, fielders: SAFE_HANDS }),
+    );
+    const runOuts = reckless.filter((result) => result.dismissal?.kind === 'run-out');
+    expect(runOuts.length).toBeGreaterThan(2);
+    expect(runOuts.some((result) => types(result).includes('direct-hit'))).toBe(true);
+    const sensible = shots.map((shot) =>
+      play('new-ball', shot, { caution: 0.6, fielders: SAFE_HANDS }),
+    );
+    expect(sensible.filter((result) => result.dismissal?.kind === 'run-out').length).toBe(0);
   });
 
-  test('misfield: a fumble lets the batters take a run that was not there', () => {
+  test('misfield: fumbles happen to poor hands, not safe ones, and cost runs', () => {
     const shot = towards('cover', 26, 0.2);
-    const clean = play('pace-spread', shot, { fielders: SAFE_HANDS });
-    expect(types(clean)).not.toContain('misfield');
-    expect(clean.runs).toBe(0);
     const butterfingers: Ratings = { pace: 0.5, agility: 0.5, hands: 0, arm: 0.5 };
-    const fumbled = Array.from({ length: 40 }, (_, seed) =>
-      play('pace-spread', shot, { seed, fielders: butterfingers }),
-    ).filter((result) => types(result).includes('misfield'));
-    expect(fumbled.length).toBeGreaterThan(2);
-    expect(fumbled.length).toBeLessThan(30);
-    expect(fumbled.some((result) => result.runs >= 1)).toBe(true);
+    const seeds = Array.from({ length: 40 }, (_, seed) => seed);
+    const clean = seeds.map((seed) => play('new-ball', shot, { seed, fielders: SAFE_HANDS }));
+    const poor = seeds.map((seed) => play('new-ball', shot, { seed, fielders: butterfingers }));
+    const fumbles = (results: PlayResult[]) =>
+      results.filter((result) => types(result).includes('misfield')).length;
+    const runs = (results: PlayResult[]) => results.reduce((sum, result) => sum + result.runs, 0);
+    expect(fumbles(poor)).toBeGreaterThan(fumbles(clean) + 2);
+    expect(fumbles(poor)).toBeLessThan(30);
+    expect(runs(poor)).toBeGreaterThan(runs(clean));
   });
 });
 

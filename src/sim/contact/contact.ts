@@ -59,6 +59,13 @@ export interface SwingInput {
    * middle of the bat goes to the judged position, so a misread is met off-centre.
    */
   misread?: { x: number; y: number };
+  /**
+   * Placement: how far the batter opens or closes the face to steer the ball either
+   * side of the stroke's usual line. The tangent of the angle, about -0.35 to 0.35
+   * (20 degrees each way). Positive turns the line clockwise seen from above: for a
+   * straight drive, towards +x.
+   */
+  steer?: number;
 }
 
 export type ContactKind = 'middled' | 'mistimed' | 'edge' | 'miss';
@@ -150,7 +157,10 @@ export function planSwing(
   const incoming = { ...probe.vel };
 
   const rise = input.lofted ? stroke.loftedElevation : stroke.elevation;
-  const aim = normalize(vec(stroke.aim.x * side, rise, stroke.aim.z));
+  const steer = input.steer ?? 0;
+  // Turn the stroke's line by adding a little of its perpendicular: no trigonometry needed.
+  const lineX = stroke.aim.x * side;
+  const aim = normalize(vec(lineX - stroke.aim.z * steer, rise, stroke.aim.z + lineX * steer));
 
   // A straight bat comes down the line of the ball; a cross bat swings across it. The
   // bat swings on an arc about the hands, so across the line it covers less ground than
@@ -332,10 +342,9 @@ export function stepSwing(
         // Edge: the ball is only partly deflected. `cover` is how much of it the bat got.
         const cover = clamp((halfWidth + radius - side) / (radius + EDGE_MARGIN), 0, 1);
         const outward = scale(pose.across, across < 0 ? -1 : 1);
-        exit = add(
-          lerp(velocityIn, exit, 0.5 * cover),
-          scale(outward, -closing * 0.35 * cover * (1 - 0.5 * cover)),
-        );
+        // A glancing blow: the ball keeps most of its pace and direction, and is pushed
+        // sideways off the edge. A thicker edge takes more pace off and deflects it further.
+        exit = add(scale(velocityIn, 1 - 0.25 * cover), scale(outward, -closing * 0.4 * cover));
         kind = 'edge';
         edge = cover > 0.5 ? 'thick' : 'thin';
         quality = 0;
