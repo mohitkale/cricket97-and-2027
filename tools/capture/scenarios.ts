@@ -76,6 +76,8 @@ const CLIP_REVIEWS: [string, number][] = [
   ['Idle_Loop', 2.5],
   ['capture-OverhandThrow-truth', 1.3],
   ['capture-OverhandThrow-seen', 1.3],
+  ['capture-standin-throw-front', 1.3],
+  ['capture-standin-throw-side', 1.3],
 ];
 
 export const SCENARIOS: Record<string, Scenario> = {

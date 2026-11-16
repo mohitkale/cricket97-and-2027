@@ -27,6 +27,9 @@ export const CANDIDATE_CLIPS: Record<string, string> = {
   // positions, and from what the pose model saw in a front render of it.
   'capture-OverhandThrow-truth': 'clips/capture-OverhandThrow-truth.glb',
   'capture-OverhandThrow-seen': 'clips/capture-OverhandThrow-seen.glb',
+  // The same throw rendered to video files and read through the file picker, front and side.
+  'capture-standin-throw-front': 'clips/capture-standin-throw-front.glb',
+  'capture-standin-throw-side': 'clips/capture-standin-throw-side.glb',
 };
 
 /**

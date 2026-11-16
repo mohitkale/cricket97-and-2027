@@ -1,6 +1,6 @@
 # 0003: Where cricket animation clips come from
 
-- Status: **proposed**. Library clips do not cover batting. Capture from video is built and validated on known motion, and now needs a real video from the owner to judge (issue #11)
+- Status: **proposed**. Library clips do not cover batting. Capture from video is built, validated on known motion, and its video-file path now works on a stand-in video; it still needs a real video from the owner to judge (issue #11)
 - Date: 2026-11-17
 
 ## Question
@@ -82,6 +82,31 @@ The pose model's landmarks were on average 18 cm from the truth after levelling 
 - The test subject was a purple mannequin render, not a person. The pose model is trained on people, so a real video may do better. That is not known until one is tried.
 - Hands: the pose model gives three points per hand. That is enough for the hand's direction, not for a grip on a bat. The bat would be attached to the hands by IK in the animation runtime (issue #20).
 
+## The video-file path, exercised with a stand-in (2026-11-17)
+
+The owner had no video yet and asked for the work to continue without one. So, instead of a cover drive, the same library throw was rendered to two ordinary video files (MP4, H.264, 30 fps, 720 x 660, one from the front and one from the side) and each was read through the page's file picker exactly as a phone video would be: pick the file, name it, press Capture. Then `retarget-capture.ts <name> --level`, `npm run assets`, and the contact sheets `clip-capture-standin-throw-front` and `clip-capture-standin-throw-side`. The videos are not in the repository; the landmarks and clips are.
+
+**The path works.** Both files were decoded, seeked and read with a person found in all 40 frames. Two defects were found and fixed in `src/lab/capture/main.ts`: the last frame was dropped (the frame count rounded down a duration of 1.3333 s), and seeks landed exactly on frame boundaries, where a decoder may return either neighbour; seeks now aim at the middle of each 1/30 s. A video that reports no length (common for recordings saved by a browser) now fails with a message instead of looping.
+
+**Measured against the clip's true joint positions** (each capture from its own hip midpoint, after the one rotation about the vertical that fits best, unlevelled):
+
+| Take | Mean error | Across the picture | Vertical | Toward or away from the camera |
+| --- | --- | --- | --- | --- |
+| Front, from the video file | 20.5 cm | 5.9 cm | 6.4 cm | 16.9 cm |
+| Front, rendered straight into the pose model (earlier) | 20.2 cm | 5.3 cm | 6.6 cm | 16.6 cm |
+| Side, from the video file | 14.1 cm | 5.0 cm | 4.5 cm | 10.5 cm |
+
+The front take from a file matches the earlier in-browser result, so video compression and seeking cost nothing measurable. The side take is clearly better for this motion, because the throw's lunge runs across that camera's picture.
+
+**What the sheets show.**
+
+- Side take, seen from the camera it was filmed with (its left panel): the lunge is there, a long stride with the back leg straight and the body bent over the front knee, close to the original's side view. This is the step that the front take loses.
+- Side take, from 90 degrees to that camera (its right panel): wrong in the way the numbers predict. The feet stay too close together, the legs look pinched inward, and the bend toward the camera is much weaker than in the original.
+- The whole side-take clip faces 90 degrees away from the original. The pose model reports the body relative to the camera, so a clip faces whichever way the camera looked. A cover drive filmed from point would play facing point. Turning the clip to face down the pitch is a fixed rotation in the retargeting tool that is not built yet; it needs the camera position stated at capture time.
+- Front take: as before, the step forward is missing from the side and the feet tilt.
+
+**What this means for a cover drive.** Film it from point (side-on), as already asked. The stride and the downswing then cross the picture, which is the axis the pose model gets right. The shoulder turn and how far the front foot lands toward or away from the off side will be the weak part. The stand-in is still a purple mannequin, not a person, so none of this is a judgement of real footage.
+
 **To judge the route, the owner supplies one video**: a right-handed cover drive, shadow-batted, whole body in frame, phone held still at about chest height, starting from standing upright for a second. Two takes would be better: one from side-on (point, looking at the batter's chest) and one from the bowler's end. Then:
 
 1. `npm run dev`, open `/lab/capture.html`, pick the video, name it `cover-drive`, press Capture.
@@ -100,4 +125,4 @@ If one camera is not good enough, the next step within this route is to combine 
 
 ## Not covered
 
-Any real video, two-camera capture, retargeting to a character with different proportions, foot sliding when a clip is played while moving, and whether the mannequin itself is the base body for issue #19 (it is a stylised female figure; the plan calls for a 1.80 m adult default).
+Any real video (the stand-in is a render of a library clip), phone formats (portrait, 60 fps, HEVC `.mov`) beyond the one MP4 tried, turning a clip filmed side-on to face down the pitch, two-camera capture, retargeting to a character with different proportions, foot sliding when a clip is played while moving, and whether the mannequin itself is the base body for issue #19 (it is a stylised female figure; the plan calls for a 1.80 m adult default).

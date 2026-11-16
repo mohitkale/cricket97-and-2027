@@ -91,15 +91,22 @@ async function captureVideo(url: string, name: string, source: string): Promise<
     video.onloadeddata = () => resolve();
     video.onerror = () => reject(new Error('The video could not be read'));
   });
+  // Recordings made in a browser can report no duration until they are played through.
+  if (!Number.isFinite(video.duration) || video.duration <= 0)
+    throw new Error('The video does not state its length; re-save it as MP4 and try again');
   const landmarker = await createLandmarker();
   const frames: LandmarkFrame[] = [];
   let missed = 0;
-  const total = Math.floor(video.duration * FPS);
+  // Every 1/30 s that starts before the end; the small allowance absorbs rounding in the
+  // reported duration, which otherwise drops the last frame.
+  const total = Math.ceil(video.duration * FPS - 1e-3);
   for (let i = 0; i < total; i++) {
     const t = i / FPS;
     await new Promise<void>((resolve) => {
       video.onseeked = () => resolve();
-      video.currentTime = t;
+      // Aim at the middle of the sample interval so a seek never lands on a frame boundary,
+      // where a decoder may return either neighbour.
+      video.currentTime = Math.min(t + 0.5 / FPS, video.duration - 1e-3);
     });
     const points = detect(landmarker, video, t);
     if (points) frames.push({ t, points });
