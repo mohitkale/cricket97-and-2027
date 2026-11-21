@@ -1,4 +1,5 @@
 import type { LabSceneFactory } from '../scene';
+import { anim } from './anim';
 import { assetSample } from './asset-sample';
 import { ballFlight } from './ball-flight';
 import { bowled } from './bowled';
@@ -9,6 +10,7 @@ import { strokeMap } from './stroke-map';
 
 /** Every lab scene by name. The capture harness addresses scenes by these keys. */
 export const SCENES: Record<string, LabSceneFactory> = {
+  anim,
   'asset-sample': assetSample,
   'ball-flight': ballFlight,
   bowled,
