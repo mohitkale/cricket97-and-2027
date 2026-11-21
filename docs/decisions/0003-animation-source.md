@@ -3,6 +3,15 @@
 - Status: **proposed**. Library clips do not cover batting. Capture from video is built, validated on known motion, and its video-file path, including side-on filming, now works on a stand-in video; it still needs a real video from the owner to judge (issue #11)
 - Date: 2026-11-17
 
+## Recommended decision (for the owner to accept, change or reject)
+
+1. **Skeleton.** The Quaternius Universal Animation Library skeleton (65 joints, Unreal-style names, CC0) becomes the one skeleton for every player and umpire in both editions; issue #19 specifies it.
+2. **General motion** (standing, walking, running, throwing, picking up, sliding, crouching) comes from the CC0 Quaternius libraries, by the recipe for a library clip below.
+3. **Cricket-specific motion** (strokes, stance, bowling actions, keeping, catching, umpire signals) is captured from contributors' own phone videos in the browser, by the recipe for a captured clip below, filmed side-on to the motion's main direction.
+4. **Fallback.** If captured strokes fail the feel gate for the first ball (issues #21 and #27), commission the missing clips on this skeleton under CC0 or CC BY 4.0 (option 3 below). Code never invents the motion (rule 3 in `AGENTS.md`).
+
+Time per clip: minutes for a library clip (measured); for a captured clip, an estimate of 15 to 30 minutes including filming and review, not yet measured on a real video. Accepting this unblocks issue #19 and through it most of M2; the first real test of the capture route is then the cover drive in issue #21.
+
 ## Question
 
 Which production route supplies cricket-specific motion? The owner ruled out Blender and other installed tools (issue #7) and asked for CC0 library clips only to be tested (issue #11).
@@ -115,11 +124,15 @@ For batting, "forward" is the batter's chest in the stance, which faces point fo
 
 **What this means for a cover drive.** Film it from point (side-on), as already asked. The stride and the downswing then cross the picture, which is the axis the pose model gets right. The shoulder turn and how far the front foot lands toward or away from the off side will be the weak part. The stand-in is still a purple mannequin, not a person, so none of this is a judgement of real footage.
 
-**To judge the route, the owner supplies one video**: a right-handed cover drive, shadow-batted, whole body in frame, phone held still at about chest height, starting from standing upright for a second. Two takes would be better: one from side-on (point, looking at the batter's chest) and one from the bowler's end. Then:
+## Recipe for a captured clip
+
+**To judge the route, the owner supplies one video**, which is also the first clip to make: a right-handed cover drive, shadow-batted, whole body in frame, phone held still at about chest height, starting from standing upright for a second. Two takes would be better: one from side-on (point, looking at the batter's chest) and one from the bowler's end. Then:
 
 1. `npm run dev`, open `/lab/capture.html`, pick the video, name it `cover-drive`, press Capture.
 2. `node tools/assets/retarget-capture.ts cover-drive --face --level`
 3. `npm run assets`, add the `ASSETS.md` rows (own work), add the name to `CANDIDATE_CLIPS` and `CLIP_REVIEWS`, capture and look.
+
+4. Commit the landmarks and the clip, never the video. A contributor's own capture is licensed `Own work, CC0` in `ASSETS.md`.
 
 If one camera is not good enough, the next step within this route is to combine the two takes, using each for the axes it sees well. That is not built.
 
