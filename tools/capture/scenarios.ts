@@ -100,6 +100,13 @@ export const SCENARIOS: Record<string, Scenario> = {
     viewport: PHONE_LANDSCAPE,
     seed: 1,
   },
+  bowled: {
+    kind: 'lab',
+    scene: 'bowled',
+    duration: 2,
+    viewport: { width: 960, height: 480 },
+    seed: 1,
+  },
   character: {
     kind: 'lab',
     scene: 'character',
