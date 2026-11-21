@@ -1,16 +1,16 @@
 # 0003: Where cricket animation clips come from
 
-- Status: **proposed**. Library clips do not cover batting. Capture from video is built, validated on known motion, and its video-file path, including side-on filming, now works on a stand-in video; it still needs a real video from the owner to judge (issue #11)
+- Status: **accepted** by the owner on 2026-11-21 (issue #11). The capture route is still to be judged on a real video: the cover drive in issue #21
 - Date: 2026-11-17
 
-## Recommended decision (for the owner to accept, change or reject)
+## Decision
 
-1. **Skeleton.** The Quaternius Universal Animation Library skeleton (65 joints, Unreal-style names, CC0) becomes the one skeleton for every player and umpire in both editions; issue #19 specifies it.
+1. **Skeleton.** The Quaternius Universal Animation Library skeleton (65 joints, Unreal-style names, CC0) is the one skeleton for every player and umpire in both editions; issue #19 specifies it.
 2. **General motion** (standing, walking, running, throwing, picking up, sliding, crouching) comes from the CC0 Quaternius libraries, by the recipe for a library clip below.
 3. **Cricket-specific motion** (strokes, stance, bowling actions, keeping, catching, umpire signals) is captured from contributors' own phone videos in the browser, by the recipe for a captured clip below, filmed side-on to the motion's main direction.
 4. **Fallback.** If captured strokes fail the feel gate for the first ball (issues #21 and #27), commission the missing clips on this skeleton under CC0 or CC BY 4.0 (option 3 below). Code never invents the motion (rule 3 in `AGENTS.md`).
 
-Time per clip: minutes for a library clip (measured); for a captured clip, an estimate of 15 to 30 minutes including filming and review, not yet measured on a real video. Accepting this unblocks issue #19 and through it most of M2; the first real test of the capture route is then the cover drive in issue #21.
+Time per clip: minutes for a library clip (measured); for a captured clip, an estimate of 15 to 30 minutes including filming and review, not yet measured on a real video. This unblocks issue #19 and through it most of M2. The first real test of the capture route is then the cover drive in issue #21.
 
 ## Question
 
