@@ -65,9 +65,11 @@ export async function loadCharacter(path = 'characters/base-body.glb'): Promise<
   return asCharacter(await loadModel(path));
 }
 
-/** Put a model in a socket. The model is authored in the socket's frame, so no offset is needed. */
+/**
+ * Put a model in a socket. The model is authored in the socket's frame, so no offset is
+ * needed. Pass the node as loaded and keep its own transform: the asset build's mesh
+ * quantization stores a scale and offset there that the geometry needs.
+ */
 export function attach(character: Character, socket: SocketName, model: Object3D): void {
-  model.position.set(0, 0, 0);
-  model.quaternion.identity();
   character.socket(socket).add(model);
 }

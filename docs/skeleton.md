@@ -24,7 +24,7 @@ Which level is shown at which distance belongs to the quality tiers (decision 00
 
 ## Sockets
 
-A socket is an empty node named `socket_<name>` under a bone of the built body, marked with a `socket` entry in its glTF extras so the build keeps it. Equipment is authored in its socket's frame, so attaching it is `attach(character, name, model)` with no offset.
+A socket is an empty node named `socket_<name>` under a bone of the built body, marked with a `socket` entry in its glTF extras so the build keeps it. Equipment is authored in its socket's frame, so attaching it is `attach(character, name, model)` with no offset. Attach the node as loaded and do not reset its transform: the build's mesh quantization keeps a scale and offset there.
 
 | Socket | Bone | Model frame (origin, axes) |
 | --- | --- | --- |
@@ -46,5 +46,5 @@ Batting sockets are for a right-handed batter: the bat sits in the bottom (right
 
 ## Known limits
 
-- The gloves are rigid. When a clip curls the fingers, they come out under the glove. Gloves skinned to the finger bones come with the hero kits.
+- The gloves are rigid: they follow the hand, not the fingers. Gloves skinned to the finger bones come with the hero kits.
 - The pads are rigid on the shin and do not bend at the knee.
