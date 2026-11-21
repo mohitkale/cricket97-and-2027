@@ -100,6 +100,13 @@ export const SCENARIOS: Record<string, Scenario> = {
     viewport: PHONE_LANDSCAPE,
     seed: 1,
   },
+  character: {
+    kind: 'lab',
+    scene: 'character',
+    duration: 4,
+    viewport: { width: 960, height: 540 },
+    seed: 1,
+  },
   'stroke-map': {
     kind: 'lab',
     scene: 'stroke-map',

@@ -1,6 +1,7 @@
 import type { LabSceneFactory } from '../scene';
 import { assetSample } from './asset-sample';
 import { ballFlight } from './ball-flight';
+import { character } from './character';
 import { CANDIDATE_CLIPS, clipReview } from './clip-review';
 import { pitchPlan } from './pitch-plan';
 import { strokeMap } from './stroke-map';
@@ -9,6 +10,7 @@ import { strokeMap } from './stroke-map';
 export const SCENES: Record<string, LabSceneFactory> = {
   'asset-sample': assetSample,
   'ball-flight': ballFlight,
+  character,
   'pitch-plan': pitchPlan,
   'stroke-map': strokeMap,
   ...Object.fromEntries(
