@@ -10,6 +10,7 @@ import { mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { Document, type Material, NodeIO } from '@gltf-transform/core';
 import { Matrix4, Vector3 } from 'three';
+import { WICKET_PIECES } from '../../src/render/wicket.ts';
 import { WICKET } from '../../src/sim/units.ts';
 
 const OUT = join(import.meta.dirname, '../../assets/src/equipment');
@@ -160,6 +161,7 @@ const COLOURS = {
 async function write(
   file: string,
   nodes: Record<string, Partial<Record<keyof typeof COLOURS, Geo>>>,
+  origins: Record<string, readonly [number, number, number]> = {},
 ) {
   const doc = new Document();
   const buffer = doc.createBuffer();
@@ -191,7 +193,10 @@ async function write(
           .setMaterial(material),
       );
     }
-    scene.addChild(doc.createNode(nodeName).setMesh(mesh));
+    const node = doc.createNode(nodeName).setMesh(mesh);
+    const origin = origins[nodeName];
+    if (origin) node.setTranslation([...origin]);
+    scene.addChild(node);
   }
   const path = join(OUT, `${file}.glb`);
   mkdirSync(dirname(path), { recursive: true });
@@ -253,14 +258,18 @@ const bail = place(
   ),
   turnZ(90),
 );
-const gap = (WICKET.width - 2 * WICKET.stumpRadius) / 2;
-await write('stumps', {
-  stump_off: { ash: place(stump, at(-gap, 0, 0)) },
-  stump_middle: { ash: stump },
-  stump_leg: { ash: place(stump, at(gap, 0, 0)) },
-  bail_off: { ash: place(bail, at(-gap / 2, WICKET.height + 0.009, 0)) },
-  bail_leg: { ash: place(bail, at(gap / 2, WICKET.height + 0.009, 0)) },
-});
+// Each piece is its own node, placed by translation, so the wicket can break (issue #26).
+await write(
+  'stumps',
+  {
+    stump_off: { ash: stump },
+    stump_middle: { ash: stump },
+    stump_leg: { ash: stump },
+    bail_off: { ash: bail },
+    bail_leg: { ash: bail },
+  },
+  WICKET_PIECES,
+);
 
 // Helmet, origin at the Head joint, facing +Z: shell, peak and a grille of bars.
 const shellProfile: Pt[] = [];

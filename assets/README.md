@@ -27,6 +27,10 @@ Textures are WebP, not KTX2: the KTX2 encoder is a separately installed command-
 
 `node tools/assets/make-body.ts` writes `assets/src/characters/base-body.glb` (the shared skeleton, three levels of detail and the equipment sockets) and `node tools/assets/make-equipment.ts` writes the equipment under `assets/src/equipment/`. Load the body with `loadCharacter()` from `src/render/character.ts`. See `docs/skeleton.md`.
 
+## Ground
+
+`node tools/assets/make-ground.ts` writes `assets/src/ground/slice-ground.glb` (outfield, pitch and creases in the sim's frame). `addSliceGround()` in `src/render/slice.ts` puts it in a scene with both wickets, the sun and the sky; `/lab/?scene=bowled` shows it.
+
 ## Clips from an animation library
 
 Do not commit a whole library. Cut out the clips in use with `node tools/assets/extract-clips.ts <library.glb> assets/src/clips/<set>.glb --clips Name_One,Name_Two` (or `--mesh` to keep only the character), then build as above. Clips bind by bone name, so a clip file drives any character on the same skeleton; load them with `loadClips()` from `src/render/assets.ts`. See `docs/decisions/0003-animation-source.md`.

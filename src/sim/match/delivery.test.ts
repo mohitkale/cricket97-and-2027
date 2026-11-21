@@ -10,7 +10,7 @@ import {
   setBowler,
 } from '../rules/match.ts';
 import { ruleSet } from '../rules/rule-sets.ts';
-import { PITCH } from '../units.ts';
+import { BALL, PITCH, WICKET } from '../units.ts';
 import {
   type BattingIntent,
   type BowlingIntent,
@@ -251,6 +251,23 @@ describe('balls the batter plays', () => {
   test('a play and miss at a straight ball can be bowled', () => {
     const results = many(200, { ...GOOD, line: 0, length: 5 }, stroke('straight-drive', 0.8, 0.13));
     expect(share(results, (r) => r.ending === 'bowled' || r.ending === 'lbw')).toBeGreaterThan(0.2);
+  });
+
+  test('a bowled ball reports where and how it broke the wicket; nothing else does', () => {
+    const results = many(200, { ...GOOD, line: 0, length: 5 }, stroke('straight-drive', 0.8, 0.13));
+    const bowled = results.filter((r) => r.ending === 'bowled');
+    expect(bowled.length).toBeGreaterThan(5);
+    for (const { wicketBroken: hit, kmh } of bowled) {
+      if (!hit) throw new Error('bowled without a wicket break');
+      expect(hit.at.z).toBe(PITCH.length);
+      expect(Math.abs(hit.at.x)).toBeLessThanOrEqual(WICKET.width / 2 + BALL.radius);
+      expect(hit.at.y).toBeLessThanOrEqual(WICKET.height + BALL.radius);
+      expect(hit.vel.z).toBeGreaterThan(10); // still travelling towards the keeper
+      // Time from release roughly matches 20 m at the release speed, slowed by the bounce.
+      expect(hit.t).toBeGreaterThan(18 / (kmh / 3.6));
+      expect(hit.t).toBeLessThan(1.2);
+    }
+    for (const r of results.filter((r) => r.ending !== 'bowled')) expect(r.wicketBroken).toBeNull();
   });
 });
 

@@ -93,6 +93,19 @@ export type DeliveryEnding =
   | 'left'
   | 'missed';
 
+/**
+ * The ball breaking the striker's wicket, for presentation to knock the bails off in the
+ * right direction. Sim frame: metres, x across (off side negative for a right-hander),
+ * y up, z along the pitch from the bowler's stumps; time in seconds from release.
+ */
+export interface WicketBreak {
+  t: number;
+  /** Where the ball's centre crossed the line of the stumps (z is the stumps). */
+  at: { x: number; y: number; z: number };
+  /** The ball's velocity there, m/s. */
+  vel: { x: number; y: number; z: number };
+}
+
 export interface DeliveryResult {
   outcome: BallOutcome;
   ending: DeliveryEnding;
@@ -103,6 +116,8 @@ export interface DeliveryResult {
   contact: ContactResult | null;
   play: PlayResult | null;
   lbw: (LbwFacts & { out: boolean }) | null;
+  /** Set when the ball broke the wicket (bowled); null otherwise. */
+  wicketBroken: WicketBreak | null;
 }
 
 /** Two uniform draws make a bell-ish error without needing a normal distribution. */
@@ -197,8 +212,10 @@ export function playDelivery(input: DeliveryInput): DeliveryResult {
   let crossedCrease = false;
   let pitched: DeliveryResult['pitched'] = null;
   let previous = { ...ball.pos };
+  let flown = 0;
   for (let step = 0; step < 600 && ball.pos.z < L + 0.3; step++) {
     previous = { ...ball.pos };
+    flown++;
     if (swing) {
       contact = stepSwing(swing, ball, env, SIM_DT, random);
       if (contact && contact.kind !== 'miss') break;
@@ -224,6 +241,7 @@ export function playDelivery(input: DeliveryInput): DeliveryResult {
     outcome: BallOutcome,
     play: PlayResult | null = null,
     lbw: DeliveryResult['lbw'] = null,
+    wicketBroken: WicketBreak | null = null,
   ): DeliveryResult => ({
     outcome: { ...base, ...outcome },
     ending,
@@ -232,6 +250,7 @@ export function playDelivery(input: DeliveryInput): DeliveryResult {
     contact,
     play,
     lbw,
+    wicketBroken,
   });
 
   const live = (noCatch: boolean): PlayResult => {
@@ -321,7 +340,12 @@ export function playDelivery(input: DeliveryInput): DeliveryResult {
     });
   }
 
-  if (hitting) return finish('bowled', { dismissal: { kind: 'bowled' } });
+  if (hitting)
+    return finish('bowled', { dismissal: { kind: 'bowled' } }, null, null, {
+      t: (flown - 1 + part) * SIM_DT,
+      at: { x: atStumps.x, y: atStumps.y, z: L },
+      vel: { ...ball.vel },
+    });
 
   // Through to the keeper. Wide if it was out of the batter's reach.
   const across = lineAtCrease * side;
