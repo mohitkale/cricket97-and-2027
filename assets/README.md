@@ -22,3 +22,7 @@ Textures are WebP, not KTX2: the KTX2 encoder is a separately installed command-
 ## The sample
 
 `assets/src/equipment/cricket-ball.glb` is written by `node tools/assets/make-sample.ts`. It proves the pipeline end to end and is viewable at `/lab/?scene=asset-sample`.
+
+## Clips from an animation library
+
+Do not commit a whole library. Cut out the clips in use with `node tools/assets/extract-clips.ts <library.glb> assets/src/clips/<set>.glb --clips Name_One,Name_Two` (or `--mesh` to keep only the character), then build as above. Clips bind by bone name, so a clip file drives any character on the same skeleton; load them with `loadClips()` from `src/render/assets.ts`. See `docs/decisions/0003-animation-source.md`.

@@ -62,7 +62,33 @@ async function startLegacyMatch(page: Page, advance: (ms: number) => Promise<voi
   }
 }
 
+/** Unmodified library clips under review for issue #11: name and length in seconds. */
+const CLIP_REVIEWS: [string, number][] = [
+  ['TreeChopping_Loop', 0.97],
+  ['Sword_Attack', 1.53],
+  ['Sword_Regular_A', 0.43],
+  ['Sword_Regular_B', 0.53],
+  ['Sword_Regular_C', 2.0],
+  ['Sword_Heavy_Combo', 4.33],
+  ['Farm_Harvest', 2.5],
+  ['OverhandThrow', 1.33],
+  ['Sword_Idle', 1.67],
+  ['Idle_Loop', 2.5],
+];
+
 export const SCENARIOS: Record<string, Scenario> = {
+  ...Object.fromEntries(
+    CLIP_REVIEWS.map(([name, duration]): [string, Scenario] => [
+      `clip-${name}`,
+      {
+        kind: 'lab',
+        scene: `clip-${name}`,
+        duration,
+        viewport: { width: 720, height: 420 },
+        seed: 1,
+      },
+    ]),
+  ),
   'asset-sample': {
     kind: 'lab',
     scene: 'asset-sample',
