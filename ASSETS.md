@@ -6,6 +6,7 @@ Schema: one table row per file (or per group, with `{a,b}` braces) giving the fi
 
 | File | Source | Author | Licence | Changes |
 | --- | --- | --- | --- | --- |
+| `docs/2027-art/{day-batting,dusk-oval,night-replay}.jpg` | [ImageGen prompts](docs/2027-art/README.md) | Project contributors using OpenAI ImageGen | Own work, CC0 | Converted to JPEG for the art direction board |
 | `public/legacy/audio/crowd-applause.mp3` | [Slow starting applause](https://commons.wikimedia.org/wiki/File:Slow_starting_applause.ogg) | stephan | Public domain | Excerpted, normalized, faded, converted to MP3 |
 | `public/legacy/audio/crowd-gasp.mp3` | [Ohhh ahhh](https://commons.wikimedia.org/wiki/File:Ohhh_ahhh.ogg) | starlite | Public domain | Normalized, faded, converted to MP3 |
 | `public/legacy/models/striker-body.json` | [Cesium Man](https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/CesiumMan) | © 2017 Cesium | CC BY 4.0 | Vertices and weights fitted to the cricket rig; textures and logo removed; head, hands and feet trimmed |
