@@ -6,6 +6,7 @@ import {
   type Object3D,
   type SkinnedMesh,
   SRGBColorSpace,
+  Vector2,
   Vector3,
 } from 'three';
 
@@ -20,31 +21,39 @@ export interface LineupPlayer {
   color: number;
 }
 
-/** All three names and numbers share one canvas and GPU texture. */
-export function createJerseyAtlas() {
+/** The lineup or field uses one canvas and GPU texture for its shirt names and numbers. */
+export function createJerseyAtlas(playerCount = LINEUP_SIZE) {
   const canvas = document.createElement('canvas');
-  canvas.width = 320;
-  canvas.height = TILE * LINEUP_SIZE;
+  const columns = Math.ceil(playerCount / 3);
+  const rows = Math.ceil(playerCount / columns);
+  const tileWidth = 320;
+  canvas.width = tileWidth * columns;
+  canvas.height = TILE * rows;
   const draw = canvas.getContext('2d');
   if (!draw) throw new Error('Jersey atlas requires Canvas 2D');
   const texture = new CanvasTexture(canvas);
   texture.colorSpace = SRGBColorSpace;
   return {
     texture,
+    scale: new Vector2(1 / columns, 1 / rows),
+    offset(slot: number) {
+      return new Vector2((slot % columns) / columns, 1 - (Math.floor(slot / columns) + 1) / rows);
+    },
     write(players: readonly LineupPlayer[]) {
       draw.clearRect(0, 0, canvas.width, canvas.height);
       draw.textAlign = 'center';
       draw.textBaseline = 'middle';
       players.forEach(({ name, number, color }, slot) => {
-        const tileTop = slot * TILE;
+        const tileTop = Math.floor(slot / columns) * TILE;
+        const center = ((slot % columns) + 0.5) * tileWidth;
         const jersey = new Color(color);
         const luminance = 0.2126 * jersey.r + 0.7152 * jersey.g + 0.0722 * jersey.b;
         draw.fillStyle = luminance > 0.45 ? '#142534' : '#f9fbff';
         draw.font = 'bold 61px Arial';
         const surname = name.trim().split(/\s+/).at(-1)?.toUpperCase() ?? '';
-        draw.fillText(surname, 160, tileTop + 37, 290);
+        draw.fillText(surname, center, tileTop + 37, 290);
         draw.font = 'bold 142px Arial';
-        draw.fillText(String(number), 160, tileTop + 154, 280);
+        draw.fillText(String(number), center, tileTop + 154, 280);
       });
       texture.needsUpdate = true;
     },
@@ -54,7 +63,7 @@ export function createJerseyAtlas() {
 /** Resolve the meshopt-quantized rest positions once before a clip or stage transform runs. */
 export function prepareJerseyProjection(root: Object3D): void {
   root.updateMatrixWorld(true);
-  root.getObjectByName('body_lod0')?.traverse((node) => {
+  root.traverse((node) => {
     const mesh = node as SkinnedMesh;
     if (!mesh.isSkinnedMesh) return;
     const vertices = mesh.geometry.getAttribute('position').count;
@@ -85,11 +94,16 @@ const SKIN_TINTS = [
 ] as const;
 
 /** Project the lineup uniform onto the fitted body. The source texture stays on exposed skin. */
-export function makeJersey(root: Object3D, atlas: CanvasTexture, slot: number) {
+export function makeJersey(
+  root: Object3D,
+  atlas: ReturnType<typeof createJerseyAtlas>,
+  slot: number,
+) {
   const primary = new Color();
   const accent = new Color();
   const skinTint = new Color();
-  root.getObjectByName('body_lod0')?.traverse((node) => {
+  const tileOffset = atlas.offset(slot);
+  root.traverse((node) => {
     const mesh = node as SkinnedMesh;
     if (!mesh.isSkinnedMesh) return;
     const material = (mesh.material as MeshStandardMaterial).clone();
@@ -97,8 +111,9 @@ export function makeJersey(root: Object3D, atlas: CanvasTexture, slot: number) {
     material.onBeforeCompile = (shader) => {
       shader.uniforms.kitPrimary = { value: primary };
       shader.uniforms.kitAccent = { value: accent };
-      shader.uniforms.kitAtlas = { value: atlas };
-      shader.uniforms.kitSlot = { value: slot };
+      shader.uniforms.kitAtlas = { value: atlas.texture };
+      shader.uniforms.kitTileOffset = { value: tileOffset };
+      shader.uniforms.kitTileScale = { value: atlas.scale };
       shader.uniforms.kitSkinTint = { value: skinTint };
       shader.vertexShader =
         `attribute vec3 jerseyRest; varying vec3 vJerseyRest;\n${shader.vertexShader}`.replace(
@@ -109,7 +124,8 @@ export function makeJersey(root: Object3D, atlas: CanvasTexture, slot: number) {
         uniform vec3 kitPrimary;
         uniform vec3 kitAccent;
         uniform sampler2D kitAtlas;
-        uniform float kitSlot;
+        uniform vec2 kitTileOffset;
+        uniform vec2 kitTileScale;
         uniform vec3 kitSkinTint;
         ${shader.fragmentShader}`
         .replace(
@@ -135,8 +151,7 @@ export function makeJersey(root: Object3D, atlas: CanvasTexture, slot: number) {
         diffuseColor.rgb = mix(exposed, cloth * knit, clothing);
         vec2 printUV = vec2(0.5 - p.x / 0.32, (p.y - 1.093) / 0.374);
         vec2 within = step(vec2(0.0), printUV) * step(printUV, vec2(1.0));
-        vec2 atlasUV = vec2(clamp(printUV.x, 0.0, 1.0),
-          1.0 - (kitSlot + 1.0 - clamp(printUV.y, 0.015, 0.985)) / ${LINEUP_SIZE}.0);
+        vec2 atlasUV = kitTileOffset + kitTileScale * clamp(printUV, 0.015, 0.985);
         vec4 ink = texture2D(kitAtlas, atlasUV);
         float rear = 1.0 - smoothstep(-0.062, -0.025, p.z);
         diffuseColor.rgb = mix(diffuseColor.rgb, ink.rgb,

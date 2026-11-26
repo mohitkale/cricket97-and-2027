@@ -34,12 +34,13 @@ export function batchAthletes(scene,players,{mobile=false}={}){
     if(!buckets.has(key)){
       // Keep the first geometry as the template. Later instances express
       // their differing dimensions through their draw matrix alone.
-      buckets.set(key,{geometry,material,objects:[],dimensions});
+      buckets.set(key,{geometry,material,objects:[],owners:[],dimensions});
     }else if(dimensions){
       const scale=dimensions.divide(buckets.get(key).dimensions);
       if(scale.x!==1||scale.y!==1||scale.z!==1)scales.set(object,scale);
     }
     buckets.get(key).objects.push(object);
+    buckets.get(key).owners.push(player);
     // Layers hide the original draw without changing animation visibility.
     object.layers.set(1);
   });
@@ -54,20 +55,21 @@ export function batchAthletes(scene,players,{mobile=false}={}){
     bucket.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);scene.add(bucket.mesh);
   }
   function update(){
-    players.forEach(p=>p.userData.updateSkin?.());
+    players.forEach(p=>{if(p.visible)p.userData.updateSkin?.();});
     scene.updateMatrixWorld(true);
-    for(const{objects,mesh,colors}of buckets.values()){
-      let changedColor=false;
+    for(const{objects,owners,mesh,colors}of buckets.values()){
+      let changedColor=false,shown=false;
       for(let i=0;i<objects.length;i++){
         const object=objects[i],scale=scales.get(object);
         const matrix=scale?transform.copy(object.matrixWorld).scale(scale):object.matrixWorld;
-        mesh.setMatrixAt(i,object.visible?matrix:hidden);
+        const visible=object.visible&&owners[i].visible;
+        mesh.setMatrixAt(i,visible?matrix:hidden);shown ||= visible;
         if(!colors[i].equals(object.material.color)){
           colors[i].copy(object.material.color);
           mesh.setColorAt(i,colors[i]);changedColor=true;
         }
       }
-      mesh.instanceMatrix.needsUpdate=true;if(changedColor)mesh.instanceColor.needsUpdate=true;
+      mesh.visible=shown;mesh.instanceMatrix.needsUpdate=true;if(changedColor)mesh.instanceColor.needsUpdate=true;
     }
   }
   update();return {update,batchCount:buckets.size};

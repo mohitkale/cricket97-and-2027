@@ -233,6 +233,40 @@ export const SCENARIOS: Record<string, Scenario> = {
       if ((await bowl.count()) && (await bowl.isEnabled())) await bowl.dispatchEvent('click');
     },
   },
+  'legacy-2027-live-outfield': {
+    kind: 'page',
+    path: '/legacy/?era=2027',
+    duration: 3.2,
+    viewport: { width: 940, height: 528 },
+    frameMs: 100,
+    seed: 7,
+    async setup(page, advance) {
+      await startOpeningLineup(page, advance, 'Mixed');
+      await page.getByRole('button', { name: 'Skip intro' }).click();
+      await advance(200);
+      const stage = page.locator('#stage');
+      const counts = async () =>
+        (await stage.getAttribute('data-shared-fielders'))?.split('/').map(Number) ?? [];
+      const [active, , male, female] = await counts();
+      if (active !== 9 || !male || !female) throw new Error('Mixed outfield must show both bodies');
+      await page.locator('#fullscreen').click();
+      await advance(100);
+      const assisted = page.locator('#stage-controls [data-assisted]');
+      let chased = false;
+      for (let step = 0; step < 80 && !chased; step++) {
+        if ((await assisted.count()) && (await assisted.isEnabled())) {
+          const label = (await assisted.textContent())?.trim();
+          const cue = (await page.locator('#batting-cue').textContent())?.trim();
+          if (label === 'BOWL GOOD LENGTH' || (label === 'PLAY SHOT' && cue === 'HIT NOW')) {
+            await assisted.dispatchEvent('click');
+          }
+        }
+        await advance(150);
+        chased = ((await counts())[1] ?? 0) > 0;
+      }
+      if (!chased) throw new Error('No authored forward chase during the played delivery');
+    },
+  },
   'legacy-2027-match-setup': {
     kind: 'page',
     path: '/legacy/?era=2027',
