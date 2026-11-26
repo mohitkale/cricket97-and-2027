@@ -140,6 +140,29 @@ test('whenever the handle is within reach, the top hand is put on it within 1 cm
   expect(worst).toBeLessThan(0.01);
 });
 
+test('an unreachable bat does not pull the top arm out of its authored pose', async () => {
+  const root = await character();
+  const baseline = await character();
+  const idle = clip('Idle_Loop');
+  const animator = new Animator(root, markClip(idle, root), []);
+  const original = new Animator(baseline, markClip(idle, baseline), []);
+  const held = bat.clone();
+  root.getObjectByName(socketNode('bat'))?.add(held);
+  const wrist = root.getObjectByName('hand_l');
+  const originalWrist = baseline.getObjectByName('hand_l');
+  if (!wrist || !originalWrist) throw new Error('Fixture is missing the top hand');
+  const from = new Vector3();
+  const to = new Vector3();
+  for (let frame = 0; frame < 150; frame++) {
+    animator.update(1 / 60, { speed: 0, lookTarget: null, bat: held });
+    original.update(1 / 60, { speed: 0, lookTarget: null, bat: null });
+    expect(animator.readout.handInReach).toBe(false);
+    expect(
+      wrist.getWorldPosition(from).distanceTo(originalWrist.getWorldPosition(to)),
+    ).toBeLessThan(0.001);
+  }
+});
+
 test('the runtime adds under 1 kB a frame to what three.js already allocates (target zero, not met)', async () => {
   // Issue #20 asks for no per-frame allocation. Measured after a long warm-up, three.js's
   // own AnimationMixer allocates 0.4 to 1.7 kB a frame on these clips, and the runtime adds
