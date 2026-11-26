@@ -57,6 +57,8 @@ export default defineConfig({
       input: {
         main: resolve(import.meta.dirname, 'index.html'),
         legacy: resolve(import.meta.dirname, 'legacy/index.html'),
+        // Renderer spike (issue #10). In the build so it can be opened on phones; remove once decided.
+        bench: resolve(import.meta.dirname, 'bench/index.html'),
       },
     },
   },
