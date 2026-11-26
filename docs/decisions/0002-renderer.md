@@ -1,22 +1,15 @@
 # 0002: Renderer, quality tiers and device detection
 
-- Status: **proposed**. Laptop measured; waiting for the two phone rows and the owner's approval (issue #10)
-- Date: 2026-11-17
+- Status: **accepted for the browser release** (issue #10). The owner waived physical phone benchmarking for this decision.
+- Date: 2026-11-17. Accepted 2026-11-26.
 
-## Question
+## Decision
 
-Should the game render with three.js's WebGL2 renderer only, or with its WebGPU renderer, which falls back to WebGL2 where WebGPU is missing? And which quality tiers does every later visual task target?
+- **2027 Edition: `WebGPURenderer` (`three/webgpu`)**, with its WebGL2 fallback. On the integrated-GPU laptop at 1080p, WebGPU sustained 60 fps at the 15-character match load. Median work was 6.9 ms, compared with 34.2 ms on plain WebGL2.
+- **1997 Edition: `WebGLRenderer` (`three`)**. The simpler scene can use the smaller renderer. Both editions use the same simulation.
+- Keep the 350 kB gzipped JavaScript budget as the target and measure the tree-shaken playable entry when it exists. The benchmark imports the whole renderer and lives at a separate URL. If the playable entry exceeds its budget, bring the measured size and options to issue #58 before changing the budget.
 
-## Recommendation (revised 2026-11-21 after the first valid laptop run; phones still to measure)
-
-The laptop numbers below reverse the earlier draft, which rested on a run in a throttled background pane.
-
-- **2027 Edition: `WebGPURenderer` (`three/webgpu`)**, which uses WebGPU where the browser has it and falls back to WebGL2 where it does not. On the integrated-GPU laptop it is the only back end that meets the desktop budget (60 fps at 1080p): 6.9 ms of work for 15 characters against 34.2 ms for WebGL2.
-- **1997 Edition: `WebGLRenderer` (`three`)**. It renders at low resolution with few triangles, so it does not need WebGPU's speed, and it keeps the smaller download. Editions may differ in renderer (`docs/PLAN.md`, principle 5).
-- **Cost, which the owner has to accept:** about 117 kB more gzipped JavaScript for the 2027 Edition (314 kB against 197 kB for the library). The 350 kB per-edition budget in `docs/PLAN.md` section 5 would have to rise for the 2027 Edition, to about 500 kB, or the 2027 Edition would have to fit in 36 kB of game code, which it cannot.
-- **Risk:** on devices without WebGPU, the fallback (`webgpu-renderer-on-webgl2`) was the slowest path, 20 to 25 % slower than plain WebGL2. The phone runs decide how much that matters: if the mid-range Android phone has WebGPU and the iPhone's Safari does too, few players see the fallback.
-
-If the phone numbers show WebGPU no faster on phones, the alternative is WebGL2 for both editions with a lower desktop resolution scale on integrated graphics (the 1280 x 800 run held about 30 fps, not 60).
+The WebGPU renderer's WebGL2 path was slower than plain WebGL2 on the measured laptop. Keep the automatic quality step-down for that path. The browser release still needs responsive layout and compatibility checks. Physical phone throughput, battery and thermal performance are deferred.
 
 ## Evidence
 
@@ -27,9 +20,9 @@ If the phone numbers show WebGPU no faster on phones, the alternative is WebGL2 
 | WebGL2 (`three`) | 197 kB | 153 kB |
 | WebGPU with WebGL2 fallback (`three/webgpu`) | 314 kB | 36 kB |
 
-These are whole-library figures, because the benchmark imports everything; the game will import by name and tree-shaking will lower both. The WebGPU build stays much larger because it carries the node material system and both back ends. 36 kB would not hold the game, so choosing WebGPU means raising the JavaScript budget in `docs/PLAN.md` section 5.
+These are whole-library figures, because the benchmark imports everything; the game will import by name and tree-shaking will lower both. The WebGPU build carries the node material system and both back ends. The playable entry's actual tree-shaken size is still unmeasured.
 
-### Frame cost (to be measured on real devices)
+### Frame cost in desktop Chromium
 
 The benchmark is at `/bench/` in every build, so it can be opened on a phone from a preview link. It draws 15, 30, 60 and 120 skinned load dummies (12,000 triangles, 52 bones, four bone influences per vertex, one 1024 px texture each) under one sun with a 2048 px shadow map, at the device's pixel ratio capped at 2, on three back ends in turn:
 
@@ -43,8 +36,6 @@ Fifteen characters is the match load (11 fielders, 2 batters, 2 umpires). The bu
 
 | Device | webgl2, 15 chars | webgpu, 15 chars | webgpu-renderer-on-webgl2, 15 chars |
 | --- | --- | --- | --- |
-| Mid-range Android phone | *owner to supply* | *owner to supply* | *owner to supply* |
-| iPhone | *owner to supply* | *owner to supply* | *owner to supply* |
 | Integrated-GPU laptop (Intel UHD 630), 1080p, work median | 34.2 ms | 6.9 ms | 42.2 ms |
 
 **Measured 2026-11-21** on the development laptop: Intel Core i7-9750H, Intel UHD Graphics 630 (the integrated GPU; Chromium chose it over the discrete GPU), Chromium 156 through ANGLE on Metal, mains power, the benchmark window in front, deployed build of this pull request. Median **work** (render plus GPU finish) and median **frame** gap in ms; 16.7 ms is 60 fps, 33.3 ms is 30 fps.
@@ -89,14 +80,13 @@ The 1997 Edition has one budget and runs the same on every tier.
 2. Step down from measurement: if more than a tenth of recent frames miss the tier's floor (30 fps on phones, 60 on desktop), drop one tier. This is what catches weak devices that detection cannot see.
 3. The player's choice in settings overrides both and is remembered.
 
-The laptop run does not call for new thresholds: at 1080p on WebGL2 it misses the desktop floor on most frames, so the step-down rule would move it to `phone` (30 fps floor), which it holds at 1280 x 800. The thresholds stay provisional until the phone rows are in. What each tier turns on or off is defined by the visual tasks that follow (issues #50 to #52, #58).
+The laptop run does not call for new thresholds: at 1080p on WebGL2 it misses the desktop floor on most frames, so the step-down rule would move it to `phone` (30 fps floor), which it holds at 1280 x 800. Thresholds stay provisional until the browser compatibility and budget checks in M8. What each tier turns on or off is defined by the visual tasks that follow (issues #50 to #52, #58).
 
-## Consequences if accepted
+## Implementation
 
-- `docs/PLAN.md`: the stack row changes from "WebGL2 baseline" to WebGPU renderer with WebGL2 fallback for the 2027 Edition and WebGL2 for the 1997 Edition, and the 2027 JavaScript budget rises.
-- 2027 materials and effects are written in three.js's node material system (TSL), which runs on both back ends; 1997 materials use `WebGLRenderer` and GLSL where custom shaders are needed. Shared code (`src/render`, `src/anim`) must work with both renderers.
-- `/bench/` and `src/lab/bench/` are removed from the build once this decision is accepted.
+- 2027 uses three.js node materials (TSL) where custom shaders are needed across both back ends. 1997 uses `WebGLRenderer` and GLSL where needed. Shared rendering and animation code must work with both renderers.
+- Keep `/bench/` as a standalone browser diagnostic. The production game entry does not import it.
 
-## Not covered
+## Not verified
 
-Real phone measurements (the purpose of the table above), Safari and Firefox on the laptop, the discrete GPU in the same laptop, battery and heat over a long session, and real character assets: the dummies have the planned triangle and bone counts but one material and no clips.
+Physical phone performance, Safari and Firefox laptop throughput, the laptop's discrete GPU, battery and thermal behaviour, and performance with final character assets. The benchmark stands in for the planned triangle and bone counts with one material and no gameplay clips.

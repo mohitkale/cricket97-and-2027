@@ -91,7 +91,7 @@ Import rule, enforced by lint: `sim` imports nothing outside `sim`. `game` impor
 | Area | Choice |
 | --- | --- |
 | Language, build | TypeScript (strict), Vite |
-| Rendering | three.js. WebGL2 baseline; WebGPU only if the renderer decision issue says so |
+| Rendering | three.js. WebGL2 for 1997. WebGPU with WebGL2 fallback for 2027 ([renderer decision](decisions/0002-renderer.md)) |
 | Tests | Vitest for sim and logic; Playwright (Chromium only) for the capture harness, never in the required CI path |
 | Lint, format | Biome |
 | Assets | glTF sources built by glTF Transform in Node (meshopt, WebP textures; no Blender or other installed tools, see `assets/README.md`), audio sprites |
