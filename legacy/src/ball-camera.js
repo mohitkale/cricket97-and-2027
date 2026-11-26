@@ -7,10 +7,7 @@ const mount=(id,position,look,fov)=>Object.freeze({id,position:Object.freeze(pos
 // Physical camera locations. A shot changes the selected mount, never the
 // location of a mounted camera. Pan/tilt and the lens may follow the action.
 export const BROADCAST_MOUNTS=Object.freeze({
-  delivery:mount('delivery',[-8,16,-72],[0,1,1.5],22),
-  shoulderRight:mount('shoulderRight',[1.75,2.85,15.8],[0,1.1,1.6],38),
-  shoulderLeft:mount('shoulderLeft',[-1.75,2.85,15.8],[0,1.1,1.6],38),
-  preview:mount('preview',[8,3.4,17],[0,1,9.2],36),
+  delivery:mount('delivery',[2.5,6.4,-36],[0,1,0],33),
   stadium:mount('stadium',[58,36,58],[0,1,0],55),
   keeper:mount('keeper',[8,16,72],[0,1,0],22),
   batter:mount('batter',[24,12,60],[0,1,9.2],18),
@@ -26,9 +23,10 @@ export function broadcastPhase(animation){
   return animation.phase==='modern-return'?'return':'field';
 }
 
-export function fixedBroadcastView(id){
+export function fixedBroadcastView(id,aspect=1.5){
   const m=BROADCAST_MOUNTS[id]||BROADCAST_MOUNTS.delivery;
-  return {id:m.id,position:new THREE.Vector3(...m.position),look:new THREE.Vector3(...m.look),fov:m.fov};
+  const portrait=m.id==='delivery'?18*clamp((1-aspect)/.55,0,1):0;
+  return {id:m.id,position:new THREE.Vector3(...m.position),look:new THREE.Vector3(...m.look),fov:m.fov+portrait};
 }
 
 // Keep the anticipated fielding area and real athletes in the composition.
@@ -53,11 +51,10 @@ function fieldSubjects(ball,players,lofted){
  * and zoom are smoothed. A shot retains its camera rather than sector-flapping. */
 export class BallCamera{
   constructor(){this.key=null;this.shot=null;this.id=null;this.look=new THREE.Vector3();this.fov=22;this.lofted=false;}
-  update({ball,velocity,active=false,phase='delivery',deliveryKey=null,throwEnd=null,battingHand=null,dt=1/60,aspect=1.5,players=[]}){
+  update({ball,velocity,active=false,phase='delivery',deliveryKey=null,throwEnd=null,dt=1/60,aspect=1.5,players=[]}){
     if(deliveryKey!==this.key){this.key=deliveryKey;this.shot=null;this.lofted=false;}
-    let id=battingHand?(battingHand==='left'?'shoulderLeft':'shoulderRight'):'delivery',tracking=false;
-    if(phase==='preview')id='preview';
-    else if(active&&phase!=='delivery'){
+    let id='delivery',tracking=false;
+    if(active&&phase!=='delivery'){
       if(phase==='return'&&Math.hypot(ball.x,ball.z)<18){id='delivery';tracking=true;this.shot=null;}
       else {
         const outsidePitch=Math.abs(ball.x)>4||ball.z< -13||ball.z>18||ball.y>5;
@@ -69,12 +66,7 @@ export class BallCamera{
         if(this.shot){id=this.shot;tracking=true;}
       }
     }
-    const view=fixedBroadcastView(id),cut=id!==this.id;this.id=id;
-    if(!tracking&&aspect<1&&(id==='shoulderRight'||id==='shoulderLeft')){
-      const portrait=clamp((1-aspect)/.45,0,1);
-      view.fov+=12*portrait;
-      view.look.x-=view.position.x*.4*portrait;
-    }
+    const view=fixedBroadcastView(id,aspect),cut=id!==this.id;this.id=id;
     if(!tracking){this.look.copy(view.look);this.fov=view.fov;}
     else {
       if(phase==='return')this.lofted=false;else if(ball.y>6)this.lofted=true;

@@ -158,6 +158,34 @@ export const SCENARIOS: Record<string, Scenario> = {
     seed: 7,
     setup: startLegacyMatch,
   },
+  'legacy-2027-bowler-end': {
+    kind: 'page',
+    path: '/legacy/?era=2027',
+    duration: 7,
+    viewport: { width: 768, height: 432 },
+    frameMs: 100,
+    seed: 7,
+    async setup(page, advance) {
+      await startLegacyMatch(page, advance);
+      await page.locator('#fullscreen').click();
+      await advance(50);
+      if (!(await page.evaluate(() => document.fullscreenElement?.id === 'stage'))) {
+        throw new Error('The match stage did not enter fullscreen');
+      }
+      await page.evaluate(() => {
+        const score = document.getElementById('broadcast-score');
+        if (!score) throw new Error('The match scoreboard did not load');
+        const observer = new MutationObserver(() => {
+          const cue = document.getElementById('batting-cue');
+          const play = document.querySelector<HTMLButtonElement>('#stage-controls [data-assisted]');
+          if (!cue || cue.hidden || cue.textContent !== 'HIT NOW' || !play || play.disabled) return;
+          observer.disconnect();
+          play.click();
+        });
+        observer.observe(score, { subtree: true, childList: true, attributes: true });
+      });
+    },
+  },
   'legacy-1997-delivery': {
     kind: 'page',
     path: '/legacy/?era=97',
