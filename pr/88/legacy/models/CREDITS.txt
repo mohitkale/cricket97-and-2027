@@ -1,4 +1,0 @@
-Striker body derived from Cesium Man, © 2017 Cesium, CC BY 4.0.
-Source: https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/CesiumMan
-Licence: https://creativecommons.org/licenses/by/4.0/
-Changes: fitted stock body vertices and weights to the cricket rig, removed the original textures and logo, and trimmed the head, hands and feet for cricket equipment.
