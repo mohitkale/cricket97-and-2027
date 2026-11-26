@@ -132,3 +132,5 @@ CI, required path: install, lint, typecheck, unit tests, build, size check. **Un
 | M9 | v1.0 | Cross-browser QA, docs, licence audit, launch | Launch checklist |
 
 M8 tasks may start as soon as M2 closes. M5 and M6 can proceed in parallel once M4 closes.
+
+The [2027 art direction board](2027-art-direction.md) defines the broadcast look and the three reference frames for M6.
