@@ -1,3 +1,4 @@
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { Plugin } from 'vite';
 import { defineConfig } from 'vitest/config';
@@ -17,8 +18,37 @@ function previewRibbon(label: string | undefined): Plugin {
   };
 }
 
+/**
+ * Dev server only: lets the capture page (lab/capture.html) save pose landmarks into
+ * assets/src/capture/, where the asset tools pick them up.
+ */
+function captureSaver(): Plugin {
+  return {
+    name: 'capture-saver',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use('/__capture/save', (request, response) => {
+        const name = new URL(request.url ?? '', 'http://localhost').searchParams.get('name') ?? '';
+        if (request.method !== 'POST' || !/^[A-Za-z0-9_-]{1,60}$/.test(name)) {
+          response.statusCode = 400;
+          response.end('Expected POST with ?name= of letters, digits, hyphens or underscores');
+          return;
+        }
+        const chunks: Buffer[] = [];
+        request.on('data', (chunk: Buffer) => chunks.push(chunk));
+        request.on('end', () => {
+          const dir = resolve(import.meta.dirname, 'assets/src/capture');
+          mkdirSync(dir, { recursive: true });
+          writeFileSync(resolve(dir, `${name}.json`), Buffer.concat(chunks));
+          response.end('saved');
+        });
+      });
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [previewRibbon(process.env.PREVIEW_LABEL)],
+  plugins: [previewRibbon(process.env.PREVIEW_LABEL), captureSaver()],
   // Preview builds are served from a sub-folder; the workflow sets BASE_PATH.
   base: process.env.BASE_PATH ?? '/',
   cacheDir: '.vite-cache',

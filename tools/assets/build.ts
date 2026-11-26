@@ -49,7 +49,8 @@ for (const source of sources(SRC)) {
   doc.setLogger(new Logger(Logger.Verbosity.WARN));
   await doc.transform(
     dedup(),
-    prune(),
+    // Keep nodes marked with extras: sockets (docs/skeleton.md) are empty nodes under bones.
+    prune({ keepExtras: true }),
     weld(),
     resample(),
     textureCompress({

@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Motion capture from video</title>
+    <style>
+      html, body { margin: 0; min-height: 100%; background: #10161a; color: #e8eef0; font: 15px system-ui, sans-serif; }
+      main { padding: 16px; max-width: 760px; }
+      h1 { font-size: 18px; margin: 0 0 8px; }
+      label { display: block; margin: 12px 0 4px; }
+      input[type='text'] { font: inherit; padding: 6px 8px; width: 16em; }
+      button { font: inherit; padding: 10px 14px; margin: 12px 0; border-radius: 8px; border: 0; background: #c3ff54; color: #10161a; font-weight: 600; }
+      #view { margin-top: 12px; }
+      #view video, #view canvas { max-width: 100%; max-height: 60vh; display: block; background: #000; }
+      #status { font: 13px ui-monospace, monospace; white-space: pre-wrap; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Motion capture from video</h1>
+      <p>Pick a video of one person, whole body in frame. It is processed on this computer and is not uploaded. The pose model itself (about 30 MB) is fetched from Google's servers the first time.</p>
+      <label for="file">Video file</label>
+      <input id="file" type="file" accept="video/*" />
+      <label for="name">Name for the capture (letters, digits, hyphens)</label>
+      <input id="name" type="text" value="cover-drive" />
+      <div><button id="go">Capture</button></div>
+      <p id="status"></p>
+      <div id="view"></div>
+    </main>
+    <script type="module" src="/src/lab/capture/main.ts"></script>
+  </body>
+</html>

@@ -62,12 +62,63 @@ async function startLegacyMatch(page: Page, advance: (ms: number) => Promise<voi
   }
 }
 
+/** Unmodified library clips under review for issue #11: name and length in seconds. */
+const CLIP_REVIEWS: [string, number][] = [
+  ['TreeChopping_Loop', 0.97],
+  ['Sword_Attack', 1.53],
+  ['Sword_Regular_A', 0.43],
+  ['Sword_Regular_B', 0.53],
+  ['Sword_Regular_C', 2.0],
+  ['Sword_Heavy_Combo', 4.33],
+  ['Farm_Harvest', 2.5],
+  ['OverhandThrow', 1.33],
+  ['Sword_Idle', 1.67],
+  ['Idle_Loop', 2.5],
+  ['capture-OverhandThrow-truth', 1.3],
+  ['capture-OverhandThrow-seen', 1.3],
+  ['capture-standin-throw-front', 1.3],
+  ['capture-standin-throw-side', 1.3],
+];
+
 export const SCENARIOS: Record<string, Scenario> = {
+  ...Object.fromEntries(
+    CLIP_REVIEWS.map(([name, duration]): [string, Scenario] => [
+      `clip-${name}`,
+      {
+        kind: 'lab',
+        scene: `clip-${name}`,
+        duration,
+        viewport: { width: 720, height: 420 },
+        seed: 1,
+      },
+    ]),
+  ),
   'asset-sample': {
     kind: 'lab',
     scene: 'asset-sample',
     duration: 4,
     viewport: PHONE_LANDSCAPE,
+    seed: 1,
+  },
+  anim: {
+    kind: 'lab',
+    scene: 'anim',
+    duration: 3,
+    viewport: { width: 960, height: 540 },
+    seed: 1,
+  },
+  bowled: {
+    kind: 'lab',
+    scene: 'bowled',
+    duration: 2,
+    viewport: { width: 960, height: 480 },
+    seed: 1,
+  },
+  character: {
+    kind: 'lab',
+    scene: 'character',
+    duration: 4,
+    viewport: { width: 960, height: 540 },
     seed: 1,
   },
   'stroke-map': {

@@ -252,6 +252,9 @@ function deliveryFingerprint(): string {
       result.outcome.boundary ?? result.outcome.runsRun ?? 0,
       result.play?.duration ?? 0,
       result.contact?.exitSpeed ?? 0,
+      result.wicketBroken?.t ?? 0,
+      result.wicketBroken?.at.x ?? 0,
+      result.wicketBroken?.vel.x ?? 0,
     );
   }
   return hashString(Array.from(new Uint8Array(new Float64Array(values).buffer)).join(',')).toString(
