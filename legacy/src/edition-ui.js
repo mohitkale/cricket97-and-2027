@@ -27,23 +27,66 @@ export function mountEditionUI(era) {
   document.querySelector('.game-layout').before(ribbon);
 }
 
-export function decorateSetup(era, venueId) {
+export function decorateSetup(era, venueId, mode, onModeChange) {
   if (!era.modern) return;
-  const modal = document.querySelector('.modal'); modal.classList.add('modern-setup');
-  modal.querySelector('.eyebrow').textContent = 'YOUR MATCHDAY STARTS HERE';
-  modal.querySelector('h2').innerHTML = 'BUILD YOUR <span>BIG MOMENT.</span>';
-  const intro = document.createElement('div'); intro.className = 'setup-intro';
-  intro.innerHTML = '<span>01 <b>CHOOSE YOUR SIDES</b></span><span>02 <b>SET THE STAGE</b></span><span>03 <b>OWN THE CREASE</b></span>';
-  modal.querySelector('.setup').prepend(intro);
-  const venue = document.createElement('label'); venue.className = 'match-conditions venue-picker';
-  venue.innerHTML = `THE STAGE <select id="venue-select" aria-label="Modern stadium">${Object.entries(VENUES).map(([id,v])=>`<option value="${id}" ${id===venueId?'selected':''}>${v.name} · ${v.city}</option>`).join('')}</select>`;
-  modal.querySelector('.setup-options').after(venue);
-  modal.querySelector('.setup-options').innerHTML = '<div class="option">THE EXPERIENCE<b>MODERN INTERNATIONAL</b></div><div class="option">THE MOVEMENT<b>ATHLETIC & RESPONSIVE</b></div><div class="option">THE SQUADS<b>CONTEMPORARY GENERATION</b></div>';
-  const source = document.createElement('p'); source.className = 'roster-source';
-  source.textContent = 'Squads are fictional. Reorder to select your XI.';
-  modal.querySelector('.setup-footer').before(source);
-  modal.querySelector('#start').textContent = 'TAKE THE FIELD ↗';
-  modal.querySelector('.setup-footer p').textContent = 'Your first 11 take the field. Move players up or down to shape your side; the remaining four are your reserves.';
+  const modal = document.querySelector('.modal');
+  modal.classList.add('modern-setup');
+  modal.querySelector('.eyebrow').textContent = 'CRICKET 2027';
+  modal.querySelector('h2').textContent = 'Match setup';
+  const setup = modal.querySelector('.setup');
+  const modes = document.createElement('fieldset');
+  modes.className = 'setup-modes';
+  modes.innerHTML = `<legend>Match type</legend><div>${
+    ['Male','Female','Mixed'].map(label => {
+      const value = label.toLowerCase();
+      return `<label><input type="radio" name="match-mode" value="${value}" ${value===mode?'checked':''}><span>${label}</span></label>`;
+    }).join('')
+  }</div>`;
+  modes.addEventListener('change', event => onModeChange(event.target.value));
+  setup.prepend(modes);
+
+  for (const [side, label] of [['home','Your team'],['away','Opposition']]) {
+    const select = setup.querySelector(`#${side}-select`);
+    select.setAttribute('aria-label', label);
+    select.previousElementSibling.textContent = label;
+    const roster = setup.querySelector(`#${side}-roster`);
+    select.after(setupDetails('Edit playing XI', roster));
+  }
+
+  const venue = document.createElement('label');
+  venue.className = 'match-conditions';
+  venue.innerHTML = `Venue <select id="venue-select">${Object.entries(VENUES).map(([id, v]) =>
+    `<option value="${id}" ${id===venueId?'selected':''}>${v.name}</option>`).join('')}</select>`;
+  const common = document.createElement('div');
+  common.className = 'setup-common';
+  const field = (id, label) => {
+    const row = setup.querySelector(`#${id}`).closest('label');
+    row.firstChild.textContent = label + ' ';
+    return row;
+  };
+  for (const option of setup.querySelectorAll('#match-overs option')) {
+    option.textContent = `${option.value} overs`;
+  }
+  setup.querySelector('#match-conditions option[value="day"]').textContent = 'Day';
+  setup.querySelector('#match-conditions option[value="night"]').textContent = 'Night';
+  setup.querySelector('#difficulty option[value="normal"]').textContent = 'Normal';
+  setup.querySelector('#difficulty option[value="easy"]').textContent = 'Easy';
+  common.append(venue, field('match-overs','Overs per side'), field('match-conditions','Time of day'), field('difficulty','Difficulty'));
+  setup.querySelector('.setup-options').replaceWith(common);
+  const advanced = setupDetails('Toss and replays', field('toss-call','Call the toss'),
+    field('toss-decision','If you win'), setup.querySelector('.setup-replays'));
+  const footer = setup.querySelector('.setup-footer');
+  footer.before(advanced);
+  footer.querySelector('p').remove();
+  footer.querySelector('#start').textContent = 'Play match';
+}
+
+function setupDetails(title, ...content) {
+  const details = document.createElement('details');
+  const summary = document.createElement('summary');
+  summary.textContent = title;
+  details.append(summary, ...content);
+  return details;
 }
 
 export function updateVenueUI(id) {

@@ -112,11 +112,11 @@ export function createAthlete(scene,x,z,color,heading=0,role='fielder') {
   g.position.set(x,0,z);g.rotation.y=heading;scene.add(g);return g;
 }
 
-export function dressAthlete(model,name,team) {
+export function dressAthlete(model,name,team,gender) {
   if(!model.userData.modern)return;
   const seed=identitySeed(name),tones=[0xe5b99a,0xc6906d,0xae7755,0x895a3b,0x603e2b,0xd9aa83];
   model.userData.skin.color.setHex(tones[seed%tones.length]);
-  model.userData.beard.visible=seed%3!==0;
+  model.userData.beard.visible=gender!=='female'&&seed%3!==0;
   model.userData.identityPhase=seed%100/100*Math.PI*2;
   const c=model.userData.shirtCanvas,ctx=c.getContext('2d');ctx.clearRect(0,0,c.width,c.height);
   ctx.fillStyle='#edf6e0';ctx.textAlign='center';ctx.font='900 31px Arial';ctx.fillText(team.toUpperCase(),128,67,230);

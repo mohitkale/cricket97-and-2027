@@ -23,7 +23,7 @@ import { battingSetup, resetBowlerModel, resetFielderModel, nonStrikerPosition, 
 import { throwPosition } from './ball-path.js';
 import { advanceBall, initPhysics, resetBallPhysics, syncAthletes, setBallSpin } from './physics.js';
 import { deliveryHeight, pickDelivery, scoreDelivery, nextFreeHit, deliverySpeed, keeperCanCollect, wicketIntersection } from './delivery.js';
-import { resolveEra } from './eras.js';
+import { modernProfiles, modernSquad, resolveEra } from './eras.js';
 import { mountEditionUI, decorateSetup, updateVenueUI, VENUES } from './edition-ui.js';
 import { createAthlete, dressAthlete, solveArm, gripBat, solveLeg, plantFeet, plantStandingFeet } from './athlete.js';
 import { moveAthlete, resetMotor, turnAthlete, poseLocomotion, idleAthlete, groundRunningBat } from './athlete-motion.js';
@@ -46,10 +46,10 @@ import './style.css';
 const teamDesigns={India:{flag:'🇮🇳',color:0x2266ae},Australia:{flag:'🇦🇺',color:0xe3c74c},England:{flag:'🏴',color:0xeee9d9},'West Indies':{flag:'🌴',color:0x812c40},Pakistan:{flag:'🇵🇰',color:0x278443},'South Africa':{flag:'🇿🇦',color:0x2f865a}};
 if(era.modern){const colors={India:0x157acb,Australia:0xf2cc35,England:0x183f7a,'West Indies':0x922e47,Pakistan:0x137b52,'South Africa':0x126b54};for(const[name,color]of Object.entries(colors))teamDesigns[name].color=color;}
 const teams=Object.fromEntries(Object.entries(teamDesigns).map(([name,design])=>[name,{...design,players:rosterProfiles[name].map(p=>p.name)}]));
-const profiles=new Map(Object.values(rosterProfiles).flat().map(p=>[p.name,p]));
+const profiles=era.modern?modernProfiles:new Map(Object.values(rosterProfiles).flat().map(p=>[p.name,p]));
 function profile(name){return profiles.get(name)||{name,bat:'right',bowl:'right'}}
 
-let difficulty='normal', replayBoundaries=false, replayWickets=false, matchOvers=DEFAULT_MATCH_OVERS;let home='India',away='Australia',squads={},state={phase:'ready',innings:0,score:[0,0],wickets:[0,0],balls:[0,0],history:[],extras:[0,0],stats:createMatchStats(),shot:null,line:'Good',batIndex:0,striker:0,partner:1,nextBatter:2,bowlIndex:8,anim:null,camera:0,muted:true,shotDirection:0,autoAt:0};
+let difficulty='normal', replayBoundaries=false, replayWickets=false, matchOvers=DEFAULT_MATCH_OVERS, matchMode='male';let home='India',away='Australia',squads={},state={phase:'ready',innings:0,score:[0,0],wickets:[0,0],balls:[0,0],history:[],extras:[0,0],stats:createMatchStats(),shot:null,line:'Good',batIndex:0,striker:0,partner:1,nextBatter:2,bowlIndex:8,anim:null,camera:0,muted:true,shotDirection:0,autoAt:0};
 Object.entries(teams).forEach(([k,v])=>squads[k]=era.modern?[...v.players]:[...v.players,'Reserve A','Reserve B','Reserve C','Reserve D']);
 const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
 const app=document.querySelector('#app');
@@ -308,7 +308,7 @@ function firstBatting(){return state.firstBatting||home}
 function secondBatting(){return firstBatting()===home?away:home}
 function humanBatting(){return (state.innings===0?firstBatting():secondBatting())===home}
 function setKit(){const recolor=(p,color)=>p.userData.kit.color.setHex(color);[batter,nonStriker].forEach(p=>recolor(p,teams[state.innings===0?firstBatting():secondBatting()].color));[bowler,keeper,...fielders].forEach(p=>recolor(p,teams[state.innings===0?secondBatting():firstBatting()].color))}
-function setPlayerName(p,name,number){p.userData.playerName=name;if(era.modern){const team=Object.keys(rosterProfiles).find(t=>rosterProfiles[t].some(v=>v.name===name))||home;dressAthlete(p,name,team);}if(!p.userData.nameCanvas)return;let key=`${name}:${number}`;if(p.userData.nameKey===key)return;p.userData.nameKey=key;let c=p.userData.nameCanvas,x=c.getContext('2d');x.clearRect(0,0,c.width,c.height);x.textAlign='center';x.font='bold 58px Arial';x.lineWidth=8;x.strokeStyle='#263326';x.fillStyle='#fff';let text=name.split(' ').slice(-1)[0].toUpperCase();x.strokeText(text,256,68,480);x.fillText(text,256,68,480);x.font='bold 72px Arial';x.strokeText(String(number),256,143);x.fillText(String(number),256,143);p.userData.nameTexture.needsUpdate=true}
+function setPlayerName(p,name,number){p.userData.playerName=name;if(era.modern){const player=profile(name);dressAthlete(p,name,player.team||home,player.gender);}if(!p.userData.nameCanvas)return;let key=`${name}:${number}`;if(p.userData.nameKey===key)return;p.userData.nameKey=key;let c=p.userData.nameCanvas,x=c.getContext('2d');x.clearRect(0,0,c.width,c.height);x.textAlign='center';x.font='bold 58px Arial';x.lineWidth=8;x.strokeStyle='#263326';x.fillStyle='#fff';let text=name.split(' ').slice(-1)[0].toUpperCase();x.strokeText(text,256,68,480);x.fillText(text,256,68,480);x.font='bold 72px Arial';x.strokeText(String(number),256,143);x.fillText(String(number),256,143);p.userData.nameTexture.needsUpdate=true}
 function lineup(){let batting=state.innings===0?firstBatting():secondBatting(),bowling=state.innings===0?secondBatting():firstBatting(),over=Math.floor(state.balls[state.innings]/6),order=bowlingOrder(squads[bowling],matchFormat(matchOvers).bowlers),bowlerIndex=order[Math.min(over,matchOvers-1)%order.length].index;return {batting,bowling,bowlerIndex,striker:squads[batting][Math.min(state.striker,10)],partner:squads[batting][Math.min(state.partner,10)],bowler:squads[bowling][bowlerIndex]}}
 function syncPlayers(){let l=lineup();setPlayerName(batter,l.striker,state.striker+1);setPlayerName(nonStriker,l.partner,state.partner+1);setPlayerName(bowler,l.bowler,l.bowlerIndex+1);if(era.modern){batter.position.z=9.8;nonStriker.position.z=-9.75;}batter.position.x=profile(l.striker).bat==='left'?.35:-.35;applyBattingStance(batter,profile(l.striker).bat,true);applyBattingStance(nonStriker,profile(l.partner).bat,false);bowler.userData.bowlHand=profile(l.bowler).bowl;resetBowler();placeNonStriker();legUmpire.position.set(profile(l.striker).bat==='left'?14.5:-14.5,0,8);facePoint(legUmpire,new THREE.Vector3(0,0,9.8));resetKeeper();let keeperPos=keeperIndex(squads[l.bowling]);setPlayerName(keeper,squads[l.bowling][keeperPos],keeperPos+1);let f=squads[l.bowling].slice(0,11).map((name,i)=>({name,i})).filter(v=>v.i!==keeperPos&&v.i!==l.bowlerIndex);fielders.forEach((p,i)=>setPlayerName(p,f[i]?.name||'Fielder',(f[i]?.i??i)+1))}
 function introducePlayers(reason,newName){let l=lineup(),incoming=newName||l.striker;state.phase='intro';state.introUntil=performance.now()+4200;renderUI();let intro=$('#player-intro');let heading=reason==='start'&&state.toss?`${state.toss.result.toUpperCase()} · ${state.toss.userWon?'YOU WIN':'COMPUTER WINS'} THE TOSS`:reason==='start'?'THE OPENING PLAYERS':reason==='innings'?'THE CHASE BEGINS':reason==='wicket'?'NEW BATTER':reason==='both'?'NEW BATTER & BOWLER':'NEW BOWLER';let lines=reason==='bowler'?`<span>COMING ON TO BOWL</span><strong>${l.bowler}</strong><small>${l.bowling} · ${profile(l.bowler).bowl.toUpperCase()}-ARM</small>`:(reason==='wicket'||reason==='both')?`<span>COMING IN TO BAT</span><strong>${incoming}</strong><small>${profile(incoming).bat.toUpperCase()}-HAND BAT · ${reason==='both'?'NEW BOWLER:':'FACING'} ${l.bowler}</small>`:`<span>AT THE CREASE</span><strong>${l.striker} &nbsp; / &nbsp; ${l.partner}</strong><small>${profile(l.striker).bat.toUpperCase()}-HAND BAT · ${l.bowler} · ${profile(l.bowler).bowl.toUpperCase()}-ARM</small>`;intro.innerHTML=`<div class="intro-kicker">${heading}</div>${lines}`;if(era.modern){
@@ -397,7 +397,99 @@ touch.querySelectorAll('[data-power]').forEach(b=>b.onclick=e=>{e.stopPropagatio
 touch.querySelectorAll('[data-return]').forEach(b=>b.onclick=e=>{e.stopPropagation();callBack()});
 $('#play-status').textContent=running?'BALL IN PLAY • RUN OR STOP':isBat?(state.phase==='animating'?'COMPUTER BOWLING • TIME YOUR SHOT':'COMPUTER BOWLING • NEXT DELIVERY SOON'):(state.phase==='animating'?'COMPUTER BATTING • BALL IN PLAY':'COMPUTER BATTING • CHOOSE YOUR LENGTH');
 }
-function showSetup(){let root=$('#modal-root');root.innerHTML=`<div class="modal-wrap"><div class="modal"><div class="modal-top"><div><div class="eyebrow">YOUR MATCH, YOUR RULES</div><h2>SELECT YOUR SIDES<span style="color:#e4c45f">.</span></h2></div><button class="close" aria-label="Close">×</button></div><div class="setup"><div class="setup-grid"><div class="setup-card"><div class="setup-label">01 / YOUR TEAM</div><select id="home-select">${Object.keys(teams).map(t=>`<option ${t===home?'selected':''}>${t}</option>`).join('')}</select><div class="roster" id="home-roster"></div></div><div class="setup-card"><div class="setup-label">02 / OPPOSITION</div><select id="away-select">${Object.keys(teams).map(t=>`<option ${t===away?'selected':''}>${t}</option>`).join('')}</select><div class="roster" id="away-roster"></div></div></div><div class="setup-options"><div class="option">MATCH FORMAT<b>5 OVERS / SIDE</b></div><div class="option">VENUE<b>THE GRAND OVAL</b></div><div class="option">YOUR ROLE<b>BAT & BOWL</b></div></div><label class="match-conditions" for="match-conditions">MATCH CONDITIONS <select id="match-conditions"><option value="day" ${!night?'selected':''}>DAY MATCH</option><option value="night" ${night?'selected':''}>NIGHT MATCH · FLOODLIGHTS</option></select></label><label class="match-conditions">OVERS PER SIDE <select id="match-overs">${MATCH_FORMATS.map(format=>`<option value="${format.overs}" ${format.overs===DEFAULT_MATCH_OVERS?'selected':''}>${format.label}</option>`).join('')}</select></label><label class="match-conditions">CALL THE TOSS <select id="toss-call"><option value="heads">HEADS</option><option value="tails">TAILS</option></select></label><label class="match-conditions">IF YOU WIN <select id="toss-decision"><option value="bat">BAT FIRST</option><option value="bowl">BOWL FIRST</option></select></label><label class="match-conditions">DIFFICULTY <select id="difficulty"><option value="normal">NORMAL</option><option value="easy">EASY · MORE BOUNDARIES</option></select></label><div class="setup-replays">ACTION REPLAYS <label><input type="checkbox" id="replay-boundaries"> BOUNDARIES</label><label><input type="checkbox" id="replay-wickets"> WICKETS</label></div><div class="setup-footer"><p>Move players up or down to select your XI. The first 11 play; R1–R4 are reserves. Top order bats first.</p><button class="primary" id="start">LET'S PLAY CRICKET &nbsp; →</button></div></div></div></div>`;$('.close').onclick=()=>root.innerHTML='';function roster(side){let team=side==='home'?home:away;let el=$('#'+side+'-roster');el.innerHTML=squads[team].map((p,n)=>`<div class="player ${n>=11?'reserve':''}"><b>${n>=11?'R'+(n-10):String(n+1).padStart(2,'0')}</b> ${p}${era.modern?`<em class="roster-role">${profile(p).role||'batter'}</em>`:''}<span><button data-move="${n}" data-dir="-1" title="Move up">↑</button><button data-move="${n}" data-dir="1" title="Move down">↓</button></span></div>`).join('');el.querySelectorAll('button').forEach(b=>b.onclick=()=>{let n=+b.dataset.move,to=n+(+b.dataset.dir);if(to<0||to>=squads[team].length)return;[squads[team][n],squads[team][to]]=[squads[team][to],squads[team][n]];roster(side)})}roster('home');roster('away');$('#home-select').onchange=e=>{home=e.target.value;if(home===away){away=Object.keys(teams).find(t=>t!==home);$('#away-select').value=away}roster('home');roster('away')};$('#away-select').onchange=e=>{away=e.target.value;if(away===home){home=Object.keys(teams).find(t=>t!==away);$('#home-select').value=home}roster('home');roster('away')};$('#start').onclick=async()=>{const button=$('#start');button.disabled=true;button.textContent='PREPARING MATCH…';try{await initPhysics({modern:era.modern})}catch(error){button.disabled=false;button.textContent='LET’S PLAY CRICKET →';alert('Could not initialize the local physics engine. Please reload and try again.');console.error(error);return}manualPaused=false;$('#pause-game').textContent='Ⅱ';$('#pause-game').setAttribute('aria-label','Pause match');thawMatch();difficulty=$('#difficulty').value;matchOvers=matchFormat($('#match-overs').value).overs;$('#match-format').textContent=`${matchOvers} overs per side`;replayBoundaries=$('#replay-boundaries').checked;replayWickets=$('#replay-wickets').checked;if(era.modern){venueId=$('#venue-select').value;modernStadium.setVenue(updateVenueUI(venueId));for(const[k,m]of Object.entries(adMaterials)){m.map.dispose();m.map=modernBoardTexture(k);m.needsUpdate=true;}}setTimeOfDay($('#match-conditions').value==='night');const toss=resolveToss($('#toss-call').value,$('#toss-decision').value),first=toss.userBatsFirst?home:away;root.innerHTML='';claimAudioFocus();state={...state,fieldPlan:'auto',overRate:[],freeHit:false,phase:'playing',innings:0,firstBatting:first,toss,shot:null,score:[0,0],wickets:[0,0],balls:[0,0],extras:[0,0],stats:createMatchStats(),history:[],batIndex:0,striker:0,partner:1,nextBatter:2,bowlIndex:8,queuedShot:null,queuedPower:false,powerArmed:false,powerUsed:0,secondaryShot:null,lastShotInput:null,anim:null,replay:null,autoAt:performance.now()+3500};resetWickets();$('#replay-ui').classList.add('hidden');setKit();updateCrowd();if(!userMuted)enableSound();syncPlayers();renderUI();introducePlayers('start')};decorateSetup(era,venueId)}
+function showSetup(){
+ const root=$('#modal-root');
+ let draftHome=home,draftAway=away,draftMode=matchMode;
+ const draftSquads=new Map([[matchMode,Object.fromEntries(
+  Object.entries(squads).map(([team,players])=>[team,[...players]])
+ )]]);
+ const selectedSquads=()=>draftSquads.get(draftMode);
+ root.innerHTML=`<div class="modal-wrap"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="setup-title"><div class="modal-top"><div><div class="eyebrow">YOUR MATCH, YOUR RULES</div><h2 id="setup-title">SELECT YOUR SIDES<span style="color:#e4c45f">.</span></h2></div><button class="close" aria-label="Close">×</button></div><div class="setup"><div class="setup-grid"><div class="setup-card"><div class="setup-label">01 / YOUR TEAM</div><select id="home-select">${Object.keys(teams).map(t=>`<option ${t===home?'selected':''}>${t}</option>`).join('')}</select><div class="roster" id="home-roster"></div></div><div class="setup-card"><div class="setup-label">02 / OPPOSITION</div><select id="away-select">${Object.keys(teams).map(t=>`<option ${t===away?'selected':''}>${t}</option>`).join('')}</select><div class="roster" id="away-roster"></div></div></div><div class="setup-options"><div class="option">MATCH FORMAT<b>5 OVERS / SIDE</b></div><div class="option">VENUE<b>THE GRAND OVAL</b></div><div class="option">YOUR ROLE<b>BAT & BOWL</b></div></div><label class="match-conditions" for="match-conditions">MATCH CONDITIONS <select id="match-conditions"><option value="day" ${!night?'selected':''}>DAY MATCH</option><option value="night" ${night?'selected':''}>NIGHT MATCH · FLOODLIGHTS</option></select></label><label class="match-conditions">OVERS PER SIDE <select id="match-overs">${MATCH_FORMATS.map(format=>`<option value="${format.overs}" ${format.overs===DEFAULT_MATCH_OVERS?'selected':''}>${format.label}</option>`).join('')}</select></label><label class="match-conditions">CALL THE TOSS <select id="toss-call"><option value="heads">HEADS</option><option value="tails">TAILS</option></select></label><label class="match-conditions">IF YOU WIN <select id="toss-decision"><option value="bat">BAT FIRST</option><option value="bowl">BOWL FIRST</option></select></label><label class="match-conditions">DIFFICULTY <select id="difficulty"><option value="normal">NORMAL</option><option value="easy">EASY · MORE BOUNDARIES</option></select></label><div class="setup-replays">ACTION REPLAYS <label><input type="checkbox" id="replay-boundaries"> BOUNDARIES</label><label><input type="checkbox" id="replay-wickets"> WICKETS</label></div><div class="setup-footer"><p>Move players up or down to select your XI. The first 11 play; R1–R4 are reserves. Top order bats first.</p><button class="primary" id="start">LET'S PLAY CRICKET &nbsp; →</button></div></div></div></div>`;
+ const close=root.querySelector('.close');
+ close.onclick=()=>{root.innerHTML='';};
+ function roster(side){
+  const team=side==='home'?draftHome:draftAway;
+  const players=selectedSquads()[team];
+  const container=$('#'+side+'-roster');
+  container.innerHTML=players.map((name,index)=>{
+   const {role,gender}=profile(name);
+   const roleLabel=draftMode==='mixed'?`${role} · ${gender}`:role;
+   return `<div class="player ${index>=11?'reserve':''}" data-roster-gender="${gender||''}">
+     <b>${index>=11?'R'+(index-10):String(index+1).padStart(2,'0')}</b> ${name}
+     ${era.modern?`<em class="roster-role">${roleLabel||'batter'}</em>`:''}
+     <span><button data-move="${index}" data-dir="-1" aria-label="Move ${name} up">↑</button><button data-move="${index}" data-dir="1" aria-label="Move ${name} down">↓</button></span>
+   </div>`;
+  }).join('');
+  container.querySelectorAll('button').forEach(button=>button.onclick=()=>{
+   const index=Number(button.dataset.move), next=index+Number(button.dataset.dir);
+   if(next<0||next>=players.length)return;
+   [players[index],players[next]]=[players[next],players[index]];
+   roster(side);
+   container.querySelector(`[data-move="${next}"][data-dir="${button.dataset.dir}"]`)?.focus();
+  });
+ }
+ const renderRosters=()=>{roster('home');roster('away');};
+ const homeSelect=$('#home-select'), awaySelect=$('#away-select');
+ homeSelect.onchange=()=>{
+  draftHome=homeSelect.value;
+  if(draftHome===draftAway){
+   draftAway=Object.keys(teams).find(team=>team!==draftHome);
+   awaySelect.value=draftAway;
+  }
+  renderRosters();
+ };
+ awaySelect.onchange=()=>{
+  draftAway=awaySelect.value;
+  if(draftAway===draftHome){
+   draftHome=Object.keys(teams).find(team=>team!==draftAway);
+   homeSelect.value=draftHome;
+  }
+  renderRosters();
+ };
+ renderRosters();
+ const button=$('#start');
+ button.onclick=async()=>{
+  const label=button.textContent;
+  button.disabled=true;
+  button.textContent='Preparing match…';
+  try{await initPhysics({modern:era.modern});}
+  catch(error){
+   button.disabled=false;
+   button.textContent=label;
+   alert('Could not initialize the local physics engine. Please reload and try again.');
+   console.error(error);
+   return;
+  }
+  if(!button.isConnected)return;
+  home=draftHome;
+  away=draftAway;
+  matchMode=draftMode;
+  squads=selectedSquads();
+  manualPaused=false;
+  $('#pause-game').textContent='Ⅱ';$('#pause-game').setAttribute('aria-label','Pause match');thawMatch();
+  difficulty=$('#difficulty').value;
+  matchOvers=matchFormat($('#match-overs').value).overs;
+  const modeLabel=era.modern?`${matchMode[0].toUpperCase()}${matchMode.slice(1)} · `:'';
+  $('#match-format').textContent=`${modeLabel}${matchOvers} overs per side`;
+  replayBoundaries=$('#replay-boundaries').checked;
+  replayWickets=$('#replay-wickets').checked;
+  if(era.modern){venueId=$('#venue-select').value;modernStadium.setVenue(updateVenueUI(venueId));for(const[k,m]of Object.entries(adMaterials)){m.map.dispose();m.map=modernBoardTexture(k);m.needsUpdate=true;}}
+  setTimeOfDay($('#match-conditions').value==='night');const toss=resolveToss($('#toss-call').value,$('#toss-decision').value),first=toss.userBatsFirst?home:away;
+  root.innerHTML='';claimAudioFocus();
+  state={...state,fieldPlan:'auto',overRate:[],freeHit:false,phase:'playing',innings:0,firstBatting:first,toss,shot:null,score:[0,0],wickets:[0,0],balls:[0,0],extras:[0,0],stats:createMatchStats(),history:[],batIndex:0,striker:0,partner:1,nextBatter:2,bowlIndex:8,queuedShot:null,queuedPower:false,powerArmed:false,powerUsed:0,secondaryShot:null,lastShotInput:null,anim:null,replay:null,autoAt:performance.now()+3500};
+  resetWickets();$('#replay-ui').classList.add('hidden');
+  setKit();updateCrowd();if(!userMuted)enableSound();syncPlayers();renderUI();introducePlayers('start')
+ };
+ decorateSetup(era,venueId,draftMode,mode=>{
+  if(!draftSquads.has(mode)){
+   draftSquads.set(mode,Object.fromEntries(Object.keys(teams).map(team=>[
+    team,modernSquad(team,mode).map(player=>player.name),
+   ])));
+  }
+  draftMode=mode;
+  renderRosters();
+ });
+}
 function message(a,b=''){ $('#message').innerHTML=`${a}<br><span style="color:#aabbab">${b}</span>` }
 function stopRunUp(){
  const a=state.anim;

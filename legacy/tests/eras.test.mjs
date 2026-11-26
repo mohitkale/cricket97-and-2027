@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { resolveEra, squadForEra, modernRosters } from '../src/eras.js';
+import { modernProfiles, modernRosters, modernSquad, resolveEra, squadForEra } from '../src/eras.js';
 import { bowlingOrder, keeperIndex, bowlingProfile } from '../src/bowling-profiles.js';
 
 test('era selection is explicit and rejects inherited or unknown keys',()=>{
@@ -24,4 +24,24 @@ test('each modern squad has 15 unique players and a viable five-bowler XI',()=>{
   }
   assert.equal(bowlingProfile('Pranav Bose').style,'fast');
   assert.equal(bowlingProfile('Flynn Mullane').style,'leg spin');
+});
+
+test('every 2027 team has a playable XI and reserves in all three match modes', () => {
+  for (const team of Object.keys(modernRosters)) {
+    for (const mode of ['male','female','mixed']) {
+      const squad = modernSquad(team,mode);
+      assert.equal(squad.length,15);
+      assert.equal(new Set(squad.map(player=>player.name)).size,15);
+      assert.ok(squad.slice(0,11).some(player=>player.role==='keeper'));
+      assert.ok(squad.slice(0,11).filter(player=>player.role==='bowler'||player.role==='all-rounder').length>=5);
+      const genders = new Set(squad.slice(0,11).map(player=>player.gender));
+      assert.deepEqual(genders,mode==='mixed'?new Set(['male','female']):new Set([mode]));
+      for (const player of squad) {
+        assert.equal(modernProfiles.get(player.name)?.team,team);
+        assert.equal(modernProfiles.get(player.name)?.gender,player.gender);
+      }
+      squad[0].name='Edited';
+      assert.notEqual(modernSquad(team,mode)[0].name,'Edited');
+    }
+  }
 });
