@@ -144,6 +144,13 @@ export const SCENARIOS: Record<string, Scenario> = {
     viewport: { width: 960, height: 540 },
     seed: 1,
   },
+  'anim-bat-quarter': {
+    kind: 'lab',
+    scene: 'anim&state=bat&rate=quarter',
+    duration: 6.7,
+    viewport: { width: 960, height: 540 },
+    seed: 1,
+  },
   bowled: {
     kind: 'lab',
     scene: 'bowled',

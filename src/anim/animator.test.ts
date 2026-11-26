@@ -7,7 +7,7 @@ import { beforeAll, expect, test } from 'vitest';
 import { Animator } from './animator';
 import { markClip } from './clips';
 import { solveTwoBone } from './ik';
-import { socketNode } from './skeleton';
+import { BOTTOM_WRIST_ON_BAT, socketNode, TOP_WRIST_ON_BAT } from './skeleton';
 import { blendGaits, landsOnTime, RATE_LIMITS, warpRate } from './warp';
 
 const ROOT = join(import.meta.dirname, '../..');
@@ -179,6 +179,56 @@ test('an unreachable bat does not pull the top arm out of its authored pose', as
       wrist.getWorldPosition(from).distanceTo(originalWrist.getWorldPosition(to)),
     ).toBeLessThan(0.001);
   }
+});
+
+test('the authored batting stance keeps both feet planted and both wrists on the grip for a complete loop', async () => {
+  const { animations } = await load('clips/batting-stance.glb');
+  const root = await character();
+  const stance = animations.find(({ name }) => name === 'Batting_Stance_Loop');
+  if (!stance) throw new Error('Missing the authored stance');
+  const named = (name: string) => {
+    const node = root.getObjectByName(name);
+    if (!node) throw new Error(`Missing ${name}`);
+    return node;
+  };
+  const held = bat.clone();
+  named(socketNode('bat')).add(held);
+  const marked = markClip(stance, root);
+  expect(marked.plants).toEqual([
+    { foot: 'l', start: 0, end: stance.duration },
+    { foot: 'r', start: 0, end: stance.duration },
+  ]);
+  const animator = new Animator(root, marked, []);
+  const input = { speed: 0, lookTarget: null, bat: held };
+  const wrists = [
+    { wrist: named('hand_l'), grip: TOP_WRIST_ON_BAT },
+    { wrist: named('hand_r'), grip: BOTTOM_WRIST_ON_BAT },
+  ];
+  const measured = new Vector3();
+  const target = new Vector3();
+  const checkLoop = (advance: (dt: number) => void) => {
+    advance(0);
+    const feet = ['foot_l', 'foot_r'].map((name) => {
+      const foot = named(name);
+      return { foot, start: foot.getWorldPosition(new Vector3()) };
+    });
+    const samples = Math.ceil(240 * stance.duration);
+    for (let step = 0; step <= samples; step++) {
+      for (const { foot, start } of feet)
+        expect(foot.getWorldPosition(measured).distanceTo(start)).toBeLessThan(0.02);
+      for (const { wrist, grip } of wrists) {
+        held.localToWorld(target.set(...grip));
+        expect(wrist.getWorldPosition(measured).distanceTo(target)).toBeLessThan(0.01);
+      }
+      advance(stance.duration / samples);
+    }
+  };
+  const raw = new AnimationMixer(root);
+  raw.clipAction(stance).play();
+  checkLoop((dt) => raw.update(dt));
+  raw.stopAllAction();
+  raw.uncacheRoot(root);
+  checkLoop((dt) => animator.update(dt, input));
 });
 
 test('the runtime adds under 1 kB a frame to what three.js already allocates (target zero, not met)', async () => {

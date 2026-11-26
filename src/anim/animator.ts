@@ -14,7 +14,7 @@ import {
 } from 'three';
 import { isPlanted, type MarkedClip, type MarkerName } from './clips';
 import { lookAt, solveTwoBone } from './ik';
-import { BONES } from './skeleton';
+import { BONES, TOP_WRIST_ON_BAT } from './skeleton';
 import { blendGaits, warpRate } from './warp';
 
 const FADE = 0.2;
@@ -34,12 +34,6 @@ export function upperBodyOnly(clip: AnimationClip): AnimationClip {
   });
   return new AnimationClip(`${clip.name}_upper`, clip.duration, tracks);
 }
-
-/**
- * Where the top (left) wrist sits on the bat, in the bat's frame (docs/skeleton.md): on the
- * handle 11 cm above the bottom hand, mirrored across it.
- */
-export const TOP_WRIST_ON_BAT = new Vector3(0.07, 0.12, -0.026);
 
 export interface AnimatorInput {
   /** Ground speed, m/s; above 0.2 the character walks. */
@@ -222,7 +216,7 @@ export class Animator {
 
     // Top hand on the bat handle.
     if (input.bat) {
-      this.target.copy(TOP_WRIST_ON_BAT);
+      this.target.set(...TOP_WRIST_ON_BAT);
       input.bat.localToWorld(this.target);
       const upper = this.arm[0];
       const lower = this.arm[1];

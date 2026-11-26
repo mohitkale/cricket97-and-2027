@@ -14,6 +14,7 @@ import {
 } from 'three';
 import { Animator } from '../../anim/animator';
 import { type MarkedClip, markClip } from '../../anim/clips';
+import { BOTTOM_WRIST_ON_BAT, TOP_WRIST_ON_BAT } from '../../anim/skeleton';
 import { loadClips, loadModel } from '../../render/assets';
 import { attach, loadCharacter } from '../../render/character';
 import type { LabSceneFactory } from '../scene';
@@ -23,16 +24,16 @@ const CLIP_FILES = [
   'clips/ual1-fielding.glb',
   'clips/ual2-candidates.glb',
   'clips/ual2-locomotion.glb',
+  'clips/batting-stance.glb',
 ];
 const STATES = ['walk', 'idle', 'bat'] as const;
 type State = (typeof STATES)[number];
 const STEP = 1 / 60;
 
 /**
- * The animation runtime in the lab (issue #20). `?state=walk` walks with feet locked while
- * planted, `idle` stands and watches a moving ball, `bat` holds the bat with the top hand
- * on the handle by IK. `?clip=` swaps the base clip (walk clip for `walk`, idle otherwise).
- * Readouts: the clip's markers on a timeline, planted-foot drift and top-hand error.
+ * The animation runtime in the lab. `walk` locks the feet while planted, `idle` tracks a
+ * moving ball, and `bat` plays the two-handed ready stance. `?clip=` swaps the base clip.
+ * The timeline shows foot plants and markers. The stance readout measures both wrists.
  * Deterministic: each frame replays the runtime from zero in fixed steps.
  */
 export const anim: LabSceneFactory = async ({ stage }) => {
@@ -56,7 +57,9 @@ export const anim: LabSceneFactory = async ({ stage }) => {
   const find = (name: string) => clips.find((clip) => clip.name === name);
   const root = character.root;
   scene.add(root);
-  const fallback = state === 'walk' ? 'Walk_Carry_Loop' : 'Idle_Loop';
+  const fallback = { walk: 'Walk_Carry_Loop', idle: 'Idle_Loop', bat: 'Batting_Stance_Loop' }[
+    state
+  ];
   const chosen = find(params.get('clip') ?? fallback) ?? find(fallback);
   const idleClip = find('Idle_Loop');
   if (!chosen || !idleClip) throw new Error('lab: clips missing');
@@ -64,6 +67,16 @@ export const anim: LabSceneFactory = async ({ stage }) => {
   const idle = state === 'walk' ? markClip(idleClip, root) : base;
   const bat = batModel.getObjectByName('bat');
   if (state === 'bat' && bat) attach(character, 'bat', bat);
+  const topWrist = root.getObjectByName('hand_l');
+  const bottomWrist = root.getObjectByName('hand_r');
+  if (!topWrist || !bottomWrist) throw new Error('lab: batting wrists missing');
+  const hand = new Vector3();
+  const grip = new Vector3();
+  const plantedFeet = ['foot_l', 'foot_r'].map((name) => {
+    const foot = root.getObjectByName(name);
+    if (!foot) throw new Error(`lab: ${name} missing`);
+    return { foot, start: new Vector3() };
+  });
   const ball = new Mesh(new SphereGeometry(0.036), new MeshBasicMaterial({ color: '#c0392b' }));
   if (state === 'idle') scene.add(ball);
 
@@ -119,24 +132,34 @@ export const anim: LabSceneFactory = async ({ stage }) => {
   let at = -1;
   let worstDrift = 0;
   let worstHand = 0;
+  let worstBottomHand = 0;
   const reset = () => {
     character.restPose();
     root.position.set(0, 0, 0);
     look.set(0, 1.4, 3.7);
     animator = new Animator(root, idle, state === 'walk' ? [base] : []);
     animator.update(0, input);
+    for (const { foot, start } of plantedFeet) foot.getWorldPosition(start);
     at = 0;
     worstDrift = 0;
-    worstHand = 0;
+    worstHand = bat
+      ? topWrist.getWorldPosition(hand).distanceTo(bat.localToWorld(grip.set(...TOP_WRIST_ON_BAT)))
+      : 0;
+    worstBottomHand = bat
+      ? bottomWrist
+          .getWorldPosition(hand)
+          .distanceTo(bat.localToWorld(grip.set(...BOTTOM_WRIST_ON_BAT)))
+      : 0;
   };
   reset();
 
   const camera = new PerspectiveCamera(35, 1, 0.1, 100);
-  const duration = Math.max(3, Math.ceil(base.clip.duration * 2));
+  const rate = params.get('rate') === 'quarter' ? 0.25 : 1;
+  const duration = Math.max(3, Math.ceil(base.clip.duration * 2)) / rate;
   return {
     duration,
     renderAt(t) {
-      const target = Math.round(t / STEP);
+      const target = Math.round((t * rate) / STEP);
       if (target < at) reset();
       while (at < target) {
         at++;
@@ -147,7 +170,17 @@ export const anim: LabSceneFactory = async ({ stage }) => {
         animator.update(STEP, input);
         const r = animator.readout;
         if (at > 30) worstDrift = Math.max(worstDrift, r.footDrift);
-        if (r.handInReach) worstHand = Math.max(worstHand, r.handError);
+        if (state === 'bat' && bat) {
+          for (const { foot, start } of plantedFeet)
+            worstDrift = Math.max(worstDrift, foot.getWorldPosition(hand).distanceTo(start));
+          bat.localToWorld(grip.set(...TOP_WRIST_ON_BAT));
+          worstHand = Math.max(worstHand, topWrist.getWorldPosition(hand).distanceTo(grip));
+          bat.localToWorld(grip.set(...BOTTOM_WRIST_ON_BAT));
+          worstBottomHand = Math.max(
+            worstBottomHand,
+            bottomWrist.getWorldPosition(hand).distanceTo(grip),
+          );
+        }
       }
       ball.position.copy(look);
 
@@ -156,8 +189,8 @@ export const anim: LabSceneFactory = async ({ stage }) => {
       renderer.setSize(width, height, false);
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
-      // Side-on, following the character.
-      camera.position.set(3.6, 1.1, root.position.z + 0.6);
+      if (state === 'bat') camera.position.set(1.8, 1.22, 3);
+      else camera.position.set(3.6, 1.1, root.position.z + 0.6);
       camera.lookAt(0, 0.85, root.position.z);
       renderer.render(scene, camera);
 
@@ -169,7 +202,7 @@ export const anim: LabSceneFactory = async ({ stage }) => {
         (state === 'walk'
           ? `${speed.toFixed(2)} m/s  planted-foot drift ${(r.footDrift * 100).toFixed(2)} cm (worst ${(worstDrift * 100).toFixed(2)})`
           : state === 'bat'
-            ? `top hand ${r.handInReach ? `${(r.handError * 100).toFixed(2)} cm from the handle (worst ${(worstHand * 100).toFixed(2)})` : 'out of reach: the clip holds the hands too far apart'}`
+            ? `worst distances (cm) · foot ${(worstDrift * 100).toFixed(2)} · top wrist ${(worstHand * 100).toFixed(2)} · bottom wrist ${(worstBottomHand * 100).toFixed(2)}${r.handInReach ? '' : ' · top wrist out of reach'}`
             : 'head follows the ball');
     },
     dispose() {

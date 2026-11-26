@@ -56,6 +56,10 @@ npm run assets -- ual1-fielding
 
 Review each clip in `/lab/?scene=clip-<name>` at normal and quarter speed. The raw viewer plays these in place. The animation runtime viewer at `/lab/?scene=anim&state=walk&clip=<name>` lets the gait move along the ground before foot planting is reviewed. Cricket-specific keeping takes, throws, stops and gathers still need their matching clips and sim events.
 
+The right-handed batting stance layers an original bat-grip track in `assets/src/clips/batting-stance-grip.json` onto Quaternius's planted `Sword_Idle` performance. Bake the arm constraints and gaze with `node tools/assets/fit-batting-stance.ts`, then run `npm run assets -- batting-stance`. Review the clip with the bat attached at `/lab/?scene=anim&state=bat`.
+
+Delegated review for #92 covered the `anim-bat` and `anim-bat-quarter` Chromium captures. Both contact sheets show the batter watching down the pitch with two planted feet and both hands on the handle. The whole-loop test samples raw and runtime playback at 240 Hz and checks less than 2 cm of foot drift and less than 1 cm from each wrist to its grip reference. This review covers the ready stance on the shared rig. Match strokes and final kit fit have their own acceptance checks.
+
 ## Clips captured from video
 
 `lab/capture.html` (run `npm run dev`) turns a video of a person into pose landmarks in `assets/src/capture/<name>.json`. `node tools/assets/retarget-capture.ts <name> --level` turns those into `assets/src/clips/capture-<name>.glb`. Then build as above. The landmark file is the source of the clip and is committed; the video is not. See `docs/decisions/0003-animation-source.md` for what this can and cannot capture.
