@@ -2,7 +2,7 @@
  * Animation runtime for one character (issue #20): a base layer that crossfades between
  * idle, speed-matched locomotion and one-shot actions; an optional upper-body layer; then
  * corrections: feet locked to the ground while planted, the top hand on the bat handle,
- * the head turned toward a target. Steady-state update() allocates nothing.
+ * the head turned toward a target.
  */
 import {
   type AnimationAction,
@@ -166,10 +166,12 @@ export class Animator {
     const rate = blendGaits(this.gaitSpeeds, input.speed, this.weights);
     const base = acting ? 0 : 1;
     this.idleAction.setEffectiveWeight(moving ? 0 : base);
-    this.gaitActions.forEach((action, i) => {
+    for (let i = 0; i < this.gaitActions.length; i++) {
+      const action = this.gaitActions[i];
+      if (!action) continue;
       action.setEffectiveWeight(moving ? base * (this.weights[i] ?? 0) : 0);
       action.setEffectiveTimeScale(rate);
-    });
+    }
     if (this.action) {
       const { marked, action, markerTime, eventAt } = this.action;
       if (markerTime !== null)
@@ -230,8 +232,11 @@ export class Animator {
         this.wrist.distanceTo(this.armPole) +
         this.armPole.distanceTo(hand.getWorldPosition(this.ahead));
       this.readout.handInReach = this.wrist.distanceTo(this.target) < reach - 0.005;
-      this.armPole.y -= 0.3;
-      solveTwoBone(upper, lower, hand, this.target, this.armPole);
+      // Keep the authored arm pose when the clip cannot support a two-handed grip.
+      if (this.readout.handInReach) {
+        this.armPole.y -= 0.3;
+        solveTwoBone(upper, lower, hand, this.target, this.armPole);
+      }
       hand.getWorldPosition(this.wrist);
       this.readout.handError = this.wrist.distanceTo(this.target);
     } else {

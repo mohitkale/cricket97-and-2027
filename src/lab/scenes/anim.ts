@@ -108,18 +108,27 @@ export const anim: LabSceneFactory = async ({ stage }) => {
   const cursor = timeline.querySelector('#anim-cursor') as HTMLElement;
 
   const speed = state === 'walk' ? base.stride : 0;
-  const look = new Vector3();
+  const look = new Vector3(0, 1.4, 3.7);
+  const input = {
+    speed,
+    lookTarget: state === 'idle' ? look : null,
+    bat: state === 'bat' ? (bat ?? null) : null,
+  };
   let animator: Animator;
   let at = -1;
+  let worstDrift = 0;
+  let worstHand = 0;
   const reset = () => {
     character.restPose();
     root.position.set(0, 0, 0);
+    look.set(0, 1.4, 3.7);
     animator = new Animator(root, idle, state === 'walk' ? [base] : []);
+    animator.update(0, input);
     at = 0;
+    worstDrift = 0;
+    worstHand = 0;
   };
   reset();
-  let worstDrift = 0;
-  let worstHand = 0;
 
   const camera = new PerspectiveCamera(35, 1, 0.1, 100);
   const duration = Math.max(3, Math.ceil(base.clip.duration * 2));
@@ -134,11 +143,7 @@ export const anim: LabSceneFactory = async ({ stage }) => {
         // A ball drifting across in front, for the head to follow.
         const s = at * STEP;
         look.set(Math.sin(s * 1.3) * 2, 1.4, 3 + Math.cos(s * 0.7));
-        animator.update(STEP, {
-          speed,
-          lookTarget: state === 'idle' ? look : null,
-          bat: state === 'bat' ? (bat ?? null) : null,
-        });
+        animator.update(STEP, input);
         const r = animator.readout;
         if (at > 30) worstDrift = Math.max(worstDrift, r.footDrift);
         if (r.handInReach) worstHand = Math.max(worstHand, r.handError);
