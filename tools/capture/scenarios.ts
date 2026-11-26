@@ -186,6 +186,54 @@ export const SCENARIOS: Record<string, Scenario> = {
       });
     },
   },
+  'legacy-2027-match-setup': {
+    kind: 'page',
+    path: '/legacy/?era=2027',
+    duration: 1,
+    viewport: { width: 390, height: 844 },
+    frameMs: 100,
+    seed: 7,
+    async setup(page, advance) {
+      await page.locator('#stage-setup').click();
+      const dialog = page.getByRole('dialog', { name: 'Match setup' });
+      const play = dialog.getByRole('button', { name: 'Play match' });
+      for (const viewport of [
+        { width: 1280, height: 720 },
+        { width: 390, height: 844 },
+      ]) {
+        await page.setViewportSize(viewport);
+        const box = await play.boundingBox();
+        if (!box || box.y < 0 || box.y + box.height > viewport.height) {
+          throw new Error('Play match must fit in the initial setup view');
+        }
+      }
+      for (const mode of ['Male', 'Female', 'Mixed']) {
+        await dialog.locator('.setup-modes label', { hasText: new RegExp(`^${mode}$`) }).click();
+        for (const side of ['home', 'away']) {
+          const lineup = dialog.locator(`#${side}-roster .player:not(.reserve)`);
+          const genders = await lineup.evaluateAll((rows) =>
+            rows.map((row) => row.getAttribute('data-roster-gender')),
+          );
+          const expected = mode === 'Mixed' ? 2 : 1;
+          if (
+            genders.length !== 11 ||
+            new Set(genders).size !== expected ||
+            (expected === 1 && genders[0] !== mode.toLowerCase())
+          ) {
+            throw new Error(`Invalid ${mode} playing XI for ${side}`);
+          }
+        }
+        await dialog.locator('#match-overs').selectOption('2');
+        await play.click();
+        await dialog.waitFor({ state: 'hidden' });
+        await advance(100);
+        if (!(await page.locator('#match-format').textContent())?.includes(`${mode} · 2 overs`)) {
+          throw new Error(`The match did not start with the selected ${mode} settings`);
+        }
+        await page.locator('#newmatch').click();
+      }
+    },
+  },
   'legacy-1997-delivery': {
     kind: 'page',
     path: '/legacy/?era=97',

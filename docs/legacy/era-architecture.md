@@ -45,6 +45,8 @@ The modern broadcast HUD uses fixed stage-relative scorecard, speed badge, and c
 
 The modern Auto camera starts behind the bowler in the match preview and stays there through the run-up, release and bat contact. The same view serves right- and left-handed batters. After a shot leaves the pitch or climbs into a loft, the director selects one of eight fixed stand mounts by direction and holds it for the shot. Pan and lens changes follow the ball from that mount. Return throws cut to the bowler-end view near the wickets. Reduced-motion mode holds the bowler-end view. Recorded mount IDs, pan targets and lenses preserve cuts in replays without flying between camera positions. Manual modern views use fixed mounts. An outlined six-pixel marker makes the ball readable against the stadium.
 
+The 2027 Match Setup opens with team selection, venue, overs, time of day, difficulty, and a Play match button. Playing XI edits, toss choices, and replays expand on demand. Male, Female, and Mixed each select a fictional squad and share the same cricket rules, team colours and jersey labels. Mixed alternates the two roster groups in the default order. Closing setup discards the draft and returns to the current match.
+
 ## Modern gameplay
 
 ### Fielding actions

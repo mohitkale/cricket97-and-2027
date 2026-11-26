@@ -58,6 +58,36 @@ export const modernRosters = {
   ],
 };
 
+const femaleFirstNames = {
+  India: ['Avani','Mira','Navya','Kavya','Diya','Ira','Aditi','Tara','Anvi','Leela','Ishani','Rhea','Saanvi','Raina','Aarna'],
+  Australia: ['Elodie','Piper','Matilda','Zoe','Tess','Ruby','Frankie','Mabel','Skye','Harriet','Imogen','Bonnie','Poppy','Mia','Nell'],
+  England: ['Cleo','Edie','Florence','Audrey','Hazel','Nora','Marnie','Freya','Isobel','Daisy','Lydia','Cora','Eliza','Willa','Sophie'],
+  'West Indies': ['Amara','Asha','Brielle','Nia','Selah','Talia','Lena','Zaria','Kiara','Ayana','Jada','Arielle','Naomi','Sasha','Dalia'],
+  Pakistan: ['Ayla','Nadia','Zara','Hiba','Lina','Alina','Maha','Saba','Dua','Hania','Noor','Meher','Rida','Amina','Inaya'],
+  'South Africa': ['Ayanda','Lara','Thandi','Anika','Lerato','Zola','Naledi','Marli','Nandi','Zinhle','Anele','Mieke','Buhle','Lindiwe','Zuri'],
+};
+
+const femaleRosters = Object.fromEntries(
+  Object.entries(modernRosters).map(([team, squad]) => [
+    team,
+    squad.map((profile, index) => ({
+      ...profile,
+      name: `${femaleFirstNames[team][index]} ${profile.name.slice(profile.name.indexOf(' ') + 1)}`,
+      gender: 'female',
+    })),
+  ]),
+);
+
+export function modernSquad(team, mode = 'male') {
+  if (!Object.hasOwn(modernRosters, team)) return [];
+  const men = modernRosters[team];
+  const women = femaleRosters[team];
+  const roster = mode === 'female' ? women
+    : mode === 'mixed' ? men.map((profile, index) => index % 2 === 0 ? women[index] : profile)
+    : men;
+  return roster.map(profile => ({ gender: 'male', ...profile }));
+}
+
 export const ERAS = Object.freeze({
   '97': Object.freeze({ id:'97', year:1997, title:'1997 Edition', modern:false, venue:'The Grand Oval', defaultNight:false, color:'#e5c45e', subtitle:'The classic game', rosters:classicRosters }),
   '2027': Object.freeze({ id:'2027', year:2027, title:'2027 Edition', modern:true, venue:'Horizon Arena', defaultNight:true, color:'#c3ff54', subtitle:'The next innings', rosters:modernRosters }),
@@ -68,4 +98,9 @@ export function squadForEra(id, team) {
   if (!era || !Object.hasOwn(era.rosters, team)) return [];
   return era.rosters[team].map(p => ({ ...p }));
 }
-export const modernProfiles = new Map(Object.values(modernRosters).flat().map(p => [p.name,p]));
+export const modernProfiles = new Map(
+  Object.keys(modernRosters).flatMap(team => [
+    ...modernSquad(team, 'male'),
+    ...modernSquad(team, 'female'),
+  ].map(profile => [profile.name, { ...profile, team }])),
+);
