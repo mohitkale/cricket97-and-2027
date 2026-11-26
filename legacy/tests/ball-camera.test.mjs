@@ -19,7 +19,7 @@ function inside(view,point,aspect,label){
 }
 
 test('the fixed delivery camera shows the entire real bowling action and striker',()=>{
-  for(const aspect of [.6,1.5,2])for(const arm of [0,1]){
+  for(const aspect of [9/19.5,.6,1.5,16/9,2,20/9])for(const arm of [0,1]){
     const rig=new BallCamera(),key={},p=createAthlete(new THREE.Scene(),arm===0?-1.5:1.5,-20,0x2868ab);
     p.scale.setScalar(CRICKET.athleteScale);resetMotor(p);
     for(let i=0;i<=216;i++){
@@ -29,6 +29,7 @@ test('the fixed delivery camera shows the entire real bowling action and striker
       assert.deepEqual(view.look.toArray(),BROADCAST_MOUNTS.delivery.look);
       for(const point of [p.userData.head.getWorldPosition(new THREE.Vector3()),p.userData.arms[arm].userData.hand.getWorldPosition(new THREE.Vector3()),...p.userData.knees.map(k=>k.localToWorld(new THREE.Vector3(0,-.75,.105)))])inside(view,point,aspect,`bowler ${arm}, t=${i/120}`);
       inside(view,new THREE.Vector3(.35,1,9.8),aspect,'striker');inside(view,new THREE.Vector3(0,1,13.6),aspect,'keeper');
+      for(const z of [-10.4,10.4])inside(view,new THREE.Vector3(0,.71,z),aspect,'stumps');
     }
   }
 });

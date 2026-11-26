@@ -290,10 +290,10 @@ function updateCamera(instant=false){
    if(a.phase==='pose'){cameraTarget.set(p.position.x+5,3,p.position.z+8);cameraLook.set(0,1,p.position.z+1.8);}
    applyBroadcastView({id:'inspection',position:cameraTarget,look:cameraLook,fov:36});return;
   }
-  if(state.camera===0&&reducedMotion.matches&&state.phase!=='ready'){applyBroadcastView(fixedBroadcastView('stadium'));return;}
+  if(state.camera===0&&reducedMotion.matches){applyBroadcastView(fixedBroadcastView('delivery',camera.aspect));return;}
   const view=state.camera===0
-   ? state.phase==='replay'&&state.replay?.cameraView||ballCamera.update({ball:ball.position,velocity:a?.velocity||a?.deliveryVelocity,active:!!a?.flight,phase:state.phase==='ready'?'preview':broadcastPhase(a),deliveryKey:a,throwEnd:a?.throwEnd,battingHand:!a?.lab&&humanBatting()&&['playing','animating'].includes(state.phase)?(a?.battingHand||profile(lineup().striker).bat):null,dt:frameDelta,aspect:camera.aspect,players:modernFielding.players})
-   : fixedBroadcastView(['delivery','stadium','delivery','keeper','batter'][state.camera]);
+   ? state.phase==='replay'&&state.replay?.cameraView||ballCamera.update({ball:ball.position,velocity:a?.velocity||a?.deliveryVelocity,active:!!a?.flight,phase:broadcastPhase(a),deliveryKey:a,throwEnd:a?.throwEnd,dt:frameDelta,aspect:camera.aspect,players:modernFielding.players})
+   : fixedBroadcastView(['delivery','stadium','delivery','keeper','batter'][state.camera],camera.aspect);
   applyBroadcastView(view);return;
  }
  let mode=state.camera;if(mode===0)mode=state.anim&&state.anim.flight?1:2;

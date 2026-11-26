@@ -13,19 +13,21 @@ test('assistance distinguishes a yorker, a scoring ball and off-side width for e
   }
 });
 
-test('the shoulder camera holds through impact and mirrors for the other hand', () => {
+test('the bowler-end camera holds through impact for both batting hands', () => {
   for(const battingHand of ['right','left']){
     const director=new BallCamera(),ball=new THREE.Vector3(0,.65,9.2);
-    const settings={ball,battingHand,deliveryKey:{},aspect:.65};
+    const settings={ball,deliveryKey:{},aspect:.65};
     const view=director.update(settings);
-    assert.equal(Math.sign(view.position.x),battingHand==='left'?-1:1);
+    assert.equal(view.id,'delivery');
+    assert.ok(view.position.z < -20,'camera is behind the bowler');
     const lens=new THREE.PerspectiveCamera(view.fov,.65,.1,400);
     lens.position.copy(view.position);lens.lookAt(view.look);lens.updateMatrixWorld();
-    for(const point of [ball,new THREE.Vector3(0,.12,8.7),new THREE.Vector3(1.4,2.1,-11)]){
+    const strikerX=battingHand==='left'?.35:-.35;
+    for(const point of [ball,new THREE.Vector3(strikerX,.12,8.7),new THREE.Vector3(1.4,2.1,-11)]){
       const ndc=point.clone().project(lens);
       assert.ok(Math.abs(ndc.x)<1&&Math.abs(ndc.y)<1);
     }
-    assert.equal(director.update({...settings,phase:'field',active:true}).id,view.id);
+    assert.deepEqual(director.update({...settings,phase:'field',active:true}),view);
     ball.x=7;
     assert.match(director.update({...settings,phase:'field',active:true}).id,/^field-/);
   }
@@ -42,7 +44,7 @@ test('automatic running declines a drive straight to cover and accepts an open g
 test('portrait batting view includes both shoulders, both feet and the striker wicket',()=>{
   for(const hand of ['left','right']){
     const camera=new BallCamera(),aspect=.65,x=hand==='left'?.35:-.35;
-    const view=camera.update({ball:new THREE.Vector3(0,1,9.2),battingHand:hand,aspect});
+    const view=camera.update({ball:new THREE.Vector3(0,1,9.2),aspect});
     const lens=new THREE.PerspectiveCamera(view.fov,aspect,.1,400);
     lens.position.copy(view.position);lens.lookAt(view.look);lens.updateMatrixWorld();
     for(const y of [.12,1.9])for(const dx of [-.3,.3]){
