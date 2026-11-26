@@ -38,6 +38,24 @@ beforeAll(async () => {
   bat = equipment;
 });
 
+test('the four fielding motion sources bind on the shared rig', async () => {
+  const { animations } = await load('clips/ual1-fielding.glb');
+  expect(animations.map((animation) => animation.name).sort()).toEqual([
+    'Crouch_Idle_Loop',
+    'Jog_Fwd_Loop',
+    'Sprint_Loop',
+    'Walk_Loop',
+  ]);
+  const root = await character();
+  for (const animation of animations) {
+    expect(animation.duration).toBeGreaterThan(0.5);
+    for (const track of animation.tracks) {
+      const bone = track.name.slice(0, track.name.lastIndexOf('.'));
+      expect(root.getObjectByName(bone), `${animation.name}: ${track.name}`).toBeDefined();
+    }
+  }
+});
+
 test('two-bone IK puts the end on a reachable target, bending toward the pole', () => {
   const upper = new Bone();
   const lower = new Bone();

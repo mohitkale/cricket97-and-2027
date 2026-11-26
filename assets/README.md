@@ -47,6 +47,15 @@ Review both on the shared authored `Idle_Loop` at `/lab/?scene=hero-rig`. The st
 
 Do not commit a whole library. Cut out the clips in use with `node tools/assets/extract-clips.ts <library.glb> assets/src/clips/<set>.glb --clips Name_One,Name_Two` (or `--mesh` to keep only the character), then build as above. Clips bind by bone name, so a clip file drives any character on the same skeleton; load them with `loadClips()` from `src/render/assets.ts`. See `docs/decisions/0003-animation-source.md`.
 
+For the #29 fielding locomotion subset, use the in-place `UAL1_Standard.glb` from the publisher’s [Standard archive](https://quaternius.itch.io/universal-animation-library):
+
+```sh
+node tools/assets/extract-clips.ts /path/to/UAL1_Standard.glb assets/src/clips/ual1-fielding.glb --clips Walk_Loop,Jog_Fwd_Loop,Sprint_Loop,Crouch_Idle_Loop
+npm run assets -- ual1-fielding
+```
+
+Review each clip in `/lab/?scene=clip-<name>` at normal and quarter speed. The raw viewer plays these in place. The animation runtime viewer at `/lab/?scene=anim&state=walk&clip=<name>` lets the gait move along the ground before foot planting is reviewed. Cricket-specific keeping takes, throws, stops and gathers still need their matching clips and sim events.
+
 ## Clips captured from video
 
 `lab/capture.html` (run `npm run dev`) turns a video of a person into pose landmarks in `assets/src/capture/<name>.json`. `node tools/assets/retarget-capture.ts <name> --level` turns those into `assets/src/clips/capture-<name>.glb`. Then build as above. The landmark file is the source of the clip and is committed; the video is not. See `docs/decisions/0003-animation-source.md` for what this can and cannot capture.

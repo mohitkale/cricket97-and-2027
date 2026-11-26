@@ -23,6 +23,10 @@ export const CANDIDATE_CLIPS: Record<string, string> = {
   OverhandThrow: 'clips/ual2-candidates.glb',
   Sword_Idle: 'clips/ual1-candidates.glb',
   Idle_Loop: 'clips/ual1-candidates.glb',
+  Walk_Loop: 'clips/ual1-fielding.glb',
+  Jog_Fwd_Loop: 'clips/ual1-fielding.glb',
+  Sprint_Loop: 'clips/ual1-fielding.glb',
+  Crouch_Idle_Loop: 'clips/ual1-fielding.glb',
   // Validation of capture from video: the library throw retargeted from its true joint
   // positions, and from what the pose model saw in a front render of it.
   'capture-OverhandThrow-truth': 'clips/capture-OverhandThrow-truth.glb',

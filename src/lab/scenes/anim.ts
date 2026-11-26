@@ -20,6 +20,7 @@ import type { LabSceneFactory } from '../scene';
 
 const CLIP_FILES = [
   'clips/ual1-candidates.glb',
+  'clips/ual1-fielding.glb',
   'clips/ual2-candidates.glb',
   'clips/ual2-locomotion.glb',
 ];
