@@ -62,6 +62,32 @@ async function startLegacyMatch(page: Page, advance: (ms: number) => Promise<voi
   }
 }
 
+async function startOpeningLineup(
+  page: Page,
+  advance: (ms: number) => Promise<void>,
+  mode: 'Mixed' | 'Female',
+): Promise<void> {
+  await advance(100);
+  await page.locator('#stage-setup').click();
+  const dialog = page.getByRole('dialog', { name: 'Match setup' });
+  await dialog.locator('.setup-modes label', { hasText: new RegExp(`^${mode}$`) }).click();
+  await dialog.locator('#match-overs').selectOption('2');
+  await dialog.locator('#match-conditions').selectOption(mode === 'Mixed' ? 'night' : 'day');
+  await dialog.getByRole('button', { name: 'Play match' }).click();
+  await dialog.waitFor({ state: 'hidden' });
+  await page.waitForLoadState('networkidle');
+  await advance(200);
+  // Keep the pose and opening card in sync from the first frame of the capture.
+  await page.locator('.show-opening-lineup').waitFor({ timeout: 10_000 });
+  const players = page.locator('.opening-player-labels [data-player-gender]');
+  const variants = await players.evaluateAll((rows) =>
+    rows.map((row) => row.getAttribute('data-player-gender')),
+  );
+  if (variants.length !== 3 || new Set(variants).size !== (mode === 'Female' ? 1 : 2)) {
+    throw new Error(`Unexpected opening players for ${mode}: ${variants.join(', ')}`);
+  }
+}
+
 /** Unmodified library clips under review for issue #11: name and length in seconds. */
 const CLIP_REVIEWS: [string, number][] = [
   ['TreeChopping_Loop', 0.97],
@@ -202,6 +228,9 @@ export const SCENARIOS: Record<string, Scenario> = {
         });
         observer.observe(score, { subtree: true, childList: true, attributes: true });
       });
+      // The seeded toss may put the human side in the field. Start that delivery too.
+      const bowl = page.locator('#stage-controls [data-assisted]', { hasText: 'BOWL GOOD LENGTH' });
+      if ((await bowl.count()) && (await bowl.isEnabled())) await bowl.dispatchEvent('click');
     },
   },
   'legacy-2027-match-setup': {
@@ -251,6 +280,24 @@ export const SCENARIOS: Record<string, Scenario> = {
         await page.locator('#newmatch').click();
       }
     },
+  },
+  'legacy-2027-lineup-mixed': {
+    kind: 'page',
+    path: '/legacy/?era=2027',
+    duration: 3.3,
+    viewport: { width: 1024, height: 660 },
+    frameMs: 90,
+    seed: 7,
+    setup: (page, advance) => startOpeningLineup(page, advance, 'Mixed'),
+  },
+  'legacy-2027-lineup-female': {
+    kind: 'page',
+    path: '/legacy/?era=2027',
+    duration: 3.3,
+    viewport: { width: 390, height: 844 },
+    frameMs: 90,
+    seed: 7,
+    setup: (page, advance) => startOpeningLineup(page, advance, 'Female'),
   },
   'legacy-1997-delivery': {
     kind: 'page',

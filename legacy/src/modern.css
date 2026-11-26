@@ -73,6 +73,29 @@ body[data-era="2027"]{--modern-accent:#c3ff54;--modern-border:#ffffff17;backgrou
 [data-era="2027"] .assist-options[open]{background:#112026e8;border-radius:7px}
 
 [data-era='2027'] .skip-intro{pointer-events:auto;margin:.6rem auto 0;display:block;padding:.4rem .8rem;cursor:pointer;background:#10291f;color:white;border:1px solid #869c91;border-radius:4px}
+.opening-player-labels{display:none}
+.show-opening-lineup :is(#broadcast-score,#play-status,#stage-controls,.stage-bottom){visibility:hidden}
+[data-era='2027'] .show-opening-lineup .player-intro{
+ inset:0;transform:none;min-width:0;padding:0;border:0;box-shadow:none;
+ background:linear-gradient(0deg,#0b1726 0%,#0b1726d9 10%,transparent 31%);
+}
+.show-opening-lineup .player-intro > :is(span,strong,small){display:none}
+.show-opening-lineup .intro-kicker{position:absolute;inset:16px 88px auto;margin:0;color:#e7eef7;letter-spacing:.14em}
+.show-opening-lineup .opening-player-labels{
+ position:absolute;inset:auto 3% 15px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;
+ max-width:780px;margin-inline:auto;align-items:end;
+}
+[data-era='2027'] .show-opening-lineup .opening-player-labels strong{
+ display:block;font-size:clamp(12px,1.8vw,22px);overflow-wrap:anywhere;
+}
+[data-era='2027'] .show-opening-lineup .opening-player-labels small{color:#b5c5d6;margin-top:4px}
+[data-era='2027'] .show-opening-lineup .skip-intro{
+ position:absolute;left:10px;top:7px;min-height:48px;margin:0;background:#172638;border-color:#879aad;font-size:11px;
+}
+@media(max-width:540px){
+ .show-opening-lineup .intro-kicker{inset:62px 8px auto}
+ .show-opening-lineup .opening-player-labels{bottom:18px}
+}
 
 [data-era='2027'] .dismissal-note{display:block;font-size:.75em;font-weight:400;color:#b1c8be}
 
