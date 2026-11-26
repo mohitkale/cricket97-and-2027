@@ -27,6 +27,18 @@ Textures are WebP, not KTX2: the KTX2 encoder is a separately installed command-
 
 `node tools/assets/make-body.ts` writes `assets/src/characters/base-body.glb` (the shared skeleton, three levels of detail and the equipment sockets) and `node tools/assets/make-equipment.ts` writes the equipment under `assets/src/equipment/`. Load the body with `loadCharacter()` from `src/render/character.ts`. See `docs/skeleton.md`.
 
+### 2027 candidate body fits
+
+The [male](https://grab3d.com/models/characters/man-base-character/) and [female](https://grab3d.com/models/characters/woman-base-character/) fits for #48 use Grab3D’s CC0 rigged GLB downloads with the #19 skeleton. Select **Rigged** and **Full quality** on each source page and save the GLBs outside the repo. Rebuild the fits and runtime assets with:
+
+```sh
+node tools/assets/fit-2027-body.ts /path/to/male.glb assets/src/characters/2027-male-fit.glb
+node tools/assets/fit-2027-body.ts /path/to/female.glb assets/src/characters/2027-female-fit.glb
+npm run assets -- 2027-
+```
+
+Review both on the shared authored `Idle_Loop` at `/lab/?scene=hero-rig`. The staged 15-body view at `/lab/?scene=hero-field` shows the projected triangle and draw-call load with the slice ground. These are body fit candidates with baked source clothing and four weights per vertex. Team kit, finger articulation, equipment fit, far impostor and match integration are tracked in #48.
+
 ## Ground
 
 `node tools/assets/make-ground.ts` writes `assets/src/ground/slice-ground.glb` (outfield, pitch and creases in the sim's frame). `addSliceGround()` in `src/render/slice.ts` puts it in a scene with both wickets, the sun and the sky; `/lab/?scene=bowled` shows it.

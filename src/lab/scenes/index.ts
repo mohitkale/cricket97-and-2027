@@ -5,6 +5,7 @@ import { ballFlight } from './ball-flight';
 import { bowled } from './bowled';
 import { character } from './character';
 import { CANDIDATE_CLIPS, clipReview } from './clip-review';
+import { heroField, heroRig } from './hero-rig';
 import { pitchPlan } from './pitch-plan';
 import { strokeMap } from './stroke-map';
 
@@ -15,6 +16,8 @@ export const SCENES: Record<string, LabSceneFactory> = {
   'ball-flight': ballFlight,
   bowled,
   character,
+  'hero-rig': heroRig,
+  'hero-field': heroField,
   'pitch-plan': pitchPlan,
   'stroke-map': strokeMap,
   ...Object.fromEntries(

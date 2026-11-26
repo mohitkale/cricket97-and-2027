@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { type Document, type Node, NodeIO } from '@gltf-transform/core';
+import { type Document, type Node, NodeIO, type Root } from '@gltf-transform/core';
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
 import { beforeAll, expect, test } from 'vitest';
 import { WICKET } from '../sim/units';
@@ -82,6 +82,33 @@ test('every named bone exists and every socket hangs from its bone', () => {
     );
   }
 });
+
+test.each(['male', 'female'])(
+  'the 2027 %s fit preserves the shared rig and LOD budgets',
+  async (fit) => {
+    const candidate = (await read(`assets/src/characters/2027-${fit}-fit.glb`)).getRoot();
+    const shared = body.getRoot().listSkins()[0];
+    const skin = candidate.listSkins()[0];
+    const rest = (node: Node) => [node.getName(), node.getWorldMatrix()];
+    expect(skin?.listJoints().map(rest)).toEqual(shared?.listJoints().map(rest));
+    expect(skin?.getInverseBindMatrices()?.getArray()).toEqual(
+      shared?.getInverseBindMatrices()?.getArray(),
+    );
+    expect(candidate.listAnimations()).toHaveLength(0);
+    const sockets = (doc: Root) =>
+      doc
+        .listNodes()
+        .filter((node) => node.getName().startsWith('socket_'))
+        .map(rest);
+    expect(sockets(candidate)).toEqual(sockets(body.getRoot()));
+    for (const [level, limit] of BODY_LODS.entries()) {
+      const lod = candidate.listNodes().find((node) => node.getName() === `body_lod${level}`);
+      expect(lod?.getSkin()).toBe(skin);
+      expect(triangles(lod)).toBeGreaterThan(limit * 0.9);
+      expect(triangles(lod)).toBeLessThanOrEqual(limit);
+    }
+  },
+);
 
 test('the bat and the wicket are the sizes the Laws allow', async () => {
   const bat = bounds(await read('assets/src/equipment/bat.glb'), (node) => !!node.getMesh());
