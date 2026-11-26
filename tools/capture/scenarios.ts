@@ -128,6 +128,20 @@ export const SCENARIOS: Record<string, Scenario> = {
     viewport: { width: 960, height: 540 },
     seed: 1,
   },
+  'hero-rig': {
+    kind: 'lab',
+    scene: 'hero-rig',
+    duration: 4,
+    viewport: { width: 960, height: 600 },
+    seed: 1,
+  },
+  'hero-field': {
+    kind: 'lab',
+    scene: 'hero-field',
+    duration: 2,
+    viewport: PHONE_LANDSCAPE,
+    seed: 1,
+  },
   'stroke-map': {
     kind: 'lab',
     scene: 'stroke-map',
