@@ -180,9 +180,10 @@ export class Animator {
         );
     }
     this.mixer.update(dt);
+    this.root.parent?.updateWorldMatrix(true, false);
     this.root.updateMatrixWorld(true);
 
-    // Feet: lock where they landed for as long as the clip has them planted.
+    // Read the pose from the matrices we just updated. Each IK solve refreshes its own limb.
     let lead = 0;
     for (let i = 1; i < this.weights.length; i++)
       if ((this.weights[i] ?? 0) > (this.weights[lead] ?? 0)) lead = i;
@@ -198,7 +199,7 @@ export class Animator {
       const thigh = foot.bones[0];
       const calf = foot.bones[1];
       const end = foot.bones[2];
-      end.getWorldPosition(foot.now);
+      foot.now.setFromMatrixPosition(end.matrixWorld);
       if (planted && !foot.planted) {
         foot.lock.copy(foot.now);
         foot.drift = 0;
@@ -206,13 +207,13 @@ export class Animator {
       foot.planted = planted;
       if (planted && input.footLock !== false) {
         // Keep the knee bending forward: aim the pole ahead of the knee.
-        calf.getWorldPosition(foot.pole);
+        foot.pole.setFromMatrixPosition(calf.matrixWorld);
         foot.pole.addScaledVector(
           this.ahead.set(0, 0, 1).transformDirection(this.root.matrixWorld),
           0.5,
         );
         solveTwoBone(thigh, calf, end, foot.lock, foot.pole);
-        end.getWorldPosition(foot.now);
+        foot.now.setFromMatrixPosition(end.matrixWorld);
       }
       if (planted) foot.drift = Math.max(foot.drift, foot.now.distanceTo(foot.lock));
       drift = Math.max(drift, foot.drift);
@@ -226,19 +227,18 @@ export class Animator {
       const upper = this.arm[0];
       const lower = this.arm[1];
       const hand = this.arm[2];
-      upper.getWorldPosition(this.wrist);
-      lower.getWorldPosition(this.armPole);
-      const reach =
-        this.wrist.distanceTo(this.armPole) +
-        this.armPole.distanceTo(hand.getWorldPosition(this.ahead));
+      this.wrist.setFromMatrixPosition(upper.matrixWorld);
+      this.armPole.setFromMatrixPosition(lower.matrixWorld);
+      this.ahead.setFromMatrixPosition(hand.matrixWorld);
+      const reach = this.wrist.distanceTo(this.armPole) + this.armPole.distanceTo(this.ahead);
       this.readout.handInReach = this.wrist.distanceTo(this.target) < reach - 0.005;
       // Keep the authored arm pose when the clip cannot support a two-handed grip.
       if (this.readout.handInReach) {
         this.armPole.y -= 0.3;
         solveTwoBone(upper, lower, hand, this.target, this.armPole);
+        this.ahead.setFromMatrixPosition(hand.matrixWorld);
       }
-      hand.getWorldPosition(this.wrist);
-      this.readout.handError = this.wrist.distanceTo(this.target);
+      this.readout.handError = this.ahead.distanceTo(this.target);
     } else {
       this.readout.handError = 0;
       this.readout.handInReach = true;

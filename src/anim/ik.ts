@@ -18,16 +18,19 @@ const swing = new Vector3();
 const toPole = new Vector3();
 const q = new Quaternion();
 const parentWorld = new Quaternion();
+const parentPosition = new Vector3();
+const worldScale = new Vector3();
 const EPS = 1e-4;
 
 const clamp = (x: number, lo: number, hi: number) => (x < lo ? lo : x > hi ? hi : x);
 const angle = (u: Vector3, v: Vector3) =>
   Math.acos(clamp(u.dot(v) / Math.max(EPS, u.length() * v.length()), -1, 1));
 
-/** Turn a bone by a rotation given in world space, keeping its parent where it is. */
+/** Turn a bone with current world matrices, keeping its parent where it is. */
 function rotateWorld(bone: Object3D, axis: Vector3, radians: number): void {
   if (radians === 0 || axis.lengthSq() < EPS * EPS) return;
-  bone.parent?.getWorldQuaternion(parentWorld) ?? parentWorld.identity();
+  if (bone.parent) bone.parent.matrixWorld.decompose(parentPosition, parentWorld, worldScale);
+  else parentWorld.identity();
   // local' = P^-1 * R * P * local
   q.setFromAxisAngle(axis, radians);
   bone.quaternion.premultiply(parentWorld).premultiply(q).premultiply(parentWorld.invert());
@@ -49,9 +52,9 @@ export function solveTwoBone(
 ): void {
   if (weight <= 0) return;
   upper.updateWorldMatrix(true, true);
-  upper.getWorldPosition(a);
-  lower.getWorldPosition(b);
-  end.getWorldPosition(c);
+  a.setFromMatrixPosition(upper.matrixWorld);
+  b.setFromMatrixPosition(lower.matrixWorld);
+  c.setFromMatrixPosition(end.matrixWorld);
   t.copy(c).lerp(target, clamp(weight, 0, 1));
 
   const lab = ab.subVectors(b, a).length();
@@ -72,7 +75,7 @@ export function solveTwoBone(
   rotateWorld(lower, bend, wantAtB - nowAtB);
 
   // 2. Swing the whole chain so the end points at the target.
-  end.getWorldPosition(c);
+  c.setFromMatrixPosition(end.matrixWorld);
   ac.subVectors(c, a);
   at.subVectors(t, a);
   swing.crossVectors(ac, at);
@@ -81,7 +84,7 @@ export function solveTwoBone(
   // 3. Twist about the line to the target until the middle joint is on the pole's side.
   // The end stays where it is.
   at.normalize();
-  lower.getWorldPosition(b);
+  b.setFromMatrixPosition(lower.matrixWorld);
   ab.subVectors(b, a).addScaledVector(at, -ab.subVectors(b, a).dot(at));
   toPole.subVectors(pole, a);
   toPole.addScaledVector(at, -toPole.dot(at));
@@ -109,8 +112,7 @@ export function lookAt(
   weight = 1,
 ): void {
   bone.updateWorldMatrix(true, false);
-  bone.getWorldPosition(head);
-  bone.getWorldQuaternion(headWorld);
+  bone.matrixWorld.decompose(head, headWorld, worldScale);
   forward.copy(axis).applyQuaternion(headWorld);
   toTarget.subVectors(target, head);
   const off = angle(forward, toTarget);
