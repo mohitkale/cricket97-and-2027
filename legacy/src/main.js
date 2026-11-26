@@ -217,7 +217,20 @@ const athleteBatch=era.modern?batchAthletes(scene,matchActors,{mobile:mobileRend
 // Keep that single update for the main draw and the pitch inset.
 if(athleteBatch)scene.matrixWorldAutoUpdate=false;
 let modernShadowFrame=0;
-function renderFrame(){updatePlayerDetail?.(camera);athleteBatch?.update();if(era.modern&&state.anim&&++modernShadowFrame%4===0)renderer.shadowMap.needsUpdate=true;renderer.render(scene,camera);}
+let openingLineup,openingLineupLoad,openingPlayers;
+function prepareOpeningLineup(){
+ if(!era.modern||openingLineupLoad)return;
+ openingLineupLoad=import('../../src/editions/2027/opening-lineup.ts')
+  .then(({loadOpeningLineup})=>loadOpeningLineup())
+  .then(lineup=>{openingLineup=lineup;if(openingPlayers)lineup.setPlayers(openingPlayers);})
+  .catch(error=>{openingLineupLoad=null;console.warn('Opening lineup models unavailable.',error);});
+}
+function renderFrame(now){
+ const showLineup=!!(openingLineup&&openingPlayers&&state.phase==='intro');
+ stage.classList.toggle('show-opening-lineup',showLineup);
+ if(showLineup){openingLineup.render(renderer,camera.aspect,Math.max(0,4.2-(state.introUntil-(pausedAt??now))/1000),night,reducedMotion.matches);return;}
+ updatePlayerDetail?.(camera);athleteBatch?.update();if(era.modern&&state.anim&&++modernShadowFrame%4===0)renderer.shadowMap.needsUpdate=true;renderer.render(scene,camera);
+}
 function facePoint(p,target){p.rotation.y=Math.atan2(target.x-p.position.x,target.z-p.position.z)}
 function watchPoint(p,target){let angle=Math.atan2(target.x-p.position.x,target.z-p.position.z)-p.rotation.y;angle=Math.atan2(Math.sin(angle),Math.cos(angle));p.userData.head.rotation.y=THREE.MathUtils.clamp(angle,-1.25,1.25)}
 function keeperWalk(p,amount,now){const stride=Math.sin(now*.014)*Math.min(.7,amount*8);stridePose(p,stride);p.userData.knees[0].rotation.x=.38+Math.max(0,-stride)*.7;p.userData.knees[1].rotation.x=.38+Math.max(0,stride)*.7;p.position.y=-.16+Math.abs(stride)*.05;p.rotation.z=stride*.06}
@@ -312,6 +325,21 @@ function setPlayerName(p,name,number){p.userData.playerName=name;if(era.modern){
 function lineup(){let batting=state.innings===0?firstBatting():secondBatting(),bowling=state.innings===0?secondBatting():firstBatting(),over=Math.floor(state.balls[state.innings]/6),order=bowlingOrder(squads[bowling],matchFormat(matchOvers).bowlers),bowlerIndex=order[Math.min(over,matchOvers-1)%order.length].index;return {batting,bowling,bowlerIndex,striker:squads[batting][Math.min(state.striker,10)],partner:squads[batting][Math.min(state.partner,10)],bowler:squads[bowling][bowlerIndex]}}
 function syncPlayers(){let l=lineup();setPlayerName(batter,l.striker,state.striker+1);setPlayerName(nonStriker,l.partner,state.partner+1);setPlayerName(bowler,l.bowler,l.bowlerIndex+1);if(era.modern){batter.position.z=9.8;nonStriker.position.z=-9.75;}batter.position.x=profile(l.striker).bat==='left'?.35:-.35;applyBattingStance(batter,profile(l.striker).bat,true);applyBattingStance(nonStriker,profile(l.partner).bat,false);bowler.userData.bowlHand=profile(l.bowler).bowl;resetBowler();placeNonStriker();legUmpire.position.set(profile(l.striker).bat==='left'?14.5:-14.5,0,8);facePoint(legUmpire,new THREE.Vector3(0,0,9.8));resetKeeper();let keeperPos=keeperIndex(squads[l.bowling]);setPlayerName(keeper,squads[l.bowling][keeperPos],keeperPos+1);let f=squads[l.bowling].slice(0,11).map((name,i)=>({name,i})).filter(v=>v.i!==keeperPos&&v.i!==l.bowlerIndex);fielders.forEach((p,i)=>setPlayerName(p,f[i]?.name||'Fielder',(f[i]?.i??i)+1))}
 function introducePlayers(reason,newName){let l=lineup(),incoming=newName||l.striker;state.phase='intro';state.introUntil=performance.now()+4200;renderUI();let intro=$('#player-intro');let heading=reason==='start'&&state.toss?`${state.toss.result.toUpperCase()} · ${state.toss.userWon?'YOU WIN':'COMPUTER WINS'} THE TOSS`:reason==='start'?'THE OPENING PLAYERS':reason==='innings'?'THE CHASE BEGINS':reason==='wicket'?'NEW BATTER':reason==='both'?'NEW BATTER & BOWLER':'NEW BOWLER';let lines=reason==='bowler'?`<span>COMING ON TO BOWL</span><strong>${l.bowler}</strong><small>${l.bowling} · ${profile(l.bowler).bowl.toUpperCase()}-ARM</small>`:(reason==='wicket'||reason==='both')?`<span>COMING IN TO BAT</span><strong>${incoming}</strong><small>${profile(incoming).bat.toUpperCase()}-HAND BAT · ${reason==='both'?'NEW BOWLER:':'FACING'} ${l.bowler}</small>`:`<span>AT THE CREASE</span><strong>${l.striker} &nbsp; / &nbsp; ${l.partner}</strong><small>${profile(l.striker).bat.toUpperCase()}-HAND BAT · ${l.bowler} · ${profile(l.bowler).bowl.toUpperCase()}-ARM</small>`;intro.innerHTML=`<div class="intro-kicker">${heading}</div>${lines}`;if(era.modern){
+  openingPlayers=null;
+  if(reason==='start'){
+   const player=(name,team,number)=>({name,team,number,color:teams[team].color,gender:profile(name).gender==='female'?'female':'male'});
+   openingPlayers=[player(l.striker,l.batting,state.striker+1),player(l.partner,l.batting,state.partner+1),player(l.bowler,l.bowling,l.bowlerIndex+1)];
+   openingLineup?.setPlayers(openingPlayers);
+   prepareOpeningLineup();
+   const labels=document.createElement('div');labels.className='opening-player-labels';
+   openingPlayers.forEach(({name,team,gender},index)=>{
+    const item=document.createElement('div');item.dataset.playerGender=gender;
+    const label=document.createElement('strong');label.textContent=name;
+    const role=document.createElement('small');role.textContent=`${team} · ${index===2?'Bowler':'Opener'}`;
+    item.append(label,role);labels.append(item);
+   });
+   intro.append(labels);
+  }
   const skip=document.createElement('button');skip.className='skip-intro';skip.textContent='Skip intro';
   skip.onclick=()=>{introSequence++;stopSpokenAudio();state.introUntil=performance.now();};intro.append(skip);
 }intro.classList.remove('hidden');$('#play-status').textContent=heading;message(heading,reason==='bowler'?l.bowler.toUpperCase():`${l.striker.toUpperCase()} ON STRIKE`);syncPlayers();announceLineup(reason,l,incoming)}
@@ -398,6 +426,7 @@ touch.querySelectorAll('[data-return]').forEach(b=>b.onclick=e=>{e.stopPropagati
 $('#play-status').textContent=running?'BALL IN PLAY • RUN OR STOP':isBat?(state.phase==='animating'?'COMPUTER BOWLING • TIME YOUR SHOT':'COMPUTER BOWLING • NEXT DELIVERY SOON'):(state.phase==='animating'?'COMPUTER BATTING • BALL IN PLAY':'COMPUTER BATTING • CHOOSE YOUR LENGTH');
 }
 function showSetup(){
+ prepareOpeningLineup();
  const root=$('#modal-root');
  let draftHome=home,draftAway=away,draftMode=matchMode;
  const draftSquads=new Map([[matchMode,Object.fromEntries(
@@ -757,9 +786,9 @@ function animate(now){
  if(debugOutput && era.modern)updateDeliveryStats(now);
  if(debugOutput)debugOutput.textContent=`${Math.round(1/elapsed)} FPS · ${renderer.info.render.calls} draw calls · ${state.phase}/${state.anim?.phase||'delivery'} ${state.anim?.cpuShot||''} · camera ${currentBroadcastView?.id||cameraNames[state.camera]} @ ${camera.position.toArray().map(n=>n.toFixed(1)).join(',')} · ball ${ball.position.x.toFixed(2)},${ball.position.y.toFixed(2)},${ball.position.z.toFixed(2)}${deliveryFrameStats}`;
  requestAnimationFrame(animate);animateCrowd(now);
- if(pausedAt!==null){renderFrame();return}
+ if(pausedAt!==null){renderFrame(now);return}
  if(state.phase==='intro'&&now>=state.introUntil){state.phase='playing';state.autoAt=now+1800;$('#player-intro').classList.add('hidden');renderUI()}
- if(state.phase==='replay'){updateReplay(now);updateBallVisual();updateRunInset();if(state.replay){if(era.modern)updateCamera();else{camera.position.lerp(new THREE.Vector3(ball.position.x+13,27,ball.position.z+27),.09);camera.lookAt(ball.position.x,0,ball.position.z)}}renderFrame();return}
+ if(state.phase==='replay'){updateReplay(now);updateBallVisual();updateRunInset();if(state.replay){if(era.modern)updateCamera();else{camera.position.lerp(new THREE.Vector3(ball.position.x+13,27,ball.position.z+27),.09);camera.lookAt(ball.position.x,0,ball.position.z)}}renderFrame(now);return}
  if(state.phase==='playing'&&humanBatting()&&state.autoAt&&now>=state.autoAt&&!$('#modal-root').children.length)startDelivery();
  if(!state.anim)holdBallAtRunUp();
  if(era.modern){if(state.phase!=='replay')syncAthletes([batter,nonStriker,bowler,keeper,...fielders]);if(!state.anim){[bowler,...fielders].forEach(p=>idleAthlete(p,now/1000,frameDelta));}}
@@ -946,7 +975,7 @@ function animate(now){
   if(era.modern&&a.wide&&!a.wideCalled&&ball.position.z>=10.4){a.wideCalled=true;umpire.userData.arms.forEach(arm=>arm.rotation.z=arm===umpire.userData.arms[0]?-Math.PI/2:Math.PI/2);message('WIDE BALL','ONE EXTRA • BALL STILL LIVE');announce('Wide ball. One extra.');winningExtra(a);}
   if(era.modern&&state.anim===a&&a.caughtBall)ball.position.copy(handPoint(a.fielder,1));
  }
- updateBallVisual();updateRunInset();updateCamera();if(state.phase==='animating')captureFrame(now);renderFrame();renderPitchInset();benchmark?.rendered()
+ updateBallVisual();updateRunInset();updateCamera();if(state.phase==='animating')captureFrame(now);renderFrame(now);renderPitchInset();benchmark?.rendered()
 }if(era.modern){updateVenueUI(venueId);setTimeOfDay(era.defaultNight);}updateCrowd();syncPlayers();requestAnimationFrame(animate);renderUI();
 
 if(import.meta.env.DEV&&era.modern&&new URLSearchParams(location.search).has('fieldingLab')){
