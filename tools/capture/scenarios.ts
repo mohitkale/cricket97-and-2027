@@ -228,6 +228,9 @@ export const SCENARIOS: Record<string, Scenario> = {
         });
         observer.observe(score, { subtree: true, childList: true, attributes: true });
       });
+      // The seeded toss may put the human side in the field. Start that delivery too.
+      const bowl = page.locator('#stage-controls [data-assisted]', { hasText: 'BOWL GOOD LENGTH' });
+      if ((await bowl.count()) && (await bowl.isEnabled())) await bowl.dispatchEvent('click');
     },
   },
   'legacy-2027-match-setup': {
