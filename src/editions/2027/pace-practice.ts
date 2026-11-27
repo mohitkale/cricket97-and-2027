@@ -15,10 +15,14 @@ import { loadClips, loadModel } from '../../render/assets';
 import { createBallView } from '../../render/ball-view';
 import { createBatterStroke, STROKE_CLIP_FILES } from '../../render/batter-stroke';
 import { asCharacter, attach } from '../../render/character';
+import { createFielder, loadFieldingClips } from '../../render/fielding';
 import { createPaceBowler, PACE_APPROACH } from '../../render/pace-bowler';
 import { createPracticeCamera } from '../../render/practice-camera';
 import { addSliceGround } from '../../render/slice';
+import type { End } from '../../sim/agents/running';
+import { PITCH } from '../../sim/units';
 import { createJerseyAtlas, makeJersey } from './lineup-kit';
+import { outfieldLod } from './live-fielders';
 import { loadPlayerBodies } from './player-bodies';
 import './pace-practice.css';
 
@@ -32,6 +36,7 @@ const canvas = get<HTMLCanvasElement>('#pitch');
 const next = get<HTMLButtonElement>('#next');
 const playShot = get<HTMLButtonElement>('#play-shot');
 const assist = get<HTMLSelectElement>('#assist');
+const returnEnd = get<HTMLSelectElement>('#return-end');
 const trail = get<HTMLInputElement>('#trail');
 const cue = get<HTMLElement>('#cue');
 const feedback = get<HTMLElement>('#feedback');
@@ -102,7 +107,8 @@ async function start() {
   const jog = jogClips.find(({ name }) => name === 'Jog_Fwd_Loop');
   const delivery = paceClips.find(({ name }) => name === 'Bowling_Pace_Delivery');
   let mode = assist.value as PracticeAssist;
-  let played = practiceDelivery(0, mode);
+  const selectedEnd = () => (returnEnd.value || undefined) as End | undefined;
+  let played = practiceDelivery(0, mode, undefined, undefined, selectedEnd());
   let trace = played.frames.map(({ pos }) => pos);
   const release = played.frames[0];
   if (!jog || !delivery || !release) throw new Error('Missing pace practice fixture');
@@ -111,6 +117,40 @@ async function start() {
   const ball = createBallView(ballAsset);
   const camera = createPracticeCamera();
   scene.add(striker.bat, ball.root);
+  const [fieldingClips, keeperGloves] = await Promise.all([
+    loadFieldingClips(),
+    loadModel('equipment/keeping-gloves.glb'),
+  ]);
+  const fieldAtlas = createJerseyAtlas(played.field.track.size);
+  const fieldIds = [...played.field.track.keys()];
+  const kits = fieldIds.map((id) => ({
+    ...bowlerInfo,
+    number: id + 1,
+    name: id === played.field.keeper ? 'Keeper' : '',
+    gender: rosterMode === 'mixed' && id % 2 === 0 ? ('female' as const) : bowlerInfo.gender,
+  }));
+  fieldAtlas.write(kits);
+  const field = fieldIds.map((id, index) => {
+    const kit = kits[index] ?? bowlerInfo;
+    const keeper = id === played.field.keeper;
+    const character = asCharacter(clone(bodies[kit.gender]));
+    character.setStature(kit.gender === 'female' ? 1.71 : 1.83);
+    makeJersey(character.root, fieldAtlas, index)(kit);
+    if (keeper) {
+      for (const name of ['glove_l', 'glove_r'] as const) {
+        const glove = keeperGloves.getObjectByName(name);
+        if (glove) attach(character, name, glove);
+      }
+    }
+    scene.add(character.root);
+    return { id, character, actor: createFielder(character, fieldingClips, keeper) };
+  });
+  const phone = matchMedia('(pointer: coarse)').matches;
+  const pitch = new Vector3(0, 0, PITCH.length - PITCH.poppingCrease);
+  const planField = () => {
+    for (const { id, actor } of field) actor.plan(played.field.track.get(id));
+  };
+  planField();
 
   const position = new Vector3();
   const socket = new Vector3();
@@ -160,6 +200,26 @@ async function start() {
       if (spin > 0 && step > 0)
         orientation.premultiply(turn.setFromAxisAngle(axis.normalize(), spin * step)).normalize();
     }
+    let heldBy: (typeof field)[number] | undefined;
+    let touchAt = -Infinity;
+    for (const player of field) {
+      const { id, actor, character } = player;
+      const track = played.field.track.get(id);
+      const active = id !== played.field.bowler || (time >= 1 && !!track?.events.length);
+      character.root.visible = active;
+      if (id === played.field.bowler) bowling.root.visible = !active;
+      if (!active) continue;
+      actor.sample(time, time < 0 ? pitch : position);
+      character.setLod(
+        outfieldLod(character.root.position.distanceTo(camera.camera.position), phone),
+      );
+      for (const event of track?.events ?? []) {
+        if (event.time > time || event.time <= touchAt) continue;
+        touchAt = event.time;
+        heldBy = event.kind === 'release' ? undefined : player;
+      }
+    }
+    if (heldBy?.actor.heldBall(position)) orientation.identity();
     lastFlight = time;
     ball.setPose(position, orientation, practiceGround.surfaceAt(position.x, position.z).height);
     ball.setTrail(trace, pathIndex, position, time >= 0 && trail.checked);
@@ -234,6 +294,7 @@ async function start() {
     playShot.hidden = true;
     next.hidden = false;
     assist.disabled = false;
+    returnEnd.disabled = false;
     next.textContent = legal >= 30 ? 'Restart practice' : 'Next ball';
   }
 
@@ -251,9 +312,10 @@ async function start() {
     earlyLate = time - window.ideal;
     const timingError = practiceSwingError(time, expected, mode);
     const previous = played;
-    played = practiceDelivery(attempted, mode, shot, timingError);
+    played = practiceDelivery(attempted, mode, shot, timingError, selectedEnd());
     const event = played.result.contact;
     if (event?.impact && event.time <= time + 0.018) played = previous;
+    planField();
     trace = played.frames.map(({ pos }) => pos);
     const chosen = played.result.contact;
     const start = time - 0.018;
@@ -285,7 +347,8 @@ async function start() {
       overs.textContent = '0.0 / 5 overs';
     }
     mode = assist.value as PracticeAssist;
-    played = practiceDelivery(attempted, mode);
+    played = practiceDelivery(attempted, mode, undefined, undefined, selectedEnd());
+    planField();
     trace = played.frames.map(({ pos }) => pos);
     expected = practiceArrival(played.frames, 'cover-drive');
     choice = false;
@@ -302,6 +365,7 @@ async function start() {
     playShot.hidden = false;
     playShot.disabled = true;
     assist.disabled = true;
+    returnEnd.disabled = true;
     delete screen.dataset.inputResponse;
     canvas.focus();
     liveAt = performance.now();
@@ -333,7 +397,8 @@ async function start() {
       if (cue.textContent !== strike) cue.textContent = strike;
     }
     draw(time);
-    if (time < SHOW_UNTIL) requestAnimationFrame(frame);
+    const until = Math.max(SHOW_UNTIL, (played.frames.at(-1)?.time ?? 0) + 0.35);
+    if (time < until) requestAnimationFrame(frame);
     else finish();
   }
   window.addEventListener('resize', () => {

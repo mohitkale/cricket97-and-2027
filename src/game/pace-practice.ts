@@ -4,6 +4,7 @@ import { Rng } from '../sim/core/prng';
 import { type BattingIntent, playDelivery } from '../sim/match/delivery';
 import { standardTeam } from '../sim/match/players';
 import { PITCH } from '../sim/units';
+import { recordField } from './field-trace';
 
 export type PracticeShot = Pick<BattingIntent, 'stroke' | 'lofted'>;
 export type PracticeAssist = keyof typeof ASSIST;
@@ -45,12 +46,17 @@ export function practiceDelivery(
   assist: PracticeAssist,
   shot: PracticeShot = { stroke: 'leave', lofted: false },
   timingError = 0,
+  throwEnd?: End,
 ) {
   const [striker, nonStriker] = battingTeam;
   const bowler = fieldingTeam[9]?.bowling;
   if (!striker || !nonStriker || !bowler) throw new Error('Missing practice players');
   const length = 4.7 + (number % 5) * 0.25;
   const frames: PracticeFrame[] = [];
+  const field = recordField(
+    fieldingTeam.findIndex(({ keeper }) => keeper),
+    9,
+  );
   const result = playDelivery(
     {
       bowler: { ...bowler, hand: 'right' },
@@ -76,12 +82,14 @@ export function practiceDelivery(
       env: practiceGround,
       ballAge: number / 6,
       random: new Rng(number).stream('delivery'),
+      ...(throwEnd === undefined ? {} : { throwEnd }),
     },
     (time, { pos, spin, bounces }) => {
       frames.push({ time, pos: { ...pos }, spin: { ...spin }, bounces });
     },
+    field.observer,
   );
-  return { result, frames };
+  return { result, frames, field: field.trace };
 }
 
 export function practiceArrival(
@@ -98,3 +106,5 @@ export function practiceArrival(
     ((next.time - previous.time) * (plane - previous.pos.z)) / (next.pos.z - previous.pos.z)
   );
 }
+
+import type { End } from '../sim/agents/running';

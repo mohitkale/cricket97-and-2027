@@ -8,8 +8,8 @@
  */
 import { type FieldName, fieldPositions, keeperPosition } from '../agents/field.ts';
 import { type Agent, createAgent } from '../agents/movement.ts';
-import { type PlayResult, resolvePlay } from '../agents/play.ts';
-import { createRunner } from '../agents/running.ts';
+import { type FieldObserver, type PlayResult, resolvePlay } from '../agents/play.ts';
+import { createRunner, type End } from '../agents/running.ts';
 import {
   type BallEnvironment,
   type BallObserver,
@@ -82,6 +82,9 @@ export interface DeliveryInput {
   random: RandomStream;
   /** Seconds of safety the batters want before running. */
   caution?: number;
+  throwEnd?: End;
+  /** The striker has left their ground playing the delivery and is not attempting a run. */
+  strikerAdvanced?: boolean;
 }
 
 export type DeliveryEnding =
@@ -89,6 +92,7 @@ export type DeliveryEnding =
   | 'lbw'
   | 'caught'
   | 'run-out'
+  | 'stumped'
   | 'hit'
   | 'pad'
   | 'left'
@@ -117,7 +121,7 @@ export interface DeliveryResult {
   contact: ContactResult | null;
   play: PlayResult | null;
   lbw: (LbwFacts & { out: boolean }) | null;
-  /** Set when the ball broke the wicket (bowled); null otherwise. */
+  /** Set when the wicket was broken by the delivery or the keeper. */
   wicketBroken: WicketBreak | null;
 }
 
@@ -162,7 +166,11 @@ export function setField(
   return { fielders, keeper: keeperIndex, bowler: bowlerIndex };
 }
 
-export function playDelivery(input: DeliveryInput, observe?: BallObserver): DeliveryResult {
+export function playDelivery(
+  input: DeliveryInput,
+  observe?: BallObserver,
+  field?: FieldObserver,
+): DeliveryResult {
   const { bowler, intent, batting, striker, env, random } = input;
   const side = striker.hand === 'right' ? 1 : -1;
 
@@ -192,6 +200,8 @@ export function playDelivery(input: DeliveryInput, observe?: BallObserver): Deli
   );
   const ball = createBall(from, release.velocity, options);
   observe?.(0, ball);
+  const initialField = field ? setField(input) : undefined;
+  if (initialField) field?.frame(0, initialField.fielders);
 
   const swing =
     batting.stroke === 'leave'
@@ -265,7 +275,7 @@ export function playDelivery(input: DeliveryInput, observe?: BallObserver): Deli
   });
 
   const live = (noCatch: boolean): PlayResult => {
-    const { fielders, keeper, bowler: bowlerId } = setField(input);
+    const { fielders, keeper, bowler: bowlerId } = initialField ?? setField(input);
     const setup = {
       ball,
       env,
@@ -278,8 +288,18 @@ export function playDelivery(input: DeliveryInput, observe?: BallObserver): Deli
       random,
       noCatch,
       ...(input.caution === undefined ? {} : { caution: input.caution }),
+      ...(input.throwEnd === undefined ? {} : { throwEnd: input.throwEnd }),
     };
-    return resolvePlay(setup, observe && ((time, frame) => observe(flown * SIM_DT + time, frame)));
+    const start = flown * SIM_DT;
+    return resolvePlay(
+      setup,
+      observe && ((time, frame) => observe(start + time, frame)),
+      field && {
+        frame: (time, agents) => field.frame(start + time, agents),
+        touch: (time, actor, kind, point, aim) =>
+          field.touch(start + time, actor, kind, point, aim),
+      },
+    );
   };
   const fromPlay = (play: PlayResult, credit: NonNullable<BallOutcome['credit']>): BallOutcome => {
     const outcome: BallOutcome = { credit };
@@ -367,6 +387,36 @@ export function playDelivery(input: DeliveryInput, observe?: BallObserver): Deli
   const ending: DeliveryEnding = batting.stroke === 'leave' ? 'left' : 'missed';
   const keeperTakes =
     (lineAtCrease < 0 ? -lineAtCrease : lineAtCrease) <= 1.7 && heightAtCrease <= 2.4;
+  if (keeperTakes && reached && (field || input.strikerAdvanced)) {
+    const placement = initialField ?? setField(input);
+    const keeper = placement.fielders.find(({ id }) => id === placement.keeper);
+    if (keeper) {
+      const collectAt = keeper.pos.z - 0.55;
+      for (let step = 0; step < 240 && ball.pos.z < collectAt && ball.vel.z > 0.5; step++) {
+        stepBall(ball, SIM_DT, env);
+        flown++;
+        observe?.(flown * SIM_DT, ball);
+      }
+      if (ball.pos.z >= collectAt) {
+        field?.touch(flown * SIM_DT, keeper, 'take', ball.pos);
+        if (input.strikerAdvanced && !overstepped && bowler.kind === 'spin') {
+          const t = flown * SIM_DT + 0.2;
+          const at = { x: 0, y: WICKET.height - BALL.radius, z: L };
+          field?.touch(t, keeper, 'stump', at);
+          return finish(
+            'stumped',
+            {
+              ...(wide ? { illegal: 'wide' } : {}),
+              dismissal: { kind: 'stumped', fielder: keeper.id },
+            },
+            null,
+            null,
+            { t, at, vel: { x: 0, y: 0, z: -1 } },
+          );
+        }
+      }
+    }
+  }
   if (keeperTakes || !reached) return finish(ending, wide ? { illegal: 'wide' } : {});
   // Past the keeper: byes (or wides) while the ball is chased.
   const play = live(true);

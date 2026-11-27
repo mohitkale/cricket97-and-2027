@@ -44,7 +44,7 @@ export interface MarkedClip {
 /** Authored markers for clips whose events cannot be found from motion alone. */
 export const MARKERS: Record<string, Marker[]> = {
   ...Object.fromEntries(Object.entries(OVER_CLIPS).map(([name, clip]) => [name, clip.markers])),
-  OverhandThrow: [{ name: 'release', time: 0.4 }],
+  OverhandThrow: [{ name: 'release', time: 10.5 / 30 }],
   Batting_Backlift: [{ name: 'backlift', time: 0.43 }],
   Batting_Leave: [{ name: 'leave', time: 0.56 }],
   Batting_Front_Foot_Defence: [{ name: 'contact', time: 0.527 }],

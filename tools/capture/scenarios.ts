@@ -135,6 +135,18 @@ const CLIP_REVIEWS: [string, number][] = [
 
 export const SCENARIOS: Record<string, Scenario> = {
   ...Object.fromEntries(
+    ['chase', 'dive', 'caught-behind', 'stumping'].map((name): [string, Scenario] => [
+      `fielding-${name}`,
+      {
+        kind: 'lab',
+        scene: `fielding-${name}`,
+        duration: name === 'chase' ? 4 : 2.1,
+        viewport: SMALL_LANDSCAPE,
+        seed: 1,
+      },
+    ]),
+  ),
+  ...Object.fromEntries(
     [
       ['landscape', { width: 768, height: 432 }],
       ['wide', { width: 800, height: 360 }],

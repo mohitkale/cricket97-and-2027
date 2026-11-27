@@ -200,12 +200,14 @@ function playFingerprint(): string {
       runners,
       random: new Rng(shot).stream('fielding'),
       caution: random.range(-0.5, 0.6),
+      ...(shot % 3 === 0 ? { throwEnd: 'bowler' as const } : {}),
     });
     values.push(
       result.runs,
       result.duration,
       result.events.length,
       ball.pos.x,
+      ball.pos.y,
       ball.pos.z,
       runners[0].z,
       runners[1].z,
@@ -264,11 +266,18 @@ function deliveryFingerprint(): string {
         field: ball % 2 ? 'pace-spread' : 'new-ball',
         env,
         ballAge: ball / 6,
+        strikerAdvanced: ball % 6 === 3,
         random,
       },
       (time, { pos, spin, bounces }) => {
         if (frame++ % 16 === 0)
           values.push(time, pos.x, pos.y, pos.z, spin.x, spin.y, spin.z, bounces);
+      },
+      {
+        frame() {},
+        touch(time, actor, _kind, point) {
+          values.push(time, actor.id, point.x, point.y, point.z);
+        },
       },
     );
     values.push(

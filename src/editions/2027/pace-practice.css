@@ -22,6 +22,8 @@ body { margin: 0; }
 #practice-hud p { margin: 0 0 3px; font-size: 0.75rem; color: #d9f499; }
 #practice-hud > * { border-radius: 8px; padding: 9px 11px; background: #162824ee; }
 #practice-hud label { pointer-events: auto; font-size: 0.75rem; }
+#practice-settings { display: flex; flex-wrap: wrap; gap: 4px 9px; }
+#practice-settings label { display: inline-flex; align-items: center; gap: 4px; }
 #practice-hud strong { font-size: 1.1rem; }
 #overs { font-size: 0.75rem; }
 select { font: inherit; padding: 4px; }

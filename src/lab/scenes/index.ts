@@ -7,6 +7,7 @@ import { bowled } from './bowled';
 import { character } from './character';
 import { CANDIDATE_CLIPS, clipReview } from './clip-review';
 import { deliveryBall } from './delivery-ball';
+import { fieldingScene } from './fielding';
 import { heroField, heroRig } from './hero-rig';
 import { pitchPlan } from './pitch-plan';
 import { strokeMap } from './stroke-map';
@@ -18,6 +19,10 @@ export const SCENES: Record<string, LabSceneFactory> = {
   'ball-flight': ballFlight,
   'bat-contact': batContact,
   'delivery-ball': deliveryBall,
+  'fielding-chase': fieldingScene('chase'),
+  'fielding-dive': fieldingScene('dive'),
+  'fielding-caught-behind': fieldingScene('caught-behind'),
+  'fielding-stumping': fieldingScene('stumping'),
   bowled,
   character,
   'hero-rig': heroRig,

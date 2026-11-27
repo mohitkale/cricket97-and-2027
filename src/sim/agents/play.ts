@@ -8,6 +8,7 @@
  */
 import { type BallEnvironment, type BallObserver, type BallState, stepBall } from '../ball/ball.ts';
 import type { RandomStream } from '../core/prng.ts';
+import type { Vec3 } from '../core/vec.ts';
 import type { BallOutcome } from '../rules/match.ts';
 import { GRAVITY, PITCH, SIM_DT } from '../units.ts';
 import { insideBoundary } from './field.ts';
@@ -82,6 +83,14 @@ export interface PlaySetup {
   caution?: number;
   /** The ball has not touched the bat: no catch is possible (byes, wides). */
   noCatch?: boolean;
+  /** Omit for the fielding side's automatic choice. */
+  throwEnd?: End;
+}
+
+export type FieldTouch = 'catch' | 'gather' | 'release' | 'take' | 'stump';
+export interface FieldObserver {
+  frame(time: number, agents: readonly Agent[]): void;
+  touch(time: number, actor: Agent, kind: FieldTouch, ball: Vec3, aim?: Point): void;
 }
 
 type BallMode =
@@ -108,7 +117,11 @@ const clamp01 = (value: number, low: number, high: number) =>
   value < low ? low : value > high ? high : value;
 
 /** Play the ball out. Mutates the ball, fielders and runners; returns what happened. */
-export function resolvePlay(setup: PlaySetup, observe?: BallObserver): PlayResult {
+export function resolvePlay(
+  setup: PlaySetup,
+  observe?: BallObserver,
+  field?: FieldObserver,
+): PlayResult {
   const { ball, env, fielders, runners, random, guards } = setup;
   const caution = setup.caution ?? 0.35;
   const byId = new Map(fielders.map((agent) => [agent.id, agent]));
@@ -118,6 +131,7 @@ export function resolvePlay(setup: PlaySetup, observe?: BallObserver): PlayResul
     return agent;
   };
   const events: PlayEvent[] = [];
+  let preferredEnd = setup.throwEnd;
   const cooldown = new Map<number, number>();
   const airborneFromBat = ball.bounces;
   const [striker, partner] = runners;
@@ -265,9 +279,10 @@ export function resolvePlay(setup: PlaySetup, observe?: BallObserver): PlayResul
   function throwBall(by: number): void {
     const thrower = agentOf(by);
     // Aim at the end where a batter is furthest from safety relative to the throw.
-    let end: End = 'striker';
+    let end: End = preferredEnd ?? 'striker';
     let tightest = Number.POSITIVE_INFINITY;
     for (const candidate of ['striker', 'bowler'] as const) {
+      if (preferredEnd && candidate !== preferredEnd) continue;
       const runner = runners.find((entry) => entry.goal === candidate && !entry.home);
       if (!runner) continue;
       const margin =
@@ -277,6 +292,7 @@ export function resolvePlay(setup: PlaySetup, observe?: BallObserver): PlayResul
         end = candidate;
       }
     }
+    preferredEnd = undefined;
     const stumps = STUMPS[end];
     const gap = distance(thrower.pos, stumps);
     let target: End | number = end;
@@ -302,24 +318,29 @@ export function resolvePlay(setup: PlaySetup, observe?: BallObserver): PlayResul
     const length = distance(thrower.pos, to);
     // A throw beyond comfortable range has to be lobbed, which is slower.
     const speed = throwSpeed(thrower) * (length > throwRange(thrower) ? 0.7 : 1);
-    const flight = length / speed;
+    const flight = Math.max(SIM_DT, length / speed);
+    const releaseHeight = length <= 8 ? 1.05 : 1.6;
     const shy = target === end && length <= SHY_RANGE && tightest < 0.6;
     const miss = length * (0.01 + 0.05 * (1 - thrower.ratings.arm)) * random.range(-1, 1);
     if (typeof target === 'number') halt(agentOf(target));
     mode = {
       kind: 'thrown',
       from: { ...thrower.pos },
-      height: 1.6,
+      height: releaseHeight,
       to,
       start: t,
       arrive: t + flight,
-      rise: (1 - 1.6 + 0.5 * GRAVITY * flight * flight) / flight,
+      rise: (1 - releaseHeight + 0.5 * GRAVITY * flight * flight) / flight,
       target,
       shy,
       miss,
       by,
     };
+    ball.pos.x = thrower.pos.x;
+    ball.pos.y = releaseHeight;
+    ball.pos.z = thrower.pos.z;
     events.push({ type: 'throw', fielder: by, to: target, t });
+    field?.touch(t, thrower, 'release', ball.pos, to);
   }
 
   /** While a run is in progress: will the batters want the next one when they get there? */
@@ -344,12 +365,14 @@ export function resolvePlay(setup: PlaySetup, observe?: BallObserver): PlayResul
   };
 
   plan();
+  field?.frame(t, fielders);
   if (wantRun()) startRun();
 
   for (let step = 0; step < 120 * 40; step++) {
     if (step > 0) observe?.(t, ball);
     t += SIM_DT;
     for (const agent of fielders) stepAgent(agent, SIM_DT);
+    field?.frame(t, fielders);
     for (const runner of runners) stepRunner(runner, SIM_DT);
 
     if (running) {
@@ -418,6 +441,7 @@ export function resolvePlay(setup: PlaySetup, observe?: BallObserver): PlayResul
             );
             if (random.chance(chance)) {
               events.push({ type: 'catch', fielder: agent.id, t });
+              field?.touch(t, agent, 'catch', ball.pos);
               const crossed =
                 running &&
                 (striker.goal === 'bowler' ? striker.z < partner.z : striker.z > partner.z);
@@ -438,6 +462,7 @@ export function resolvePlay(setup: PlaySetup, observe?: BallObserver): PlayResul
             );
             if (random.chance(chance)) {
               events.push({ type: 'stop', fielder: agent.id, t });
+              field?.touch(t, agent, 'gather', ball.pos);
               for (const other of fielders) {
                 if (other.id !== currentGuards.striker && other.id !== currentGuards.bowler)
                   halt(other);
@@ -470,6 +495,7 @@ export function resolvePlay(setup: PlaySetup, observe?: BallObserver): PlayResul
       ball.pos.y = current.height + current.rise * flown - 0.5 * GRAVITY * flown * flown;
       if (t >= current.arrive) {
         if (typeof current.target === 'number') {
+          field?.touch(t, agentOf(current.target), 'take', ball.pos);
           mode = { kind: 'held', by: current.target, until: t + 0.4 };
         } else {
           const end = current.target;
@@ -480,6 +506,7 @@ export function resolvePlay(setup: PlaySetup, observe?: BallObserver): PlayResul
             breakWicket(end, current.by);
             mode = { kind: 'taken', end, by: current.by, until: 0 };
           } else if (distance(guard.pos, STUMPS[end]) <= 1.5 && offLine <= 1.5) {
+            field?.touch(t, guard, 'take', ball.pos);
             mode = { kind: 'taken', end, by: guard.id, until: t + TAKE };
           } else {
             // Nobody there, or too wide: the ball runs on past the stumps.
