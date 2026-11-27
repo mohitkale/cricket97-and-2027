@@ -34,6 +34,21 @@ const PHONE_LANDSCAPE: Viewport = { width: 844, height: 390 };
 /** Small on purpose: the prototype renders in software here, and every virtual frame is drawn. */
 const SMALL_LANDSCAPE: Viewport = { width: 640, height: 360 };
 
+async function startPacePractice(page: Page, advance: (ms: number) => Promise<void>) {
+  await advance(50);
+  await page.getByRole('button', { name: 'Bowl first ball' }).click();
+  await page.evaluate(() => {
+    const cue = document.getElementById('cue');
+    if (!cue) throw new Error('The practice timing cue did not load');
+    const observer = new MutationObserver(() => {
+      if (cue.textContent !== 'Play now') return;
+      observer.disconnect();
+      window.dispatchEvent(new KeyboardEvent('keydown', { code: 'ArrowLeft' }));
+    });
+    observer.observe(cue, { childList: true });
+  });
+}
+
 /** Click a visible button whose text matches, waiting in real time for it to appear. */
 async function press(page: Page, text: RegExp): Promise<void> {
   await page.locator('button:visible', { hasText: text }).first().click({ timeout: 20_000 });
@@ -114,6 +129,24 @@ const CLIP_REVIEWS: [string, number][] = [
 ];
 
 export const SCENARIOS: Record<string, Scenario> = {
+  ...Object.fromEntries(
+    [
+      ['landscape', { width: 768, height: 432 }],
+      ['wide', { width: 800, height: 360 }],
+      ['portrait', { width: 390, height: 845 }],
+    ].map(([name, viewport]): [string, Scenario] => [
+      `pace-practice-${name}`,
+      {
+        kind: 'page',
+        path: '/play/',
+        duration: 2.75,
+        frameMs: 25,
+        viewport: viewport as Viewport,
+        seed: 1,
+        setup: startPacePractice,
+      },
+    ]),
+  ),
   ...Object.fromEntries(
     CLIP_REVIEWS.map(([name, duration]): [string, Scenario] => [
       `clip-${name}`,
