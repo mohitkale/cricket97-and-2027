@@ -51,6 +51,12 @@ export interface BallState {
   rolling: boolean;
 }
 
+/** A synchronous view of a delivery tick. Copy the vectors to retain them. */
+export type BallObserver = (
+  time: number,
+  ball: { readonly pos: Readonly<Vec3>; readonly spin: Readonly<Vec3>; readonly bounces: number },
+) => void;
+
 export type Surface = SurfaceProfile;
 
 export interface BallEnvironment {

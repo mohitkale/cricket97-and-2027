@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { createBall, groundEnvironment } from '../ball/ball.ts';
-import { PITCH } from '../units.ts';
+import { dot, scale, sub } from '../core/vec.ts';
+import { BALL, PITCH } from '../units.ts';
 import { type ContactResult, planSwing, playStroke } from './contact.ts';
 import { FEEDS, feedBall } from './feeds.ts';
 import { ASSIST, type Assist, STROKES, type StrokeId } from './strokes.ts';
@@ -155,7 +156,17 @@ describe('edges and misses', () => {
   const reach = STROKES['straight-drive'].zone.x;
 
   test('a ball in reach is middled', () => {
-    expect(driveAt(0.1).result.kind).toBe('middled');
+    const { result } = driveAt(0.1);
+    expect(result.kind).toBe('middled');
+    const { impact } = result;
+    if (!impact) throw new Error('Missing impact geometry');
+    const fromFace = sub(impact.centre, impact.sweet);
+    expect(dot(fromFace, impact.normal)).toBeCloseTo(BALL.radius, 3);
+    expect(dot(sub(fromFace, scale(impact.normal, BALL.radius)), impact.along)).toBeCloseTo(
+      result.offset.along,
+      8,
+    );
+    expect(play('straight-drive', 0.2).result.impact).toBeNull();
   });
 
   test('a ball just beyond reach on the off side takes the outside edge towards the slips', () => {

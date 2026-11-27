@@ -89,6 +89,22 @@ const share = (results: DeliveryResult[], test: (result: DeliveryResult) => bool
   results.filter(test).length / results.length;
 const runsOf = (result: DeliveryResult) => result.outcome.boundary ?? result.outcome.runsRun ?? 0;
 
+test('the observed ball path includes release, pitch, bat impact and the ensuing play', () => {
+  const fixture = () => input({ ...GOOD, line: -0.05, length: 5 }, stroke('cover-drive', 0.8), 0);
+  const frames: { time: number; pos: { x: number; y: number; z: number }; bounces: number }[] = [];
+  const result = playDelivery(fixture(), (time, ball) => {
+    frames.push({ time, pos: { ...ball.pos }, bounces: ball.bounces });
+  });
+  expect(result).toEqual(playDelivery(fixture()));
+  expect(frames[0]).toMatchObject({ time: 0, pos: { y: 2.12, z: PITCH.poppingCrease } });
+  const contact = result.contact;
+  if (!contact?.impact) throw new Error('Expected seeded bat contact');
+  expect(frames.find(({ time }) => time === contact.time)?.pos).toEqual(contact.impact.centre);
+  expect(frames.some(({ time, bounces }) => time < contact.time && bounces > 0)).toBe(true);
+  expect(frames.at(-1)?.time).toBeGreaterThan(contact.time + 0.1);
+  expect(frames.every(({ time }, i) => time >= (frames[i - 1]?.time ?? 0))).toBe(true);
+});
+
 describe('setting the field', () => {
   test('eleven different players: nine in the field, the keeper and the bowler', () => {
     const { fielders: agents, keeper, bowler } = setField(input(GOOD, LEAVE, 1));

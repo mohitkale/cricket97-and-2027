@@ -113,6 +113,23 @@ function contactFingerprint(): string {
           assist: ASSIST.classic,
         });
         values.push(ball.vel.x, ball.vel.y, ball.vel.z, result.phase, result.quality);
+        if (result.impact) {
+          const { centre, sweet, normal, along } = result.impact;
+          values.push(
+            centre.x,
+            centre.y,
+            centre.z,
+            sweet.x,
+            sweet.y,
+            sweet.z,
+            normal.x,
+            normal.y,
+            normal.z,
+            along.x,
+            along.y,
+            along.z,
+          );
+        }
       }
     }
   }
@@ -221,32 +238,39 @@ function deliveryFingerprint(): string {
     const striker = batting[ball % 11];
     const nonStriker = batting[(ball + 1) % 11];
     if (!bowler || !striker || !nonStriker) continue;
-    const result = playDelivery({
-      bowler,
-      intent: {
-        line: random.range(-0.6, 0.3),
-        length: random.range(1.5, 10),
-        kmh: bowler.kmh,
-        swing: random.range(-1, 1),
-        turn: random.range(-1, 1),
+    let frame = 0;
+    const result = playDelivery(
+      {
+        bowler,
+        intent: {
+          line: random.range(-0.6, 0.3),
+          length: random.range(1.5, 10),
+          kmh: bowler.kmh,
+          swing: random.range(-1, 1),
+          turn: random.range(-1, 1),
+        },
+        batting: {
+          stroke: strokes[ball % strokes.length] ?? 'leave',
+          lofted: ball % 5 === 0,
+          timingError: random.range(-0.05, 0.05),
+          assist: ASSIST.classic,
+          power: random.range(0.4, 1),
+          misread: { x: random.range(-0.06, 0.06), y: random.range(-0.06, 0.06) },
+        },
+        striker,
+        nonStriker,
+        fieldingTeam: bowling,
+        bowlerIndex,
+        field: ball % 2 ? 'pace-spread' : 'new-ball',
+        env,
+        ballAge: ball / 6,
+        random,
       },
-      batting: {
-        stroke: strokes[ball % strokes.length] ?? 'leave',
-        lofted: ball % 5 === 0,
-        timingError: random.range(-0.05, 0.05),
-        assist: ASSIST.classic,
-        power: random.range(0.4, 1),
-        misread: { x: random.range(-0.06, 0.06), y: random.range(-0.06, 0.06) },
+      (time, { pos, spin, bounces }) => {
+        if (frame++ % 16 === 0)
+          values.push(time, pos.x, pos.y, pos.z, spin.x, spin.y, spin.z, bounces);
       },
-      striker,
-      nonStriker,
-      fieldingTeam: bowling,
-      bowlerIndex,
-      field: ball % 2 ? 'pace-spread' : 'new-ball',
-      env,
-      ballAge: ball / 6,
-      random,
-    });
+    );
     values.push(
       result.kmh,
       result.outcome.boundary ?? result.outcome.runsRun ?? 0,

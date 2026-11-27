@@ -12,6 +12,7 @@ import { type PlayResult, resolvePlay } from '../agents/play.ts';
 import { createRunner } from '../agents/running.ts';
 import {
   type BallEnvironment,
+  type BallObserver,
   type BallOptions,
   type BallState,
   createBall,
@@ -161,7 +162,7 @@ export function setField(
   return { fielders, keeper: keeperIndex, bowler: bowlerIndex };
 }
 
-export function playDelivery(input: DeliveryInput): DeliveryResult {
+export function playDelivery(input: DeliveryInput, observe?: BallObserver): DeliveryResult {
   const { bowler, intent, batting, striker, env, random } = input;
   const side = striker.hand === 'right' ? 1 : -1;
 
@@ -190,6 +191,7 @@ export function playDelivery(input: DeliveryInput): DeliveryResult {
     env,
   );
   const ball = createBall(from, release.velocity, options);
+  observe?.(0, ball);
 
   const swing =
     batting.stroke === 'leave'
@@ -218,10 +220,19 @@ export function playDelivery(input: DeliveryInput): DeliveryResult {
     flown++;
     if (swing) {
       contact = stepSwing(swing, ball, env, SIM_DT, random);
-      if (contact && contact.kind !== 'miss') break;
+      if (contact?.impact) {
+        observe?.(contact.time, {
+          pos: contact.impact.centre,
+          spin: ball.spin,
+          bounces: ball.bounces,
+        });
+        observe?.(flown * SIM_DT, ball);
+        break;
+      }
     } else {
       stepBall(ball, SIM_DT, env, random);
     }
+    observe?.(flown * SIM_DT, ball);
     if (!pitched && ball.bounces > 0) pitched = { x: ball.landed.x, z: ball.landed.z };
     if (!crossedCrease && ball.pos.z >= CREASE_Z) {
       crossedCrease = true;
@@ -268,7 +279,7 @@ export function playDelivery(input: DeliveryInput): DeliveryResult {
       noCatch,
       ...(input.caution === undefined ? {} : { caution: input.caution }),
     };
-    return resolvePlay(setup);
+    return resolvePlay(setup, observe && ((time, frame) => observe(flown * SIM_DT + time, frame)));
   };
   const fromPlay = (play: PlayResult, credit: NonNullable<BallOutcome['credit']>): BallOutcome => {
     const outcome: BallOutcome = { credit };

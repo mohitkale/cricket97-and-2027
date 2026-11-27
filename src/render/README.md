@@ -1,3 +1,9 @@
 # src/render
 
 three.js helpers shared by both editions: asset loading, quality tiers, capture hooks.
+
+`ball-view.ts` displays the stitched ball, its seam orientation, a contact shadow and an optional trajectory trail. The #22 lab scene at `/lab/?scene=delivery-ball` takes its positions and angular velocity from the ball simulation. The `bowler=1` view adds the authored pace action to the sim flight and the `release=1` view holds the release marker. The pace slice uses a tall bowler calibrated to the sim's release height and advances at the authored jog's ground speed until the gather. Delegated Chromium review used `delivery-ball`, `delivery-ball-trail`, `pace-bowler-flight` and `pace-sim-release`. The release readout covers the ball centre at the bowling-hand socket. It measured 0.00 cm in the capture, with the leading foot established before release.
+
+`batter-stroke.ts` plays the authored stance, defence, drive or leave and matches the impact marker to the simulation. At impact it fits the blade to the collision frame and the hands to the bat. The 30 seeded checks cover both batting hands and verify face orientation, blade offsets and a face-plane residual under 5 mm on the animated rig. Delegated Chromium review of `bat-contact-clean`, `bat-contact-late`, `bat-contact-edge` and `bat-contact-miss` follows the moving batter and sim trajectory through the outcome. The grazing edge uses the simulation's radius allowance at the rim of the blade.
+
+`practice-camera.ts` frames the run-up, release, bounce and contact from behind the bowler. After contact it pans to the sim ball at a fixed lens and position. The three `pace-practice` captures cover 16:9, 20:9 and 9:19.5. The projection test checks that the release, pitching point, bat contact and stumps remain in frame and that the camera follows a played shot with the same lens.
