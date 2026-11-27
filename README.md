@@ -18,6 +18,8 @@ npm start
 
 Open http://127.0.0.1:4173 in a browser with WebGL. No internet connection is required to play.
 
+Open `/play/` for the 2027 pace practice. It uses the shared-rig bowling and batting clips with the new delivery simulation. The **Match setup** link opens the existing 2027 match.
+
 Choose an era on the opening screen. Direct links also work: `/legacy/?era=97` and `/legacy/?era=2027`. **Change Era** returns to the opening screen; switching editions starts a fresh match. In the modern setup you can select Horizon Arena, Coastal Oval, or Riverside Ground: fictional venues sharing a common stadium model with different turf, lighting, and graphic palettes.
 
 ### What changes in 2027

@@ -21,5 +21,5 @@ app.innerHTML = `
       <p class="tagline">Then. Now. Always.</p>
     </header>
     <section class="editions" aria-label="Choose an edition">${cards}</section>
-    <p class="status">The game is being rebuilt. These links open the early prototype.</p>
+    <p class="status">Try <a href="${import.meta.env.BASE_URL}play/">2027 pace practice</a> for the authored bowling and batting motions.</p>
   </main>`;
