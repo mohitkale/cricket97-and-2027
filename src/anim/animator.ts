@@ -259,26 +259,30 @@ export class Animator {
     }
     this.errorSquared[0] = driftSquared;
 
-    if (input.bat) {
-      input.bat.updateWorldMatrix(true, false);
-      let anchor: Object3D | null = input.bat;
+    this.fitBat(input.bat);
+    if (input.lookTarget) lookAt(this.head, this.headForward.set(0, 0, 1), input.lookTarget, 1.0);
+  }
+
+  /** Fit the existing pose to a held bat or to a presentation target. */
+  fitBat(bat: Object3D | null): void {
+    if (bat) {
+      bat.updateWorldMatrix(true, false);
+      let anchor: Object3D | null = bat;
       while (anchor && anchor !== this.bottomArm[2]) anchor = anchor.parent;
       // If the bottom wrist carries the bat, solving that arm would move its own target.
       const bottomReached = this.holdGrip(
         this.bottomArm,
         BOTTOM_WRIST_ON_BAT,
-        input.bat,
+        bat,
         2,
         anchor === null,
       );
-      const topReached = this.holdGrip(this.topArm, TOP_WRIST_ON_BAT, input.bat, 1, true);
+      const topReached = this.holdGrip(this.topArm, TOP_WRIST_ON_BAT, bat, 1, true);
       this.readout.handInReach = bottomReached && topReached;
     } else {
       this.errorSquared[1] = this.errorSquared[2] = 0;
       this.readout.handInReach = true;
     }
-
-    if (input.lookTarget) lookAt(this.head, this.headForward.set(0, 0, 1), input.lookTarget, 1.0);
   }
 
   private holdGrip(

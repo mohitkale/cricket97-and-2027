@@ -332,6 +332,18 @@ export const SCENARIOS: Record<string, Scenario> = {
     viewport: { width: 960, height: 540 },
     seed: 1,
   },
+  ...Object.fromEntries(
+    ['clean', 'late', 'edge', 'miss'].map((name): [string, Scenario] => [
+      `bat-contact-${name}`,
+      {
+        kind: 'lab',
+        scene: `bat-contact&case=${name}`,
+        duration: 2.92,
+        viewport: { width: 900, height: 510 },
+        seed: 1,
+      },
+    ]),
+  ),
   'pitch-plan': {
     kind: 'lab',
     scene: 'pitch-plan',

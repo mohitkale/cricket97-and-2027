@@ -70,6 +70,16 @@ export interface SwingInput {
 
 export type ContactKind = 'middled' | 'mistimed' | 'edge' | 'miss';
 
+/** World-space geometry at the instant the sim found contact. */
+export interface BatImpact {
+  readonly centre: Vec3;
+  readonly sweet: Vec3;
+  /** Unit normal from the face towards the incoming ball. */
+  readonly normal: Vec3;
+  /** Unit direction towards the toe of the blade. */
+  readonly along: Vec3;
+}
+
 export interface ContactResult {
   kind: ContactKind;
   edge: 'thick' | 'thin' | null;
@@ -85,6 +95,8 @@ export interface ContactResult {
   exitSpeed: number;
   /** 0 to 1: how well it was hit. */
   quality: number;
+  /** Collision geometry for presentation. A miss has no impact. */
+  impact: BatImpact | null;
 }
 
 export interface Swing {
@@ -275,6 +287,7 @@ const MISS: Omit<ContactResult, 'time' | 'phase'> = {
   offset: { along: 0, across: 0 },
   exitSpeed: 0,
   quality: 0,
+  impact: null,
 };
 
 /**
@@ -391,6 +404,7 @@ export function stepSwing(
         offset: { along, across },
         exitSpeed: length(exit),
         quality,
+        impact: { centre, sweet: pose.sweet, normal: pose.normal, along: pose.along },
       };
       return swing.result;
     }

@@ -2,6 +2,7 @@ import type { LabSceneFactory } from '../scene';
 import { anim } from './anim';
 import { assetSample } from './asset-sample';
 import { ballFlight } from './ball-flight';
+import { batContact } from './bat-contact';
 import { bowled } from './bowled';
 import { character } from './character';
 import { CANDIDATE_CLIPS, clipReview } from './clip-review';
@@ -15,6 +16,7 @@ export const SCENES: Record<string, LabSceneFactory> = {
   anim,
   'asset-sample': assetSample,
   'ball-flight': ballFlight,
+  'bat-contact': batContact,
   'delivery-ball': deliveryBall,
   bowled,
   character,

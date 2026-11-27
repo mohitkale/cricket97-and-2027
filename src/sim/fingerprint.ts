@@ -113,6 +113,23 @@ function contactFingerprint(): string {
           assist: ASSIST.classic,
         });
         values.push(ball.vel.x, ball.vel.y, ball.vel.z, result.phase, result.quality);
+        if (result.impact) {
+          const { centre, sweet, normal, along } = result.impact;
+          values.push(
+            centre.x,
+            centre.y,
+            centre.z,
+            sweet.x,
+            sweet.y,
+            sweet.z,
+            normal.x,
+            normal.y,
+            normal.z,
+            along.x,
+            along.y,
+            along.z,
+          );
+        }
       }
     }
   }
