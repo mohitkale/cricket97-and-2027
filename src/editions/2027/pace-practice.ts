@@ -107,7 +107,7 @@ async function start() {
   const release = played.frames[0];
   if (!jog || !delivery || !release) throw new Error('Missing pace practice fixture');
   const bowler = createPaceBowler(bowling, jog, delivery, release.pos);
-  const striker = createBatterStroke(striking, bat, strikeClips.flat(), 'right');
+  const striker = createBatterStroke(striking, bat, strikeClips.flat(), 'right', release.pos);
   const ball = createBallView(ballAsset);
   const camera = createPracticeCamera();
   scene.add(striker.bat, ball.root);

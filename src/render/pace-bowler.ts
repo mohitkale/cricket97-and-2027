@@ -11,6 +11,8 @@ export const PACE_APPROACH = 1.42;
 // Match the forward travel measured from Quaternius's paired jog root-motion clip.
 const APPROACH_SPEED = 5 / (28 / 30);
 const GATHER_BLEND = 0.11;
+// Approach from the bowling-arm side with a slight inward angle. Pivot around release.
+const APPROACH_YAW = Math.PI / 15;
 
 /** Sample a run-up and authored delivery in the world frame, with zero at sim release. */
 export function createPaceBowler(
@@ -20,6 +22,7 @@ export function createPaceBowler(
   release: Vec3,
 ) {
   const { root } = character;
+  root.rotation.y = APPROACH_YAW;
   const mixer = new AnimationMixer(root);
   const runUp = mixer.clipAction(jog).play();
   const delivery = mixer.clipAction(pace).play();
@@ -38,6 +41,8 @@ export function createPaceBowler(
   const x = release.x - anchor.x;
   const z = release.z - anchor.z;
   const speed = APPROACH_SPEED * Math.abs(root.scale.z);
+  const across = Math.sin(APPROACH_YAW) * speed;
+  const downPitch = Math.cos(APPROACH_YAW) * speed;
 
   return {
     sample(timeFromRelease: number, ballPosition: Vector3, hipsPosition?: Vector3): void {
@@ -48,7 +53,8 @@ export function createPaceBowler(
       delivery.time = Math.min(Math.max(0, actionTime), pace.duration - 1e-5);
       runUp.setEffectiveWeight(1 - blend);
       delivery.setEffectiveWeight(blend);
-      root.position.set(x, 0, z + Math.min(0, actionTime) * speed);
+      const approach = Math.min(0, actionTime);
+      root.position.set(x + approach * across, 0, z + approach * downPitch);
       mixer.update(0);
       ball.getWorldPosition(ballPosition);
       if (hipsPosition) hips.getWorldPosition(hipsPosition);

@@ -1,7 +1,9 @@
 import { type AnimationClip, Group, type Object3D, Quaternion, Vector3 } from 'three';
 import { Animator } from '../anim/animator';
 import { type MarkedClip, markClip } from '../anim/clips';
+import { lookAt } from '../anim/ik';
 import type { BatImpact } from '../sim/contact/contact';
+import type { Vec3 } from '../sim/core/vec';
 import type { BattingIntent } from '../sim/match/delivery';
 import { PITCH } from '../sim/units';
 import { BAT_FACE_SWEET_SPOT, setBatAtImpact } from './bat-impact';
@@ -27,17 +29,21 @@ const ease = (v: number) => {
   return x * x * (3 - 2 * x);
 };
 
+// The authored guard's lead foot sits about 42 degrees forward of the rig's local Z.
+const RIGHT_GUARD_YAW = (138 * Math.PI) / 180;
+
 /** Place an authored batter at the striker's end and fit the bat to the sim collision frame. */
 export function createBatterStroke(
   character: Character,
   batAsset: Object3D,
   clips: AnimationClip[],
   hand: 'left' | 'right',
+  bowlerEnd: Vec3 = { x: 0, y: 1.65, z: PITCH.poppingCrease },
 ) {
   const { root } = character;
-  root.rotation.y = Math.PI / 2;
   const side = hand === 'right' ? 1 : -1;
-  // The rig is side-on, so its local Z is across the pitch.
+  root.rotation.y = side > 0 ? RIGHT_GUARD_YAW : Math.PI - RIGHT_GUARD_YAW;
+  // Reflect across the pitch, so the lead foot is still nearer the bowler.
   if (side < 0) root.scale.z *= -1;
   const ready = new Vector3(-0.33 * side, 0, PITCH.length - 1.35);
   root.position.copy(ready);
@@ -63,12 +69,21 @@ export function createBatterStroke(
   const correction = new Quaternion();
   const sweet = new Vector3(...BAT_FACE_SWEET_SPOT);
   const sweetWorld = new Vector3();
-  const gripJoints = ['upperarm_l', 'lowerarm_l', 'upperarm_r', 'lowerarm_r'].map((name) => {
-    const joint = root.getObjectByName(name);
-    if (!joint) throw new Error(`Missing batting joint ${name}`);
-    return { joint, source: new Quaternion() };
-  });
-  let gripFitted = false;
+  const head = root.getObjectByName('Head');
+  if (!head) throw new Error('Missing batting head');
+  const gaze = new Vector3(bowlerEnd.x, bowlerEnd.y, bowlerEnd.z);
+  const upright = new Vector3(0, 1, 0);
+  const forward = new Vector3(0, 0, 1);
+  const face = new Vector3();
+  const flatGaze = new Vector3();
+  const fittedJoints = ['upperarm_l', 'lowerarm_l', 'upperarm_r', 'lowerarm_r', 'Head'].map(
+    (name) => {
+      const joint = root.getObjectByName(name);
+      if (!joint) throw new Error(`Missing batting joint ${name}`);
+      return { joint, source: new Quaternion() };
+    },
+  );
+  let poseFitted = false;
   let plan: {
     clip: MarkedClip;
     marker: number;
@@ -77,22 +92,36 @@ export function createBatterStroke(
     hit: boolean;
   } | null = null;
 
-  const restoreGrip = () => {
-    if (!gripFitted) return;
-    gripFitted = false;
-    for (const { joint, source } of gripJoints) joint.quaternion.copy(source);
+  const restorePose = () => {
+    if (!poseFitted) return;
+    poseFitted = false;
+    for (const { joint, source } of fittedJoints) joint.quaternion.copy(source);
   };
   const setAction = (marked: MarkedClip) => {
-    restoreGrip();
+    restorePose();
     active.stop();
     active = mixer.clipAction(marked.clip).reset().play();
   };
   const samplePose = (time: number) => {
-    restoreGrip();
+    restorePose();
     active.time = Math.max(0, Math.min(active.getClip().duration - 1e-5, time));
     mixer.update(0);
     socket.getWorldPosition(bat.position);
     socket.getWorldQuaternion(bat.quaternion);
+  };
+  const fitPose = (guardWeight: number) => {
+    for (const { joint, source } of fittedJoints) source.copy(joint.quaternion);
+    if (guardWeight > 0) {
+      lookAt(head, forward, gaze, Math.PI / 2, guardWeight);
+      face.copy(forward).applyQuaternion(bat.quaternion);
+      flatGaze.subVectors(gaze, bat.position);
+      const cross = face.z * flatGaze.x - face.x * flatGaze.z;
+      const dot = face.x * flatGaze.x + face.z * flatGaze.z;
+      correction.setFromAxisAngle(upright, guardWeight * Math.atan2(cross, dot));
+      bat.quaternion.premultiply(correction);
+    }
+    animator.fitBat(bat);
+    poseFitted = true;
   };
 
   return {
@@ -134,7 +163,9 @@ export function createBatterStroke(
     sample(time: number) {
       if (!plan || time < plan.start) {
         if (active !== stanceAction) setAction(stance);
+        root.position.copy(ready);
         samplePose(time < 0 ? 0 : time % stance.clip.duration);
+        fitPose(1);
         return;
       }
       if (active.getClip() !== plan.clip.clip) setAction(plan.clip);
@@ -155,9 +186,7 @@ export function createBatterStroke(
           bat.quaternion.premultiply(correction.identity().slerp(turn, weight));
         }
       }
-      for (const { joint, source } of gripJoints) source.copy(joint.quaternion);
-      animator.fitBat(bat);
-      gripFitted = true;
+      fitPose(1 - ease(progress / 0.36));
     },
   };
 }

@@ -20,6 +20,8 @@ The new default is Casual. The cue and Play shot button share a longer, earlier 
 
 On the updated `/play/` build, all 12 keyboard/click attempts and all 12 phone-viewport touch attempts contacted the ball in the delayed-input test. Five-over runs made contact on 28 of 30 keyboard/click shots and 29 of 30 touch shots. The revised `pace-practice` captures were reviewed at 16:9, 20:9 and 9:19.5. After the fix, installed Chrome submitted the first moved bat pose in 12.4 ms for keyboard and 10.7 ms for touch.
 
+The owner also identified a run-up crossing the bowler's stumps and a batting guard facing across the pitch. The bowler now uses a 12-degree approach on the bowling-arm side, aligned at the existing sim release point. Tests sample the feet at 120 Hz and retain more than 10 cm of clearance past the wicket. The batting guard now puts the lead foot down the pitch, with the head and bat face looking toward the bowler and both grips within 1 cm. The 30 seeded bat-impact checks still pass for the new orientation. Portrait framing was adjusted to keep the run-up in view.
+
 The local suite has 560 passing tests. The traced delivery matches in Node, Chromium, Firefox and WebKit. Contact sheets and short videos are under the local `captures/m2-local/` directory.
 
 The owner accepted the desktop and phone-viewport browser playthroughs as the M2 sign-off on November 27, 2026. Real-phone frame pacing remains unmeasured. Full-over motion #29 is the next milestone task. The fielding integration #30 then verifies 50 seeded catches and gathers before #48's full character, kit and rendering acceptance.

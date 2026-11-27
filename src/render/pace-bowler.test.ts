@@ -2,9 +2,10 @@ import { readFile } from 'node:fs/promises';
 import { Vector3 } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { expect, test } from 'vitest';
-import { PITCH } from '../sim/units';
+import { PITCH, WICKET } from '../sim/units';
 import { asCharacter } from './character';
 import { createPaceBowler, PACE_APPROACH } from './pace-bowler';
+import { createPracticeCamera } from './practice-camera';
 
 test('the authored pace take meets the simulated ball at release after a moving approach', async () => {
   const loader = new GLTFLoader();
@@ -25,6 +26,35 @@ test('the authored pace take meets the simulated ball at release after a moving 
   const bowler = createPaceBowler(asCharacter(body.scene), jog, pace, steady);
   const hand = new Vector3();
   const hips = new Vector3();
+  const feet = ['foot_l', 'foot_r', 'ball_l', 'ball_r'].map((name) => {
+    const joint = body.scene.getObjectByName(name);
+    if (!joint) throw new Error(`Missing ${name}`);
+    return joint;
+  });
+  const framing = ['Head', 'hand_l', 'hand_r'].map((name) => {
+    const joint = body.scene.getObjectByName(name);
+    if (!joint) throw new Error(`Missing ${name}`);
+    return joint;
+  });
+  const portrait = createPracticeCamera();
+  const point = new Vector3();
+  portrait.frame(390, 845, steady, 0);
+  let closest = Infinity;
+  for (let time = -PACE_APPROACH; time < 0.72; time += 1 / 120) {
+    bowler.sample(time, hand, hips);
+    for (const foot of feet) {
+      foot.getWorldPosition(point);
+      if (Math.abs(point.z) < 0.25) closest = Math.min(closest, Math.abs(point.x));
+    }
+    for (const joint of framing) {
+      expect(
+        Math.abs(joint.getWorldPosition(point).project(portrait.camera).x),
+        `${joint.name} at ${time}`,
+      ).toBeLessThan(0.92);
+    }
+  }
+  expect(closest).toBeLessThan(Infinity);
+  expect(closest - WICKET.width / 2).toBeGreaterThan(0.1);
   bowler.sample(-PACE_APPROACH, hand, hips);
   const start = hips.clone();
   bowler.sample(0, hand, hips);

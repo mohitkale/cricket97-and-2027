@@ -11,10 +11,10 @@ export function createPracticeCamera() {
     frame(width: number, height: number, ball: Vector3, sinceContact: number) {
       const aspect = width / height;
       const portrait = Math.min(1, Math.max(0, (1 - aspect) / 0.54));
-      camera.position.set(0.68 - portrait * 0.25, 3.05, -13.7 - portrait * 0.3);
+      camera.position.set(0.68 - portrait * 2.6, 3.05, -13.7 - portrait * 0.3);
       camera.aspect = aspect;
-      camera.fov = 29 - portrait;
-      aim.set(0, 0.42, PITCH.poppingCrease);
+      camera.fov = 29 + portrait * 1.8;
+      aim.set(-portrait * 0.59, 0.42, PITCH.poppingCrease);
       if (sinceContact > 0) {
         const t = Math.min(1, sinceContact / 0.62);
         // Blend the look direction, preserving the field of view and camera position.

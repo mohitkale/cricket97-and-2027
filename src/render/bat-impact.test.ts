@@ -28,6 +28,29 @@ test('the animated bat preserves the sim face and offsets across 30 seeded conta
     right: createBatterStroke(asCharacter(right.scene), new Object3D(), clips, 'right'),
     left: createBatterStroke(asCharacter(left.scene), new Object3D(), clips, 'left'),
   };
+  for (const [view, batter] of [
+    [right.scene, batters.right],
+    [left.scene, batters.left],
+  ] as const) {
+    const front = view.getObjectByName('foot_l');
+    const back = view.getObjectByName('foot_r');
+    const head = view.getObjectByName('Head');
+    if (!front || !back || !head) throw new Error('Missing guard joints');
+    for (const time of [0, 0.55, 0.9, 0.55]) {
+      batter.sample(time);
+      const downPitch = new Vector3(0, 0, -1);
+      const face = new Vector3(0, 0, 1).transformDirection(head.matrixWorld);
+      const blade = new Vector3(0, 0, 1).applyQuaternion(batter.bat.quaternion);
+      const stance = front
+        .getWorldPosition(new Vector3())
+        .sub(back.getWorldPosition(new Vector3()));
+      expect(face.setY(0).normalize().dot(downPitch)).toBeGreaterThan(0.995);
+      expect(blade.setY(0).normalize().dot(downPitch)).toBeGreaterThan(0.995);
+      expect(stance.setY(0).normalize().dot(downPitch)).toBeGreaterThan(0.995);
+      expect(batter.readout.handError).toBeLessThan(0.01);
+      expect(batter.readout.bottomHandError).toBeLessThan(0.01);
+    }
+  }
   const [striker, nonStriker] = standardTeam(1);
   const fieldingTeam = standardTeam(2);
   const bowler = fieldingTeam[9]?.bowling;
