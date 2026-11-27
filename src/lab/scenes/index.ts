@@ -5,6 +5,7 @@ import { ballFlight } from './ball-flight';
 import { bowled } from './bowled';
 import { character } from './character';
 import { CANDIDATE_CLIPS, clipReview } from './clip-review';
+import { deliveryBall } from './delivery-ball';
 import { heroField, heroRig } from './hero-rig';
 import { pitchPlan } from './pitch-plan';
 import { strokeMap } from './stroke-map';
@@ -14,6 +15,7 @@ export const SCENES: Record<string, LabSceneFactory> = {
   anim,
   'asset-sample': assetSample,
   'ball-flight': ballFlight,
+  'delivery-ball': deliveryBall,
   bowled,
   character,
   'hero-rig': heroRig,

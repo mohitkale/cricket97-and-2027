@@ -6,7 +6,7 @@
  * positions and times, with seeded chance only where real cricket has it: whether a
  * hard chance sticks, and how straight a throw is.
  */
-import { type BallEnvironment, type BallState, stepBall } from '../ball/ball.ts';
+import { type BallEnvironment, type BallObserver, type BallState, stepBall } from '../ball/ball.ts';
 import type { RandomStream } from '../core/prng.ts';
 import type { BallOutcome } from '../rules/match.ts';
 import { GRAVITY, PITCH, SIM_DT } from '../units.ts';
@@ -108,7 +108,7 @@ const clamp01 = (value: number, low: number, high: number) =>
   value < low ? low : value > high ? high : value;
 
 /** Play the ball out. Mutates the ball, fielders and runners; returns what happened. */
-export function resolvePlay(setup: PlaySetup): PlayResult {
+export function resolvePlay(setup: PlaySetup, observe?: BallObserver): PlayResult {
   const { ball, env, fielders, runners, random, guards } = setup;
   const caution = setup.caution ?? 0.35;
   const byId = new Map(fielders.map((agent) => [agent.id, agent]));
@@ -347,6 +347,7 @@ export function resolvePlay(setup: PlaySetup): PlayResult {
   if (wantRun()) startRun();
 
   for (let step = 0; step < 120 * 40; step++) {
+    if (step > 0) observe?.(t, ball);
     t += SIM_DT;
     for (const agent of fielders) stepAgent(agent, SIM_DT);
     for (const runner of runners) stepRunner(runner, SIM_DT);
@@ -516,6 +517,7 @@ export function resolvePlay(setup: PlaySetup): PlayResult {
       }
     }
   }
+  observe?.(t, ball);
 
   // Runs do not count on a catch, and a boundary replaces runs run.
   const final = dismissal as PlayResult['dismissal'];
