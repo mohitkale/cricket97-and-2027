@@ -9,6 +9,34 @@ export type PracticeShot = Pick<BattingIntent, 'stroke' | 'lofted'>;
 export type PracticeAssist = keyof typeof ASSIST;
 export type PracticeFrame = Parameters<BallObserver>[1] & { readonly time: number };
 export const practiceGround = groundEnvironment('hard');
+export const PRACTICE_TIMING = {
+  casual: { speed: 0.65, lead: 0.105, cue: 0.19, earlyBuffer: 0.065, contactHold: 0.075 },
+  classic: { speed: 0.82, lead: 0.13, cue: 0.19, earlyBuffer: 0.06, contactHold: 0.05 },
+  pro: { speed: 1, lead: 0.13, cue: 0.15, earlyBuffer: 0, contactHold: 0 },
+} as const;
+
+/** First usable cue and last usable input are in simulation seconds from release. */
+export function practiceWindow(arrival: number, assist: PracticeAssist) {
+  const { lead, cue } = PRACTICE_TIMING[assist];
+  return { ideal: arrival - lead, opens: arrival - lead - cue, closes: arrival - 0.035 };
+}
+
+export function practiceSwingError(time: number, arrival: number, assist: PracticeAssist) {
+  const window = practiceWindow(arrival, assist);
+  const error = time - window.ideal;
+  const { earlyBuffer } = PRACTICE_TIMING[assist];
+  return time >= window.opens && earlyBuffer ? Math.max(-earlyBuffer, error) : error;
+}
+
+/** Only the practice view slows the incoming ball and briefly holds a successful impact. */
+export function practiceClock(elapsedFromRelease: number, assist: PracticeAssist, impact?: number) {
+  const { speed, contactHold } = PRACTICE_TIMING[assist];
+  const flight = elapsedFromRelease * speed;
+  if (elapsedFromRelease <= 0) return elapsedFromRelease;
+  if (impact === undefined || flight < impact) return flight;
+  return impact + Math.max(0, elapsedFromRelease - impact / speed - contactHold);
+}
+
 const battingTeam = standardTeam(1);
 const fieldingTeam = standardTeam(2);
 
@@ -27,7 +55,7 @@ export function practiceDelivery(
     {
       bowler: { ...bowler, hand: 'right' },
       intent: {
-        line: -0.05 - (number % 4) * 0.055,
+        line: -0.13 - (number % 4) * 0.035,
         length,
         kmh: 132 + (number % 4) * 2,
         swing: 0.15,

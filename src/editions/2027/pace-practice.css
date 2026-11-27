@@ -66,4 +66,5 @@ select { font: inherit; padding: 4px; }
   pointer-events: none;
 }
 #cue:empty { display: none; }
+#cue.playing { background: #c9ef68; color: #152507; font-weight: 700; }
 meter { width: 64px; margin-left: 6px; }

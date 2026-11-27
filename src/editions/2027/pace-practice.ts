@@ -4,8 +4,11 @@ import {
   type PracticeAssist,
   type PracticeShot,
   practiceArrival,
+  practiceClock,
   practiceDelivery,
   practiceGround,
+  practiceSwingError,
+  practiceWindow,
 } from '../../game/pace-practice';
 import { bindBattingInput } from '../../platform/batting-input';
 import { loadClips, loadModel } from '../../render/assets';
@@ -27,6 +30,7 @@ const get = <T extends HTMLElement>(selector: string): T => {
 const screen = get<HTMLElement>('#practice');
 const canvas = get<HTMLCanvasElement>('#pitch');
 const next = get<HTMLButtonElement>('#next');
+const playShot = get<HTMLButtonElement>('#play-shot');
 const assist = get<HTMLSelectElement>('#assist');
 const trail = get<HTMLInputElement>('#trail');
 const cue = get<HTMLElement>('#cue');
@@ -36,11 +40,10 @@ const meter = get<HTMLMeterElement>('#feedback meter');
 const score = get<HTMLElement>('#score');
 const overs = get<HTMLElement>('#overs');
 
-const LEAD_TIME = 0.19;
-const MAX_INPUT_LATE = 0.13;
 const START = 'Bowl first ball';
+const SHOW_UNTIL = 1.5;
 const query = new URLSearchParams(location.search);
-const mode = query.get('mode') ?? 'mixed';
+const rosterMode = query.get('mode') ?? 'mixed';
 if (matchMedia('(pointer: coarse)').matches)
   get('#help').textContent = 'Swipe to drive · tap to defend · swipe farther to loft';
 
@@ -48,7 +51,7 @@ async function start() {
   const renderer = new WebGLRenderer({ canvas, antialias: true });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 1.35));
   const scene = new Scene();
-  const [bodies, jogClips, paceClips, strikeClips, ballAsset, bat, helmet, pads, gloves] =
+  const [bodies, jogClips, paceClips, strikeClips, ballAsset, bat, helmet, pads, gloves, ground] =
     await Promise.all([
       loadPlayerBodies(),
       loadClips('clips/ual1-fielding.glb'),
@@ -62,18 +65,18 @@ async function start() {
       addSliceGround(scene, renderer),
     ]);
   const strikerInfo = {
-    name: mode === 'male' ? 'Neel Joshi' : 'Avani Joshi',
+    name: rosterMode === 'male' ? 'Neel Joshi' : 'Avani Joshi',
     team: 'India',
     color: 0x276ed2,
     number: 18,
-    gender: mode === 'male' ? 'male' : 'female',
+    gender: rosterMode === 'male' ? 'male' : 'female',
   } as const;
   const bowlerInfo = {
-    name: mode === 'female' ? 'Adele Brannigan' : 'Alex Brannigan',
+    name: rosterMode === 'female' ? 'Adele Brannigan' : 'Alex Brannigan',
     team: 'Australia',
     color: 0xd4ac2c,
     number: 36,
-    gender: mode === 'female' ? 'female' : 'male',
+    gender: rosterMode === 'female' ? 'female' : 'male',
   } as const;
   const atlas = createJerseyAtlas(2);
   atlas.write([strikerInfo, bowlerInfo]);
@@ -98,7 +101,8 @@ async function start() {
   }
   const jog = jogClips.find(({ name }) => name === 'Jog_Fwd_Loop');
   const delivery = paceClips.find(({ name }) => name === 'Bowling_Pace_Delivery');
-  let played = practiceDelivery(0, 'classic');
+  let mode = assist.value as PracticeAssist;
+  let played = practiceDelivery(0, mode);
   let trace = played.frames.map(({ pos }) => pos);
   const release = played.frames[0];
   if (!jog || !delivery || !release) throw new Error('Missing pace practice fixture');
@@ -116,7 +120,6 @@ async function start() {
   const before = new Vector3();
   let liveAt = Number.NaN;
   let inputAt = Number.NaN;
-  let shotTime = 0;
   let expected = 0;
   let earlyLate = 0;
   let legal = 0;
@@ -124,7 +127,9 @@ async function start() {
   let wickets = 0;
   let attempted = 0;
   let choice = false;
-  let remaining = 1.9;
+  let leaving = false;
+  let tooLate = false;
+  let broken = false;
   let pathIndex = 0;
   let lastFlight = 0;
 
@@ -158,6 +163,13 @@ async function start() {
     lastFlight = time;
     ball.setPose(position, orientation, practiceGround.surfaceAt(position.x, position.z).height);
     ball.setTrail(trace, pathIndex, position, time >= 0 && trail.checked);
+    if (result.wicketBroken && time >= result.wicketBroken.t) {
+      ground.breakWicket(result.wicketBroken, time - result.wicketBroken.t);
+      broken = true;
+    } else if (broken) {
+      ground.breakWicket(null, 0);
+      broken = false;
+    }
     const width = canvas.clientWidth;
     const height = canvas.clientHeight;
     if (
@@ -190,25 +202,37 @@ async function start() {
     runs += (outcome.boundary ?? outcome.runsRun ?? 0) + (illegal ? 1 : 0);
     score.textContent = `${runs} / ${wickets}`;
     overs.textContent = `${Math.floor(legal / 6)}.${legal % 6} / 5 overs`;
-    const mode =
-      illegal ??
-      outcome.dismissal?.kind ??
-      (outcome.boundary ? `${outcome.boundary} runs` : contact?.kind === 'edge' ? 'Edge' : '');
-    const timing = !choice
-      ? 'No shot'
-      : Math.abs(earlyLate) <= 0.048
-        ? 'Perfect'
-        : earlyLate > 0
-          ? 'Late'
-          : 'Early';
-    verdict.textContent = mode ? `${timing} · ${mode}` : timing;
-    meter.value = Math.max(-1, Math.min(1, earlyLate / MAX_INPUT_LATE));
+    const outcomeLabel =
+      illegal ?? outcome.dismissal?.kind ?? (outcome.boundary ? `${outcome.boundary} runs` : '');
+    const strike =
+      contact?.kind === 'middled'
+        ? 'Clean hit'
+        : contact?.kind === 'edge'
+          ? 'Edge'
+          : contact?.impact
+            ? 'Mistimed hit'
+            : 'Miss';
+    const timing = tooLate
+      ? 'Too late'
+      : !choice
+        ? 'No shot'
+        : Math.abs(earlyLate) <= 0.055
+          ? 'On time'
+          : earlyLate > 0
+            ? 'Late'
+            : 'Early';
+    const action = choice || tooLate ? `${strike} · ${timing}` : timing;
+    verdict.textContent = outcomeLabel ? `${action} · ${outcomeLabel}` : action;
+    meter.value = Math.max(-1, Math.min(1, earlyLate / 0.19));
+    meter.hidden = !choice && !tooLate;
     feedback.hidden = false;
     cue.textContent = '';
     screen.dataset.phase = 'ready';
     screen.dataset.legal = String(legal);
     liveAt = Number.NaN;
     next.disabled = false;
+    playShot.hidden = true;
+    next.hidden = false;
     assist.disabled = false;
     next.textContent = legal >= 30 ? 'Restart practice' : 'Next ball';
   }
@@ -216,36 +240,40 @@ async function start() {
   function choose(shot: PracticeShot) {
     if (!Number.isFinite(liveAt) || choice) return;
     const now = performance.now();
-    const time = (now - liveAt) / 1000 - PACE_APPROACH;
-    if (time < -0.08 || time > expected + MAX_INPUT_LATE) return;
+    const time = practiceClock((now - liveAt) / 1000 - PACE_APPROACH, mode);
     expected = practiceArrival(played.frames, shot.stroke);
-    // Grade arrival of the blade, with a small lead for the committed motion.
-    earlyLate = time + LEAD_TIME - expected;
-    const mode = assist.value as PracticeAssist;
-    const eventTime = Math.max(-0.03, time);
+    const window = practiceWindow(expected, mode);
+    if (time > window.closes) {
+      tooLate = true;
+      earlyLate = time - window.ideal;
+      return;
+    }
+    earlyLate = time - window.ideal;
+    const timingError = practiceSwingError(time, expected, mode);
     const previous = played;
-    played = practiceDelivery(attempted, mode, shot, earlyLate);
+    played = practiceDelivery(attempted, mode, shot, timingError);
     const event = played.result.contact;
-    const contactAt = event?.impact ? event.time : expected;
-    if (event?.impact && contactAt <= eventTime) played = previous;
+    if (event?.impact && event.time <= time + 0.018) played = previous;
     trace = played.frames.map(({ pos }) => pos);
     const chosen = played.result.contact;
     const start = time - 0.018;
     before.copy(striker.bat.position);
     inputAt = now;
     choice = true;
-    shotTime = time;
     pathIndex = 0;
     striker.plan(
       shot.stroke,
       start,
-      chosen?.impact ? chosen.time : Math.max(time + 0.13, expected),
+      chosen?.impact ? chosen.time : Math.max(time + 0.105, expected + timingError),
       chosen?.impact ?? null,
     );
-    cue.textContent = '';
+    playShot.disabled = true;
+    cue.classList.remove('playing');
+    cue.textContent = 'Shot played';
     draw(time);
   }
   bindBattingInput(canvas, choose);
+  playShot.addEventListener('click', () => choose({ stroke: 'straight-drive', lofted: false }));
 
   next.addEventListener('click', () => {
     if (legal >= 30) {
@@ -256,19 +284,23 @@ async function start() {
       score.textContent = '0 / 0';
       overs.textContent = '0.0 / 5 overs';
     }
-    played = practiceDelivery(attempted, assist.value as PracticeAssist);
+    mode = assist.value as PracticeAssist;
+    played = practiceDelivery(attempted, mode);
     trace = played.frames.map(({ pos }) => pos);
     expected = practiceArrival(played.frames, 'cover-drive');
     choice = false;
+    leaving = false;
+    tooLate = false;
     earlyLate = 0;
     pathIndex = 0;
     lastFlight = 0;
-    shotTime = Number.NEGATIVE_INFINITY;
-    remaining = 1.9;
     striker.reset();
     cue.textContent = '';
     feedback.hidden = true;
     next.disabled = true;
+    next.hidden = true;
+    playShot.hidden = false;
+    playShot.disabled = true;
     assist.disabled = true;
     delete screen.dataset.inputResponse;
     canvas.focus();
@@ -277,20 +309,31 @@ async function start() {
   });
 
   function frame(now: number) {
-    const time = (now - liveAt) / 1000 - PACE_APPROACH;
+    const impact = played.result.contact?.impact ? played.result.contact.time : undefined;
+    const time = practiceClock((now - liveAt) / 1000 - PACE_APPROACH, mode, impact);
     if (!choice) {
-      const assistMode = assist.value as PracticeAssist;
-      const hintWidth = assistMode === 'pro' ? 0.018 : assistMode === 'casual' ? 0.07 : 0.043;
-      const hint = time + LEAD_TIME - expected;
-      const nextCue = Math.abs(hint) <= hintWidth ? 'Play now' : '';
+      const { opens, closes } = practiceWindow(expected, mode);
+      const ready = time >= opens && time <= closes;
+      const nextCue = time < opens ? 'Get ready' : ready ? 'Play now' : '';
       if (cue.textContent !== nextCue) cue.textContent = nextCue;
-      if (time > expected + MAX_INPUT_LATE && shotTime === Number.NEGATIVE_INFINITY) {
-        shotTime = time;
+      cue.classList.toggle('playing', ready);
+      playShot.disabled = !ready;
+      if (time > closes && !leaving) {
+        leaving = true;
         striker.plan('leave', time, time + 0.22, null);
       }
+    } else if (impact !== undefined && time >= impact) {
+      const contact = played.result.contact;
+      const strike =
+        contact?.kind === 'middled'
+          ? 'Clean hit'
+          : contact?.kind === 'edge'
+            ? 'Edge'
+            : 'Mistimed hit';
+      if (cue.textContent !== strike) cue.textContent = strike;
     }
     draw(time);
-    if (time < remaining) requestAnimationFrame(frame);
+    if (time < SHOW_UNTIL) requestAnimationFrame(frame);
     else finish();
   }
   window.addEventListener('resize', () => {

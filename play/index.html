@@ -10,13 +10,14 @@
       <canvas id="pitch" aria-label="Cricket pitch. Swipe to drive or tap to defend." tabindex="0"></canvas>
       <header id="practice-hud">
         <div><p>Pace practice</p><strong id="score">0 / 0</strong> <span id="overs">0.0 / 5 overs</span></div>
-        <div><label>Assist <select id="assist"><option value="casual">Casual</option><option value="classic" selected>Classic</option><option value="pro">Pro</option></select></label> <label><input type="checkbox" id="trail" /> Trail</label></div>
+        <div><label>Assist <select id="assist"><option value="casual" selected>Casual</option><option value="classic">Classic</option><option value="pro">Pro</option></select></label> <label><input type="checkbox" id="trail" checked /> Trail</label></div>
       </header>
       <p id="cue" aria-live="polite"></p>
       <section id="practice-controls">
         <div id="feedback" hidden><strong></strong><meter aria-label="Shot timing" min="-1" max="1" value="0"></meter></div>
         <p id="help">← ↑ → drive · ↓ defend · Space loft</p>
         <button id="next" disabled>Loading pitch…</button>
+        <button id="play-shot" hidden>Play shot</button>
         <a href="../legacy/?era=2027">Match setup</a>
       </section>
     </main>

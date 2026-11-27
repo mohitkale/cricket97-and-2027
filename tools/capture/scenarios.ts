@@ -43,7 +43,10 @@ async function startPacePractice(page: Page, advance: (ms: number) => Promise<vo
     const observer = new MutationObserver(() => {
       if (cue.textContent !== 'Play now') return;
       observer.disconnect();
-      window.dispatchEvent(new KeyboardEvent('keydown', { code: 'ArrowLeft' }));
+      window.setTimeout(
+        () => window.dispatchEvent(new KeyboardEvent('keydown', { code: 'ArrowLeft' })),
+        210,
+      );
     });
     observer.observe(cue, { childList: true });
   });
@@ -139,7 +142,7 @@ export const SCENARIOS: Record<string, Scenario> = {
       {
         kind: 'page',
         path: '/play/',
-        duration: 2.75,
+        duration: 3.1,
         frameMs: 25,
         viewport: viewport as Viewport,
         seed: 1,
