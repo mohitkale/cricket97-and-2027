@@ -78,6 +78,12 @@ The browser-authored pace delivery starts with a gather and includes the front-f
 
 Delegated Chromium review covers all clip-set A actions at full and quarter speed. The two batting capture pairs are `batting-front-foot-defence` and `batting-cover-drive` with their `-quarter` variants. The pace pair is `clip-Bowling_Pace_Delivery` and `pace-delivery-quarter`. The batting and bowling captures show the authored footwork, grip and release pose. The integrated ball and hand alignment gates are tracked in #22 and #23.
 
+## Full-over clip set
+
+The `over-*.glb` sources hold the authored keys for movement, fielding, keeping, umpire signals, spin and batting footwork. They are editable glTF takes on the shared skeleton. The Quaternius UAL2 Standard slide uses `Slide_Start,Slide_Loop,Slide_Exit` from `UAL2_Standard.glb`, cut with the extraction command above. The eight additional batting takes each have a matching grip track. Rebuild each one with `node tools/assets/fit-batting-stance.ts batting-<name>`. After replacing the running source takes, run `node tools/assets/fit-running-bat.ts` to restore the baked bat constraint. Build the touched GLBs with `npm run assets -- over-` and `npm run assets -- batting-`.
+
+Open `/lab/` for the `clip-<name>` scenes. Each shows the front and side and exposes the lab's pause, scrub and playback controls. The contact markers from `src/anim/over-clips.ts` are shared with the runtime. The umpire actions follow [MCC's signals](https://lawsofcricket.lords.org/umpire-signals).
+
 ## Clips captured from video
 
 `lab/capture.html` (run `npm run dev`) turns a video of a person into pose landmarks in `assets/src/capture/<name>.json`. `node tools/assets/retarget-capture.ts <name> --level` turns those into `assets/src/clips/capture-<name>.glb`. Then build as above. The landmark file is the source of the clip and is committed; the video is not. See `docs/decisions/0003-animation-source.md` for what this can and cannot capture.

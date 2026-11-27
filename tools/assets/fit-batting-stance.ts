@@ -13,6 +13,7 @@ interface GripTrack {
   source: string;
   sourceFile?: string;
   duration?: number;
+  samplesPerSecond?: number;
   keys: { phase: number; grip: V3; handle: V3; face?: V3 }[];
 }
 
@@ -81,7 +82,7 @@ for (const node of fingersOnGrip.keys()) rotations.set(node, []);
 const mixer = new AnimationMixer(rig);
 const action = mixer.clipAction(clip).play();
 const duration = authored.duration ?? clip.duration;
-const steps = Math.round(duration * 60);
+const steps = Math.round(duration * (authored.samplesPerSecond ?? 60));
 const times: number[] = [];
 for (let frame = 0; frame <= steps; frame++) {
   const phase = frame / steps;
@@ -165,16 +166,25 @@ if (duration !== clip.duration) {
 const buffer = root.listBuffers()[0] ?? doc.createBuffer();
 const timeAccessor = doc.createAccessor().setArray(new Float32Array(times)).setBuffer(buffer);
 for (const [node, values] of rotations) {
+  const target = root.listNodes().find((item) => item.getName() === node.name);
+  if (!target) throw new Error(`Missing source bone ${node.name}`);
   const channel = animation
     .listChannels()
-    .find(
-      (item) =>
-        item.getTargetPath() === 'rotation' && item.getTargetNode()?.getName() === node.name,
-    );
-  if (!channel) throw new Error(`Missing rotation channel for ${node.name}`);
-  channel
-    .getSampler()
-    ?.setInput(timeAccessor)
+    .find((item) => item.getTargetPath() === 'rotation' && item.getTargetNode() === target);
+  const sampler = channel?.getSampler() ?? doc.createAnimationSampler();
+  if (!channel) {
+    animation
+      .addSampler(sampler)
+      .addChannel(
+        doc
+          .createAnimationChannel()
+          .setTargetNode(target)
+          .setTargetPath('rotation')
+          .setSampler(sampler),
+      );
+  }
+  sampler
+    .setInput(timeAccessor)
     .setOutput(
       doc.createAccessor().setType('VEC4').setArray(new Float32Array(values)).setBuffer(buffer),
     );

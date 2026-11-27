@@ -4,6 +4,7 @@
  * Foot plants are found in the clip's own motion; the rest are authored in MARKERS.
  */
 import { type AnimationClip, AnimationMixer, type Object3D, Vector3 } from 'three';
+import { OVER_CLIPS } from './over-clips';
 
 export type MarkerName =
   | 'plant_l'
@@ -15,6 +16,8 @@ export type MarkerName =
   | 'contact'
   | 'catch'
   | 'throw'
+  | 'ground'
+  | 'stump'
   | 'leave';
 
 export interface Marker {
@@ -40,6 +43,7 @@ export interface MarkedClip {
 
 /** Authored markers for clips whose events cannot be found from motion alone. */
 export const MARKERS: Record<string, Marker[]> = {
+  ...Object.fromEntries(Object.entries(OVER_CLIPS).map(([name, clip]) => [name, clip.markers])),
   OverhandThrow: [{ name: 'release', time: 0.4 }],
   Batting_Backlift: [{ name: 'backlift', time: 0.43 }],
   Batting_Leave: [{ name: 'leave', time: 0.56 }],

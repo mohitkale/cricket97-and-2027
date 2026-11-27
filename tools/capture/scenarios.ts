@@ -1,4 +1,5 @@
 import type { Page } from 'playwright-core';
+import { OVER_CLIPS } from '../../src/anim/over-clips.ts';
 
 export interface Viewport {
   width: number;
@@ -108,6 +109,7 @@ async function startOpeningLineup(
 
 /** Source and fitted clips under review, with lengths in seconds. */
 const CLIP_REVIEWS: [string, number][] = [
+  ...Object.entries(OVER_CLIPS).map(([name, clip]): [string, number] => [name, clip.duration]),
   ['TreeChopping_Loop', 0.97],
   ['Sword_Attack', 1.53],
   ['Sword_Regular_A', 0.43],
