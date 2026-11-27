@@ -4,36 +4,38 @@
  */
 import { type Object3D, Quaternion, Vector3 } from 'three';
 
-const a = new Vector3();
-const b = new Vector3();
-const c = new Vector3();
-const t = new Vector3();
-const ab = new Vector3();
-const ba = new Vector3();
-const ac = new Vector3();
-const at = new Vector3();
-const bc = new Vector3();
+const shoulder = new Vector3();
+const elbow = new Vector3();
+const wrist = new Vector3();
+const upperDirection = new Vector3();
+const lowerDirection = new Vector3();
+const axisToWrist = new Vector3();
 const bend = new Vector3();
-const swing = new Vector3();
-const toPole = new Vector3();
-const q = new Quaternion();
+const wantedUpper = new Vector3();
+const wantedLower = new Vector3();
+const sourceNormal = new Vector3();
+const targetNormal = new Vector3();
+const cross = new Vector3();
+const turn = new Quaternion();
+const twist = new Quaternion();
 const parentWorld = new Quaternion();
+const localTurn = new Quaternion();
 const parentPosition = new Vector3();
 const worldScale = new Vector3();
 const EPS = 1e-4;
 
 const clamp = (x: number, lo: number, hi: number) => (x < lo ? lo : x > hi ? hi : x);
-const angle = (u: Vector3, v: Vector3) =>
-  Math.acos(clamp(u.dot(v) / Math.max(EPS, u.length() * v.length()), -1, 1));
-
 /** Turn a bone with current world matrices, keeping its parent where it is. */
-function rotateWorld(bone: Object3D, axis: Vector3, radians: number): void {
-  if (radians === 0 || axis.lengthSq() < EPS * EPS) return;
+function rotateWorld(bone: Object3D, delta: Quaternion): void {
   if (bone.parent) bone.parent.matrixWorld.decompose(parentPosition, parentWorld, worldScale);
-  else parentWorld.identity();
-  // local' = P^-1 * R * P * local
-  q.setFromAxisAngle(axis, radians);
-  bone.quaternion.premultiply(parentWorld).premultiply(q).premultiply(parentWorld.invert());
+  else {
+    parentWorld.identity();
+    worldScale.set(1, 1, 1);
+  }
+  localTurn.copy(delta).multiply(parentWorld).premultiply(parentWorld.invert());
+  // Matrix4.decompose puts a reflection on X. An axial rotation reverses on the other axes.
+  if (worldScale.x < 0) localTurn.set(localTurn.x, -localTurn.y, -localTurn.z, localTurn.w);
+  bone.quaternion.premultiply(localTurn);
   bone.updateMatrixWorld(true);
 }
 
@@ -52,47 +54,86 @@ export function solveTwoBone(
 ): void {
   if (weight <= 0) return;
   upper.updateWorldMatrix(true, true);
-  a.setFromMatrixPosition(upper.matrixWorld);
-  b.setFromMatrixPosition(lower.matrixWorld);
-  c.setFromMatrixPosition(end.matrixWorld);
-  t.copy(c).lerp(target, clamp(weight, 0, 1));
+  shoulder.setFromMatrixPosition(upper.matrixWorld);
+  elbow.setFromMatrixPosition(lower.matrixWorld);
+  wrist.setFromMatrixPosition(end.matrixWorld);
+  upperDirection.subVectors(elbow, shoulder);
+  lowerDirection.subVectors(wrist, elbow);
+  const upperSquared = upperDirection.lengthSq();
+  const lowerSquared = lowerDirection.lengthSq();
+  if (upperSquared <= EPS * EPS || lowerSquared <= EPS * EPS) return;
+  const upperLength = Math.sqrt(upperSquared);
+  const lowerLength = Math.sqrt(lowerSquared);
+  const inverseUpper = 1 / upperLength;
+  const inverseLower = 1 / lowerLength;
+  // Keep computed scalars local on the hot path. V8 can box them at vector method calls.
+  upperDirection.x *= inverseUpper;
+  upperDirection.y *= inverseUpper;
+  upperDirection.z *= inverseUpper;
+  lowerDirection.x *= inverseLower;
+  lowerDirection.y *= inverseLower;
+  lowerDirection.z *= inverseLower;
 
-  const lab = ab.subVectors(b, a).length();
-  const lcb = bc.subVectors(c, b).length();
-  const lat = clamp(at.subVectors(t, a).length(), EPS, lab + lcb - EPS);
-  ac.subVectors(c, a);
+  axisToWrist
+    .copy(wrist)
+    .lerp(target, clamp(weight, 0, 1))
+    .sub(shoulder);
+  const targetDistance = Math.sqrt(axisToWrist.lengthSq());
+  if (targetDistance > EPS) axisToWrist.multiplyScalar(1 / targetDistance);
+  else axisToWrist.copy(upperDirection);
+  const reach = clamp(
+    targetDistance,
+    Math.abs(upperLength - lowerLength) + EPS,
+    upperLength + lowerLength - EPS,
+  );
 
-  // 1. Open or close the middle joint so the chain is as long as the reach, in the plane
-  // it already bends in (or toward the pole if it is straight).
-  const nowAtA = angle(ac, ab);
-  const nowAtB = angle(ba.copy(ab).negate(), bc);
-  const wantAtA = Math.acos(clamp((lcb * lcb - lab * lab - lat * lat) / (-2 * lab * lat), -1, 1));
-  const wantAtB = Math.acos(clamp((lat * lat - lab * lab - lcb * lcb) / (-2 * lab * lcb), -1, 1));
-  bend.crossVectors(ac, ab);
-  if (bend.lengthSq() < EPS * EPS) bend.crossVectors(ac, toPole.subVectors(pole, a));
-  bend.normalize();
-  rotateWorld(upper, bend, wantAtA - nowAtA);
-  rotateWorld(lower, bend, wantAtB - nowAtB);
-
-  // 2. Swing the whole chain so the end points at the target.
-  c.setFromMatrixPosition(end.matrixWorld);
-  ac.subVectors(c, a);
-  at.subVectors(t, a);
-  swing.crossVectors(ac, at);
-  if (swing.lengthSq() > EPS * EPS) rotateWorld(upper, swing.normalize(), angle(ac, at));
-
-  // 3. Twist about the line to the target until the middle joint is on the pole's side.
-  // The end stays where it is.
-  at.normalize();
-  b.setFromMatrixPosition(lower.matrixWorld);
-  ab.subVectors(b, a).addScaledVector(at, -ab.subVectors(b, a).dot(at));
-  toPole.subVectors(pole, a);
-  toPole.addScaledVector(at, -toPole.dot(at));
-  if (ab.lengthSq() > EPS * EPS && toPole.lengthSq() > EPS * EPS) {
-    swing.crossVectors(ab, toPole);
-    const sign = swing.dot(at) < 0 ? -1 : 1;
-    rotateWorld(upper, at, sign * angle(ab, toPole));
+  bend.subVectors(pole, shoulder);
+  const projection = -bend.dot(axisToWrist);
+  bend.x += axisToWrist.x * projection;
+  bend.y += axisToWrist.y * projection;
+  bend.z += axisToWrist.z * projection;
+  if (bend.lengthSq() < EPS * EPS)
+    bend.copy(upperDirection).addScaledVector(axisToWrist, -upperDirection.dot(axisToWrist));
+  if (bend.lengthSq() < EPS * EPS) {
+    bend.set(Math.abs(axisToWrist.x) < 0.8 ? 1 : 0, Math.abs(axisToWrist.x) < 0.8 ? 0 : 1, 0);
+    bend.addScaledVector(axisToWrist, -bend.dot(axisToWrist));
   }
+  bend.normalize();
+
+  // Position the elbow directly in the triangle made by the two limb lengths and reach.
+  const along = (upperSquared - lowerSquared + reach * reach) / (2 * reach);
+  const across = Math.sqrt(Math.max(0, upperSquared - along * along));
+  wantedUpper.x = axisToWrist.x * along + bend.x * across;
+  wantedUpper.y = axisToWrist.y * along + bend.y * across;
+  wantedUpper.z = axisToWrist.z * along + bend.z * across;
+  wantedLower
+    .copy(axisToWrist)
+    .multiplyScalar(reach)
+    .sub(wantedUpper)
+    .multiplyScalar(1 / lowerLength);
+  wantedUpper.multiplyScalar(1 / upperLength);
+
+  // Retain the authored elbow's bend plane when the new upper direction changes.
+  turn.setFromUnitVectors(upperDirection, wantedUpper);
+  sourceNormal.crossVectors(upperDirection, lowerDirection).applyQuaternion(turn);
+  targetNormal.crossVectors(wantedUpper, wantedLower);
+  if (sourceNormal.lengthSq() > EPS * EPS && targetNormal.lengthSq() > EPS * EPS) {
+    sourceNormal.normalize();
+    targetNormal.normalize();
+    const dot = clamp(sourceNormal.dot(targetNormal), -1, 1);
+    const sign = cross.crossVectors(sourceNormal, targetNormal).dot(wantedUpper) < 0 ? -1 : 1;
+    const halfSin = sign * Math.sqrt((1 - dot) / 2);
+    twist.set(
+      wantedUpper.x * halfSin,
+      wantedUpper.y * halfSin,
+      wantedUpper.z * halfSin,
+      Math.sqrt((1 + dot) / 2),
+    );
+    turn.premultiply(twist);
+  }
+  rotateWorld(upper, turn);
+  lowerDirection.applyQuaternion(turn);
+  rotateWorld(lower, turn.setFromUnitVectors(lowerDirection, wantedLower));
 }
 
 const forward = new Vector3();
@@ -115,8 +156,18 @@ export function lookAt(
   bone.matrixWorld.decompose(head, headWorld, worldScale);
   forward.copy(axis).applyQuaternion(headWorld);
   toTarget.subVectors(target, head);
-  const off = angle(forward, toTarget);
-  swing.crossVectors(forward, toTarget);
-  if (swing.lengthSq() < EPS * EPS) return;
-  rotateWorld(bone, swing.normalize(), Math.min(off, maxRadians) * clamp(weight, 0, 1));
+  if (toTarget.lengthSq() < EPS * EPS || weight <= 0 || maxRadians <= 0) return;
+  forward.normalize();
+  toTarget.normalize();
+  if (forward.dot(toTarget) >= Math.cos(maxRadians) && weight >= 1) {
+    rotateWorld(bone, turn.setFromUnitVectors(forward, toTarget));
+    return;
+  }
+  cross.crossVectors(forward, toTarget);
+  if (cross.lengthSq() < EPS * EPS) return;
+  const angle = Math.acos(clamp(forward.dot(toTarget), -1, 1));
+  rotateWorld(
+    bone,
+    turn.setFromAxisAngle(cross.normalize(), Math.min(angle, maxRadians) * clamp(weight, 0, 1)),
+  );
 }

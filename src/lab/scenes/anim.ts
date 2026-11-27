@@ -14,7 +14,7 @@ import {
 } from 'three';
 import { Animator } from '../../anim/animator';
 import { type MarkedClip, markClip } from '../../anim/clips';
-import { BOTTOM_WRIST_ON_BAT, TOP_WRIST_ON_BAT } from '../../anim/skeleton';
+import { BOTTOM_WRIST_ON_BAT, DEFAULT_STATURE, TOP_WRIST_ON_BAT } from '../../anim/skeleton';
 import { loadClips, loadModel } from '../../render/assets';
 import { attach, loadCharacter } from '../../render/character';
 import type { LabSceneFactory } from '../scene';
@@ -28,6 +28,11 @@ const CLIP_FILES = [
 ];
 const STATES = ['walk', 'idle', 'bat'] as const;
 type State = (typeof STATES)[number];
+const BODIES = [
+  { id: 'base', label: 'Shared rig', file: 'base-body', stature: DEFAULT_STATURE },
+  { id: 'male', label: 'Male fit', file: '2027-male-fit', stature: 1.83 },
+  { id: 'female', label: 'Female fit', file: '2027-female-fit', stature: 1.71 },
+] as const;
 const STEP = 1 / 60;
 
 /**
@@ -39,6 +44,8 @@ const STEP = 1 / 60;
 export const anim: LabSceneFactory = async ({ stage }) => {
   const params = new URLSearchParams(location.search);
   const state: State = STATES.find((s) => s === params.get('state')) ?? 'walk';
+  const body = BODIES.find(({ id }) => id === params.get('body')) ?? BODIES[0];
+  const battingHand = state === 'bat' && params.get('hand') === 'left' ? 'left' : 'right';
   const renderer = new WebGLRenderer({ antialias: true });
   stage.append(renderer.domElement);
   const scene = new Scene();
@@ -49,13 +56,15 @@ export const anim: LabSceneFactory = async ({ stage }) => {
   scene.add(sun, new GridHelper(20, 40, '#5c7480', '#34454e'));
 
   const [character, batModel, ...files] = await Promise.all([
-    loadCharacter(),
+    loadCharacter(`characters/${body.file}.glb`),
     loadModel('equipment/bat.glb'),
     ...CLIP_FILES.map((file) => loadClips(file)),
   ]);
   const clips = (files as AnimationClip[][]).flat();
   const find = (name: string) => clips.find((clip) => clip.name === name);
   const root = character.root;
+  character.setStature(body.stature);
+  if (battingHand === 'left') root.scale.x *= -1;
   scene.add(root);
   const fallback = { walk: 'Walk_Carry_Loop', idle: 'Idle_Loop', bat: 'Batting_Stance_Loop' }[
     state
@@ -80,15 +89,31 @@ export const anim: LabSceneFactory = async ({ stage }) => {
   const ball = new Mesh(new SphereGeometry(0.036), new MeshBasicMaterial({ color: '#c0392b' }));
   if (state === 'idle') scene.add(ball);
 
-  // Controls: pick the state and the clip (interactive only; the harness passes ?capture=1).
+  // The harness hides the interactive selectors with ?capture=1.
   const panel = document.createElement('div');
   panel.style.cssText =
-    'position:fixed;top:8px;right:8px;display:flex;gap:6px;font:12px ui-monospace,monospace';
+    'position:fixed;top:8px;left:8px;right:8px;display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6px 12px;font:12px ui-monospace,monospace';
   if (!params.has('capture')) {
-    const select = (name: string, options: readonly string[], value: string) =>
-      `<select data-param="${name}">${options.map((o) => `<option${o === value ? ' selected' : ''}>${o}</option>`).join('')}</select>`;
-    panel.innerHTML =
-      select('state', STATES, state) + select('clip', clips.map((c) => c.name).sort(), chosen.name);
+    const select = (
+      name: string,
+      label: string,
+      options: readonly string[],
+      value: string,
+      titles = options,
+    ) =>
+      `<label>${label} <select data-param="${name}">${options.map((o, i) => `<option value="${o}"${o === value ? ' selected' : ''}>${titles[i]}</option>`).join('')}</select></label>`;
+    panel.innerHTML = [
+      select(
+        'body',
+        'Character',
+        BODIES.map(({ id }) => id),
+        body.id,
+        BODIES.map(({ label }) => label),
+      ),
+      select('state', 'State', STATES, state, ['Locomotion', 'Look-at', 'Batting']),
+      select('clip', 'Clip', clips.map((c) => c.name).sort(), chosen.name),
+      state === 'bat' ? select('hand', 'Batting hand', ['right', 'left'], battingHand) : '',
+    ].join('');
     panel.addEventListener('change', (event) => {
       const target = event.target as HTMLSelectElement;
       params.set(target.dataset.param ?? '', target.value);
@@ -202,7 +227,7 @@ export const anim: LabSceneFactory = async ({ stage }) => {
         (state === 'walk'
           ? `${speed.toFixed(2)} m/s  planted-foot drift ${(r.footDrift * 100).toFixed(2)} cm (worst ${(worstDrift * 100).toFixed(2)})`
           : state === 'bat'
-            ? `worst distances (cm) · foot ${(worstDrift * 100).toFixed(2)} · top wrist ${(worstHand * 100).toFixed(2)} · bottom wrist ${(worstBottomHand * 100).toFixed(2)}${r.handInReach ? '' : ' · top wrist out of reach'}`
+            ? `worst distances (cm) · foot ${(worstDrift * 100).toFixed(2)} · top wrist ${(worstHand * 100).toFixed(2)} · bottom wrist ${(worstBottomHand * 100).toFixed(2)}${r.handInReach ? '' : ' · grip outside reach'}`
             : 'head follows the ball');
     },
     dispose() {

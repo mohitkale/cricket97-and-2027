@@ -151,6 +151,20 @@ export const SCENARIOS: Record<string, Scenario> = {
     viewport: { width: 960, height: 540 },
     seed: 1,
   },
+  'anim-bat-female-left': {
+    kind: 'lab',
+    scene: 'anim&state=bat&body=female&hand=left',
+    duration: 1.7,
+    viewport: { width: 960, height: 540 },
+    seed: 1,
+  },
+  'anim-bat-male': {
+    kind: 'lab',
+    scene: 'anim&state=bat&body=male',
+    duration: 1.7,
+    viewport: { width: 960, height: 540 },
+    seed: 1,
+  },
   bowled: {
     kind: 'lab',
     scene: 'bowled',

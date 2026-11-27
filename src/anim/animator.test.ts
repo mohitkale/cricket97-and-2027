@@ -7,7 +7,12 @@ import { beforeAll, expect, test } from 'vitest';
 import { Animator } from './animator';
 import { markClip } from './clips';
 import { solveTwoBone } from './ik';
-import { BOTTOM_WRIST_ON_BAT, socketNode, TOP_WRIST_ON_BAT } from './skeleton';
+import {
+  BOTTOM_WRIST_ON_BAT,
+  KEEPER_PALM_ON_GLOVE,
+  socketNode,
+  TOP_WRIST_ON_BAT,
+} from './skeleton';
 import { blendGaits, landsOnTime, RATE_LIMITS, warpRate } from './warp';
 
 const ROOT = join(import.meta.dirname, '../..');
@@ -80,6 +85,25 @@ test('two-bone IK puts the end on a reachable target, bending toward the pole', 
   }
 });
 
+test('two-bone IK reaches the mirrored target under the left-handed rig transform', () => {
+  const rig = new Bone();
+  rig.scale.set(-1, 1, 1);
+  rig.rotation.y = Math.PI / 3;
+  const upper = new Bone();
+  const lower = new Bone();
+  const end = new Bone();
+  rig.add(upper);
+  upper.add(lower);
+  lower.add(end);
+  lower.position.y = -0.45;
+  end.position.y = -0.42;
+  const target = rig.localToWorld(new Vector3(0.2, -0.55, 0.25));
+  const pole = rig.localToWorld(new Vector3(0, -0.35, 1));
+  solveTwoBone(upper, lower, end, target, pole);
+  expect(end.getWorldPosition(new Vector3()).distanceTo(target)).toBeLessThan(0.002);
+  expect(rig.worldToLocal(lower.getWorldPosition(new Vector3())).z).toBeGreaterThan(0.25);
+});
+
 test('time-warp lands a marker on the sim event within the rate limits, and says when it cannot', () => {
   const rate = warpRate(0.1, 0.5, 0.32, 1, false);
   expect(0.1 + rate * 0.32).toBeCloseTo(0.5, 6);
@@ -89,6 +113,28 @@ test('time-warp lands a marker on the sim event within the rate limits, and says
   // A looping clip waits for the next cycle rather than running backwards.
   expect(warpRate(0.8, 0.2, 0.4, 1, true)).toBeCloseTo(1, 6);
 });
+
+test.each([30 / 60, 0.51])(
+  'a one-shot clip resumes normal playback at event time %s',
+  async (event) => {
+    const root = await character();
+    const idle = markClip(clip('Idle_Loop'), root);
+    const throwClip = markClip(clip('OverhandThrow'), root);
+    const runtime = new Animator(root, idle, []);
+    const input = { speed: 0, lookTarget: null, bat: null };
+    runtime.play(throwClip, 'release', event);
+    const action = runtime.mixer.existingAction(throwClip.clip);
+    if (!action) throw new Error('Missing one-shot animation action');
+    const eventStep = Math.ceil(event * 60);
+    for (let i = 0; i < eventStep - 1; i++) runtime.update(1 / 60, input);
+    expect(action.time).toBeLessThan(0.4);
+    runtime.update(1 / 60, input);
+    const afterEvent = eventStep / 60 - event;
+    expect(action.time).toBeCloseTo(0.4 + afterEvent, 7);
+    runtime.update(1 / 60, input);
+    expect(action.time).toBeCloseTo(0.4 + afterEvent + 1 / 60, 7);
+  },
+);
 
 test('gait blending weights sum to one and the rate matches the stride to the ground speed', () => {
   const gaits = [{ speed: 1.4 }, { speed: 3.5 }, { speed: 7 }];
@@ -102,6 +148,25 @@ test('gait blending weights sum to one and the rate matches the stride to the gr
   expect(blendGaits(gaits, 0.5, weights)).toBe(RATE_LIMITS.min);
 });
 
+test.each([
+  ['Jog_Fwd_Loop', 5],
+  ['Sprint_Loop', 5.5],
+] as const)('marks fast ground contacts and stride for %s', async (name, metres) => {
+  const [{ animations }, root] = await Promise.all([load('clips/ual1-fielding.glb'), character()]);
+  const clip = animations.find((candidate) => candidate.name === name);
+  if (!clip) throw new Error(`Missing gait fixture ${name}`);
+  for (const yaw of [0, Math.PI / 2]) {
+    root.rotation.y = yaw;
+    const marked = markClip(clip, root);
+    expect(marked.stride * clip.duration).toBeCloseTo(metres, 4);
+    expect(marked.plants.map(({ foot }) => foot)).toEqual(['l', 'r']);
+    for (const { start, end } of marked.plants) {
+      expect(end - start).toBeGreaterThan(0.07);
+      expect(end - start).toBeLessThan(clip.duration * 0.4);
+    }
+  }
+});
+
 test('a walk is marked with alternating foot plants and a ground speed', async () => {
   const marked = markClip(clip('Walk_Carry_Loop'), await character());
   expect(marked.plants.filter((p) => p.foot === 'l').length).toBeGreaterThan(0);
@@ -109,6 +174,25 @@ test('a walk is marked with alternating foot plants and a ground speed', async (
   expect(marked.markers.map((m) => m.name)).toEqual(expect.arrayContaining(['plant_l', 'plant_r']));
   expect(marked.stride).toBeGreaterThan(0.3);
   expect(marked.stride).toBeLessThan(2.2);
+});
+
+test('the runtime updates the gait rate when ground speed changes', async () => {
+  const root = await character();
+  const gait = markClip(clip('Walk_Carry_Loop'), root);
+  const animator = new Animator(root, markClip(clip('Idle_Loop'), root), [gait]);
+  const action = animator.mixer.existingAction(gait.clip);
+  if (!action) throw new Error('Missing gait action');
+
+  const input = { speed: gait.stride, lookTarget: null, bat: null };
+  animator.update(1 / 60, input);
+  expect(action.getEffectiveTimeScale()).toBeCloseTo(1);
+  animator.update(1 / 60, input);
+  expect(action.time).toBeCloseTo(2 / 60);
+
+  input.speed *= 1.25;
+  animator.update(1 / 60, input);
+  expect(action.getEffectiveTimeScale()).toBeCloseTo(1.25);
+  expect(action.time).toBeCloseTo(3.25 / 60);
 });
 
 /** Walk a character forward at `speed` for `seconds`; returns the largest planted-foot drift seen. */
@@ -135,6 +219,22 @@ test('planted feet drift less than 2 cm while walking at the clip speed and off 
   }
   // Without the lock the same walk 25 % too fast slides visibly: the lock is doing the work.
   expect((await walk(stride * 1.25 * 1.3, false)).worst).toBeGreaterThan(0.02);
+});
+
+test('stationary marked plants stay anchored and the readout includes their drift', async () => {
+  const root = await character();
+  const idle = markClip(clip('Sword_Idle'), root);
+  const animator = new Animator(root, idle, []);
+  const input = { speed: 0, lookTarget: null, bat: null };
+  animator.update(0, input);
+  const foot = root.getObjectByName('foot_l');
+  if (!foot) throw new Error('Missing the left foot');
+  const before = foot.getWorldPosition(new Vector3());
+  root.position.x = 0.025;
+  animator.update(1 / 60, { ...input, footLock: false });
+  expect(animator.readout.footDrift).toBeGreaterThan(0.02);
+  animator.update(1 / 60, input);
+  expect(foot.getWorldPosition(new Vector3()).distanceTo(before)).toBeLessThan(0.002);
 });
 
 test('whenever the handle is within reach, the top hand is put on it within 1 cm', async () => {
@@ -217,7 +317,7 @@ test('the authored batting stance keeps both feet planted and both wrists on the
       for (const { foot, start } of feet)
         expect(foot.getWorldPosition(measured).distanceTo(start)).toBeLessThan(0.02);
       for (const { wrist, grip } of wrists) {
-        held.localToWorld(target.set(...grip));
+        held.localToWorld(target.set(grip[0], grip[1], grip[2]));
         expect(wrist.getWorldPosition(measured).distanceTo(target)).toBeLessThan(0.01);
       }
       advance(stance.duration / samples);
@@ -231,10 +331,28 @@ test('the authored batting stance keeps both feet planted and both wrists on the
   checkLoop((dt) => animator.update(dt, input));
 });
 
-test('the runtime adds under 1 kB a frame to what three.js already allocates (target zero, not met)', async () => {
-  // Issue #20 asks for no per-frame allocation. Measured after a long warm-up, three.js's
-  // own AnimationMixer allocates 0.4 to 1.7 kB a frame on these clips, and the runtime adds
-  // about 0.1 to 0.6 kB on top. This guards against that growing; it does not claim zero.
+test('both wrists follow a reachable bat positioned outside the character skeleton', async () => {
+  const { animations } = await load('clips/batting-stance.glb');
+  const root = await character();
+  const stance = animations[0];
+  const socket = root.getObjectByName(socketNode('bat'));
+  if (!stance || !socket) throw new Error('Missing batting fixture');
+  const animator = new Animator(root, markClip(stance, root), []);
+  const input = { speed: 0, lookTarget: null, bat: null };
+  animator.update(0, input);
+  const externalBat = bat.clone();
+  socket.getWorldPosition(externalBat.position);
+  socket.getWorldQuaternion(externalBat.quaternion);
+  externalBat.position.add(new Vector3(0.015, 0.035, -0.025));
+  animator.update(0, { ...input, bat: externalBat });
+  expect(animator.readout.handInReach).toBe(true);
+  expect(animator.readout.handError).toBeLessThan(0.01);
+  expect(animator.readout.bottomHandError).toBeLessThan(0.01);
+});
+
+test('the runtime stays within the 1 kB per-frame process-heap regression guard', async () => {
+  // Process heap includes the mixer and the engine, and GC can run between readings.
+  // The Chromium allocation sample in README.md measures attribution for issue #20.
   const { setFlagsFromString, getHeapStatistics } = await import('node:v8');
   const { runInNewContext } = await import('node:vm');
   setFlagsFromString('--expose_gc');
