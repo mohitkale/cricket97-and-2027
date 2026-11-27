@@ -25,6 +25,10 @@ const CLIP_FILES = [
   'clips/ual2-candidates.glb',
   'clips/ual2-locomotion.glb',
   'clips/batting-stance.glb',
+  'clips/batting-backlift.glb',
+  'clips/batting-leave.glb',
+  'clips/batting-front-foot-defence.glb',
+  'clips/batting-cover-drive.glb',
 ];
 const STATES = ['walk', 'idle', 'bat'] as const;
 type State = (typeof STATES)[number];
@@ -55,9 +59,10 @@ export const anim: LabSceneFactory = async ({ stage }) => {
   sun.position.set(2, 4, 3);
   scene.add(sun, new GridHelper(20, 40, '#5c7480', '#34454e'));
 
-  const [character, batModel, ...files] = await Promise.all([
+  const [character, batModel, carriedBall, ...files] = await Promise.all([
     loadCharacter(`characters/${body.file}.glb`),
     loadModel('equipment/bat.glb'),
+    state === 'walk' && params.has('ball') ? loadModel('equipment/cricket-ball.glb') : null,
     ...CLIP_FILES.map((file) => loadClips(file)),
   ]);
   const clips = (files as AnimationClip[][]).flat();
@@ -73,9 +78,11 @@ export const anim: LabSceneFactory = async ({ stage }) => {
   const idleClip = find('Idle_Loop');
   if (!chosen || !idleClip) throw new Error('lab: clips missing');
   const base: MarkedClip = markClip(chosen, root);
+  const hasStride = base.markers.some(({ name }) => name === 'contact');
   const idle = state === 'walk' ? markClip(idleClip, root) : base;
   const bat = batModel.getObjectByName('bat');
   if (state === 'bat' && bat) attach(character, 'bat', bat);
+  if (carriedBall) attach(character, 'ball', carriedBall);
   const topWrist = root.getObjectByName('hand_l');
   const bottomWrist = root.getObjectByName('hand_r');
   if (!topWrist || !bottomWrist) throw new Error('lab: batting wrists missing');
@@ -124,7 +131,7 @@ export const anim: LabSceneFactory = async ({ stage }) => {
   stage.append(panel);
   const label = document.createElement('p');
   label.style.cssText =
-    'position:fixed;left:12px;bottom:56px;margin:0;font:13px ui-monospace,monospace;color:#e8eef0';
+    'position:fixed;left:12px;bottom:68px;margin:0;font:13px ui-monospace,monospace;color:#e8eef0';
   const timeline = document.createElement('div');
   timeline.style.cssText =
     'position:fixed;left:12px;right:12px;bottom:36px;height:14px;background:#2a3840;font:10px ui-monospace,monospace';
@@ -180,11 +187,14 @@ export const anim: LabSceneFactory = async ({ stage }) => {
 
   const camera = new PerspectiveCamera(35, 1, 0.1, 100);
   const rate = params.get('rate') === 'quarter' ? 0.25 : 1;
-  const duration = Math.max(3, Math.ceil(base.clip.duration * 2)) / rate;
+  const once = params.has('once');
+  const duration =
+    (once ? base.clip.duration : Math.max(3, Math.ceil(base.clip.duration * 2))) / rate;
+  const lastFrame = once ? Math.ceil(base.clip.duration / STEP) - 1 : Infinity;
   return {
     duration,
     renderAt(t) {
-      const target = Math.round((t * rate) / STEP);
+      const target = Math.min(lastFrame, Math.round((t * rate) / STEP));
       if (target < at) reset();
       while (at < target) {
         at++;
@@ -194,10 +204,12 @@ export const anim: LabSceneFactory = async ({ stage }) => {
         look.set(Math.sin(s * 1.3) * 2, 1.4, 3 + Math.cos(s * 0.7));
         animator.update(STEP, input);
         const r = animator.readout;
-        if (at > 30) worstDrift = Math.max(worstDrift, r.footDrift);
+        if (at > 30 || carriedBall) worstDrift = Math.max(worstDrift, r.footDrift);
         if (state === 'bat' && bat) {
-          for (const { foot, start } of plantedFeet)
-            worstDrift = Math.max(worstDrift, foot.getWorldPosition(hand).distanceTo(start));
+          if (!hasStride) {
+            for (const { foot, start } of plantedFeet)
+              worstDrift = Math.max(worstDrift, foot.getWorldPosition(hand).distanceTo(start));
+          }
           bat.localToWorld(grip.set(...TOP_WRIST_ON_BAT));
           worstHand = Math.max(worstHand, topWrist.getWorldPosition(hand).distanceTo(grip));
           bat.localToWorld(grip.set(...BOTTOM_WRIST_ON_BAT));
@@ -214,16 +226,18 @@ export const anim: LabSceneFactory = async ({ stage }) => {
       renderer.setSize(width, height, false);
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
-      if (state === 'bat') camera.position.set(1.8, 1.22, 3);
+      const battingAction = state === 'bat' && once;
+      if (battingAction) camera.position.set(1.9, 1.52, 3.5);
+      else if (state === 'bat') camera.position.set(1.8, 1.22, 3);
       else camera.position.set(3.6, 1.1, root.position.z + 0.6);
-      camera.lookAt(0, 0.85, root.position.z);
+      camera.lookAt(0, battingAction ? 1.02 : 0.85, root.position.z);
       renderer.render(scene, camera);
 
       const r = animator.readout;
       const clipTime = (at * STEP) % base.clip.duration;
       cursor.style.left = `${(clipTime / base.clip.duration) * 100}%`;
       label.textContent =
-        `${state}  ${base.clip.name}  ` +
+        `${carriedBall ? 'run-up' : state}  ${base.clip.name}  ` +
         (state === 'walk'
           ? `${speed.toFixed(2)} m/s  planted-foot drift ${(r.footDrift * 100).toFixed(2)} cm (worst ${(worstDrift * 100).toFixed(2)})`
           : state === 'bat'

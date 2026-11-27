@@ -88,7 +88,7 @@ async function startOpeningLineup(
   }
 }
 
-/** Unmodified library clips under review for issue #11: name and length in seconds. */
+/** Source and fitted clips under review, with lengths in seconds. */
 const CLIP_REVIEWS: [string, number][] = [
   ['TreeChopping_Loop', 0.97],
   ['Sword_Attack', 1.53],
@@ -104,6 +104,9 @@ const CLIP_REVIEWS: [string, number][] = [
   ['Jog_Fwd_Loop', 0.9333],
   ['Sprint_Loop', 0.6666],
   ['Crouch_Idle_Loop', 2.9333],
+  ['Keeper_Ready_Loop', 2.5],
+  ['Keeper_Regulation_Take', 0.9],
+  ['Bowling_Pace_Delivery', 40 / 30],
   ['capture-OverhandThrow-truth', 1.3],
   ['capture-OverhandThrow-seen', 1.3],
   ['capture-standin-throw-front', 1.3],
@@ -162,6 +165,100 @@ export const SCENARIOS: Record<string, Scenario> = {
     kind: 'lab',
     scene: 'anim&state=bat&body=male',
     duration: 1.7,
+    viewport: { width: 960, height: 540 },
+    seed: 1,
+  },
+  'batting-backlift': {
+    kind: 'lab',
+    scene: 'anim&state=bat&clip=Batting_Backlift&once=1',
+    duration: 0.56,
+    viewport: { width: 960, height: 540 },
+    seed: 1,
+  },
+  'batting-backlift-quarter': {
+    kind: 'lab',
+    scene: 'anim&state=bat&clip=Batting_Backlift&once=1&rate=quarter',
+    duration: 2.24,
+    viewport: { width: 960, height: 540 },
+    seed: 1,
+  },
+  'batting-leave': {
+    kind: 'lab',
+    scene: 'anim&state=bat&clip=Batting_Leave&once=1',
+    duration: 1.12,
+    viewport: { width: 960, height: 540 },
+    seed: 1,
+  },
+  'batting-leave-quarter': {
+    kind: 'lab',
+    scene: 'anim&state=bat&clip=Batting_Leave&once=1&rate=quarter',
+    duration: 4.48,
+    viewport: { width: 960, height: 540 },
+    seed: 1,
+  },
+  ...Object.fromEntries(
+    [
+      ['front-foot-defence', 'Batting_Front_Foot_Defence', 1.55],
+      ['cover-drive', 'Batting_Cover_Drive', 1.72],
+    ].flatMap(([name, clip, duration]) =>
+      [1, 4].map((slow): [string, Scenario] => [
+        `batting-${name}${slow === 4 ? '-quarter' : ''}`,
+        {
+          kind: 'lab',
+          scene: `anim&state=bat&clip=${clip}&once=1${slow === 4 ? '&rate=quarter' : ''}`,
+          duration: Number(duration) * slow,
+          viewport: { width: 960, height: 540 },
+          seed: 1,
+        },
+      ]),
+    ),
+  ),
+  'keeper-ready-quarter': {
+    kind: 'lab',
+    scene: 'clip-Keeper_Ready_Loop&rate=quarter',
+    duration: 10,
+    viewport: { width: 720, height: 420 },
+    seed: 1,
+  },
+  'pace-delivery-quarter': {
+    kind: 'lab',
+    scene: 'clip-Bowling_Pace_Delivery&rate=quarter',
+    duration: (40 / 30) * 4,
+    viewport: { width: 960, height: 540 },
+    seed: 1,
+  },
+  'keeper-regulation-take-quarter': {
+    kind: 'lab',
+    scene: 'clip-Keeper_Regulation_Take&rate=quarter',
+    duration: 3.6,
+    viewport: { width: 720, height: 420 },
+    seed: 1,
+  },
+  'umpire-idle-quarter': {
+    kind: 'lab',
+    scene: 'clip-Idle_Loop&rate=quarter',
+    duration: 10,
+    viewport: { width: 720, height: 420 },
+    seed: 1,
+  },
+  'pace-run-up': {
+    kind: 'lab',
+    scene: 'anim&state=walk&clip=Jog_Fwd_Loop&ball=1',
+    duration: 1.2,
+    viewport: { width: 960, height: 540 },
+    seed: 1,
+  },
+  'pace-run-up-quarter': {
+    kind: 'lab',
+    scene: 'anim&state=walk&clip=Jog_Fwd_Loop&ball=1&rate=quarter',
+    duration: 4.8,
+    viewport: { width: 960, height: 540 },
+    seed: 1,
+  },
+  'anim-sprint': {
+    kind: 'lab',
+    scene: 'anim&state=walk&clip=Sprint_Loop',
+    duration: 1,
     viewport: { width: 960, height: 540 },
     seed: 1,
   },

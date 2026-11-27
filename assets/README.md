@@ -60,6 +60,24 @@ The right-handed batting stance layers an original bat-grip track in `assets/src
 
 Delegated review for #92 covered the `anim-bat` and `anim-bat-quarter` Chromium captures. Both contact sheets show the batter watching down the pitch with two planted feet and both hands on the handle. The whole-loop test samples raw and runtime playback at 240 Hz and checks less than 2 cm of foot drift and less than 1 cm from each wrist to its grip reference. This review covers the ready stance on the shared rig. Match strokes and final kit fit have their own acceptance checks.
 
+The #21 backlift shares the planted base and the original guard's grip. `batting-backlift-grip.json` supplies the rearward lift and timing. Build with `node tools/assets/fit-batting-stance.ts batting-backlift` and `npm run assets -- batting-backlift`. The asset test checks that the blade rises above the wrists and both wrists stay within 1 cm of their grip references.
+
+The #21 keeper guard blends two CC0 Quaternius idles and bakes both foot plants and glove positions on the shared rig. Build with `node tools/assets/fit-keeper-stance.ts` and `npm run assets -- keeper-ready`. The asset test samples the full 2.5-second loop at 120 Hz and checks both foot plants and both wrists within 1 cm of their guard references.
+
+The #21 leave raises the bat away from the line, holds it during the leave marker and settles back to guard. Build with `node tools/assets/fit-batting-stance.ts batting-leave` and `npm run assets -- batting-leave`. The raw clip test samples at 120 Hz and finds both wrists within 1 cm of their references and both feet within 2 cm of their anchors. The leave marker is at 0.56 s. This is an authored batting take for the lab. The match's ball path and any decision to leave belong to the sim and its presentation adapter.
+
+For umpire idle, reuse Quaternius's CC0 `Idle_Loop` from `ual1-candidates.glb`. It has relaxed hands and both feet planted across the 2.5-second loop. A 120 Hz source clip probe measured less than 0.1 mm of foot drift.
+
+For the pace run-up loop, use the CC0 `Jog_Fwd_Loop` with the stitched ball in the right-hand socket. The lab plays the loop at the source ground speed with both foot plants marked. The `pace-run-up` and `pace-run-up-quarter` captures show the ball held through the stride. The gather, release and follow-through need a separate cricket delivery take.
+
+The regulation take uses the keeper guard's planted base. The glove track brings the palms together at the 0.36 s catch marker and gives towards the body. Build with `node tools/assets/fit-keeper-stance.ts keeper-regulation-take` and `npm run assets -- keeper-regulation-take`. The raw clip check measures less than 2 cm of foot drift and less than 1 cm from each palm reference to the surface of the ball in the settled grip. Delegated Chromium review used the full and quarter-speed captures with a reference ball and fitted gloves. In-match contact checks belong to the delivery and fielding presentation work.
+
+The front-foot defence and cover drive use the browser-authored footwork and body motion in `batting-footwork.glb`. Refit the matching bat tracks with `node tools/assets/fit-batting-stance.ts batting-front-foot-defence` and `node tools/assets/fit-batting-stance.ts batting-cover-drive`, then run `npm run assets -- batting-` to rebuild the batting clips. The handed variants in the animation lab mirror the same three-dimensional action. The contact markers are at 0.527 s for the defence and 0.635 s for the drive.
+
+The browser-authored pace delivery starts with a gather and includes the front-foot block, release and follow-through. Build the source take with `npm run assets -- bowling-pace-delivery`. Its release is at frame 17 on the authoring timeline at 30 fps. The animation lab carries a reference ball in the bowling hand until that marker.
+
+Delegated Chromium review covers all clip-set A actions at full and quarter speed. The two batting capture pairs are `batting-front-foot-defence` and `batting-cover-drive` with their `-quarter` variants. The pace pair is `clip-Bowling_Pace_Delivery` and `pace-delivery-quarter`. The batting and bowling captures show the authored footwork, grip and release pose. The integrated ball and hand alignment gates are tracked in #22 and #23.
+
 ## Clips captured from video
 
 `lab/capture.html` (run `npm run dev`) turns a video of a person into pose landmarks in `assets/src/capture/<name>.json`. `node tools/assets/retarget-capture.ts <name> --level` turns those into `assets/src/clips/capture-<name>.glb`. Then build as above. The landmark file is the source of the clip and is committed; the video is not. See `docs/decisions/0003-animation-source.md` for what this can and cannot capture.

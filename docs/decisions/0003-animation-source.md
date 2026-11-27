@@ -8,7 +8,11 @@
 1. **Skeleton.** The Quaternius Universal Animation Library skeleton (65 joints, Unreal-style names, CC0) is the one skeleton for every player and umpire in both editions; issue #19 specifies it.
 2. **General motion** (standing, walking, running, throwing, picking up, sliding, crouching) comes from the CC0 Quaternius libraries, by the recipe for a library clip below.
 3. **Cricket-specific motion** (strokes, stance, bowling actions, keeping, catching, umpire signals) is captured from contributors' own phone videos in the browser, by the recipe for a captured clip below, filmed side-on to the motion's main direction.
-4. **Fallback.** If captured strokes fail the feel gate for the first ball (issues #21 and #27), commission the missing clips on this skeleton under CC0 or CC BY 4.0 (option 3 below). Code never invents the motion (rule 3 in `AGENTS.md`).
+4. **Authored fallback.** When capture footage is unavailable, author the missing action pose by pose on this skeleton in a browser animation editor. Save the editable glTF clip and licence original motion as CC0. Code only bakes authored equipment targets and IK constraints, then blends and aligns the supplied clips in play.
+
+## Delegated authoring decision for #21
+
+The first-ball cover drive, front-foot defence and pace delivery use original keyframes authored on the shared skeleton in the locally served [AnimStudio editor](https://github.com/Sheggyb/AnimStudio) at revision `f61e3e0`. The editor reused the project's existing Node and Three.js installation. Its source code and dependencies are outside the game, and no imported library motion was used for the cricket actions. The batting takes start and finish in the existing ready pose. Each has deliberately keyed weight transfer, footfall and bat path. The drive carries the blade through contact with a high follow-through. The defence holds a short, angled blade over the planted front foot. The pace take has a right-foot gather, left-foot block, straight-arm release and two recovery steps. The source GLBs contain the resulting body animation, and the independently authored batting grip files are the inputs to the existing equipment fit tool.
 
 Time per clip: minutes for a library clip (measured); for a captured clip, an estimate of 15 to 30 minutes including filming and review, not yet measured on a real video. This unblocks issue #19 and through it most of M2. The first real test of the capture route is then the cover drive in issue #21.
 

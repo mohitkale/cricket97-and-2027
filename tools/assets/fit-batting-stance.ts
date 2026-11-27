@@ -11,13 +11,17 @@ type V3 = [number, number, number];
 interface GripTrack {
   name: string;
   source: string;
-  keys: { phase: number; grip: V3; handle: V3 }[];
+  sourceFile?: string;
+  duration?: number;
+  keys: { phase: number; grip: V3; handle: V3; face?: V3 }[];
 }
 
 const clips = 'assets/src/clips';
-const source = `${clips}/ual1-candidates.glb`;
 const body = 'assets/src/characters/base-body.glb';
-const authored: GripTrack = JSON.parse(readFileSync(`${clips}/batting-stance-grip.json`, 'utf8'));
+const take = process.argv[2] ?? 'batting-stance';
+if (!/^batting-[a-z-]+$/.test(take)) throw new Error(`Invalid grip track: ${take}`);
+const authored: GripTrack = JSON.parse(readFileSync(`${clips}/${take}-grip.json`, 'utf8'));
+const source = `${clips}/${authored.sourceFile ?? 'ual1-candidates.glb'}`;
 const loader = new GLTFLoader();
 const load = (path: string) => {
   const bytes = readFileSync(path);
@@ -76,13 +80,14 @@ gripMixer.uncacheRoot(rig);
 for (const node of fingersOnGrip.keys()) rotations.set(node, []);
 const mixer = new AnimationMixer(rig);
 const action = mixer.clipAction(clip).play();
-const steps = Math.round(clip.duration * 60);
+const duration = authored.duration ?? clip.duration;
+const steps = Math.round(duration * 60);
 const times: number[] = [];
 for (let frame = 0; frame <= steps; frame++) {
   const phase = frame / steps;
-  const time = phase * clip.duration;
-  // The last sample duplicates the first exactly for a seamless loop.
-  mixer.setTime(frame === steps ? 0 : time);
+  const time = phase * duration;
+  // The body performance loops, while a one-shot can end on a different grip key.
+  mixer.setTime(frame === steps ? 0 : phase * clip.duration);
   rig.updateMatrixWorld(true);
 
   const next = authored.keys.findIndex((key) => key.phase >= phase && key.phase > 0);
@@ -93,7 +98,11 @@ for (let frame = 0; frame <= steps; frame++) {
   const weight = span * span * (3 - 2 * span);
   const grip = new Vector3(...a.grip).lerp(new Vector3(...b.grip), weight);
   const up = new Vector3(...a.handle).lerp(new Vector3(...b.handle), weight).normalize();
-  const across = new Vector3().crossVectors(up, new Vector3(1, 0, 0)).normalize();
+  const faceTarget = new Vector3(...(a.face ?? [1, 0, 0])).lerp(
+    new Vector3(...(b.face ?? [1, 0, 0])),
+    weight,
+  );
+  const across = new Vector3().crossVectors(up, faceTarget).normalize();
   const face = new Vector3().crossVectors(across, up);
   const batRotation = new Quaternion().setFromRotationMatrix(
     new Matrix4().makeBasis(across, up, face),
@@ -110,7 +119,7 @@ for (let frame = 0; frame <= steps; frame++) {
     right[2].getWorldPosition(new Vector3()).distanceTo(bottomWrist) > 0.005 ||
     left[2].getWorldPosition(new Vector3()).distanceTo(topWrist) > 0.005
   )
-    throw new Error(`Grip is outside the rig's reach at phase ${phase.toFixed(3)}`);
+    throw new Error(`Grip for ${take} is outside the rig's reach at phase ${phase.toFixed(3)}`);
   const gripDirection = new Vector3(0, TOP_WRIST_ON_BAT[1], 0)
     .applyQuaternion(batRotation)
     .add(grip)
@@ -145,6 +154,14 @@ const animation = root.listAnimations().find((item) => item.getName() === clip.n
 if (!animation) throw new Error(`Missing animation ${clip.name}`);
 animation.setName(authored.name);
 for (const other of root.listAnimations()) if (other !== animation) other.dispose();
+if (duration !== clip.duration) {
+  const scale = duration / clip.duration;
+  const sourceTimes = new Set(animation.listSamplers().map((sampler) => sampler.getInput()));
+  for (const accessor of sourceTimes) {
+    const samples = accessor?.getArray();
+    if (accessor && samples) accessor.setArray(Float32Array.from(samples, (time) => time * scale));
+  }
+}
 const buffer = root.listBuffers()[0] ?? doc.createBuffer();
 const timeAccessor = doc.createAccessor().setArray(new Float32Array(times)).setBuffer(buffer);
 for (const [node, values] of rotations) {
@@ -163,4 +180,4 @@ for (const [node, values] of rotations) {
     );
 }
 await doc.transform(prune());
-await io.write(`${clips}/batting-stance.glb`, doc);
+await io.write(`${clips}/${take}.glb`, doc);

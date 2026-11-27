@@ -5,7 +5,17 @@
  */
 import { type AnimationClip, AnimationMixer, type Object3D, Vector3 } from 'three';
 
-export type MarkerName = 'plant_l' | 'plant_r' | 'release' | 'contact' | 'catch' | 'throw';
+export type MarkerName =
+  | 'plant_l'
+  | 'plant_r'
+  | 'backlift'
+  | 'gather'
+  | 'release'
+  | 'follow-through'
+  | 'contact'
+  | 'catch'
+  | 'throw'
+  | 'leave';
 
 export interface Marker {
   name: MarkerName;
@@ -31,6 +41,16 @@ export interface MarkedClip {
 /** Authored markers for clips whose events cannot be found from motion alone. */
 export const MARKERS: Record<string, Marker[]> = {
   OverhandThrow: [{ name: 'release', time: 0.4 }],
+  Batting_Backlift: [{ name: 'backlift', time: 0.43 }],
+  Batting_Leave: [{ name: 'leave', time: 0.56 }],
+  Batting_Front_Foot_Defence: [{ name: 'contact', time: 0.527 }],
+  Batting_Cover_Drive: [{ name: 'contact', time: 0.635 }],
+  Bowling_Pace_Delivery: [
+    { name: 'gather', time: 10 / 30 },
+    { name: 'release', time: 17 / 30 },
+    { name: 'follow-through', time: 26 / 30 },
+  ],
+  Keeper_Regulation_Take: [{ name: 'catch', time: 0.36 }],
 };
 
 /** A foot is planted while it is this close to its lowest point in the clip. */

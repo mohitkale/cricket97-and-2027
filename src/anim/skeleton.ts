@@ -85,3 +85,9 @@ export const socketNode = (name: SocketName) => `socket_${name}`;
 export const TOP_WRIST_ON_BAT = [0.07, 0.12, -0.026] as const;
 /** Bottom wrist in the same frame, derived from the right-hand socket fit. */
 export const BOTTOM_WRIST_ON_BAT = [-0.06954, 0.0104, -0.0258] as const;
+
+/** Inner palm contact points in the matching keeper-glove socket frames. */
+export const KEEPER_PALM_ON_GLOVE = {
+  l: [0.075, -0.035, -0.055],
+  r: [-0.075, -0.035, -0.055],
+} as const;
