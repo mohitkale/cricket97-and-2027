@@ -147,6 +147,22 @@ const CLIP_REVIEWS: [string, number][] = [
 
 export const SCENARIOS: Record<string, Scenario> = {
   ...Object.fromEntries(
+    [
+      ['boundaries', 2],
+      ['extras', 5],
+      ['dismissals', 6],
+    ].map(([name, count]): [string, Scenario] => [
+      `umpire-${name}`,
+      {
+        kind: 'lab',
+        scene: `umpire-${name}`,
+        duration: Number(count) * 1.3,
+        viewport: SMALL_LANDSCAPE,
+        seed: 1,
+      },
+    ]),
+  ),
+  ...Object.fromEntries(
     ['running-safe', 'running-short'].map((name): [string, Scenario] => [
       name,
       { kind: 'lab', scene: name, duration: 2.55, viewport: SMALL_LANDSCAPE, seed: 1 },

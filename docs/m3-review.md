@@ -21,3 +21,9 @@ Two fresh Chrome sessions completed six legal stock balls on their first attempt
 Casual calls runs automatically. In Classic and Pro, use **Run** or **R**. The same control calls both batters back once they are running. The risk text compares the sim's estimated run and return times.
 
 Reviewed `running-safe` and `running-short` at the wicket-break frame. The rendered bat was 45.8 cm past the crease on the safe call and 17.8 cm short on the run-out. The replay test compares the displayed blade with the sim's grounding position and verifies that canceling returns both batters without scoring. The run and cancel traces matched in Node, Chromium, Firefox and WebKit.
+
+## #32 Umpires
+
+The shared rigs work from the bowler's end and square leg. A close dismissal waits 340 ms before the signal. The use of the rules engine's dismissal check keeps an out signal off a disallowed dismissal. Boundaries, extras, and explicit dead-ball calls have their appropriate hand signals. Ordinary completed runs appear in the score.
+
+Reviewed `umpire-boundaries`, `umpire-extras` and `umpire-dismissals`. The lab supplies typed outcomes to the same dispatcher used on the playable pitch, including all six supported dismissal kinds.

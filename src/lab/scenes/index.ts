@@ -12,6 +12,7 @@ import { heroField, heroRig } from './hero-rig';
 import { pitchPlan } from './pitch-plan';
 import { runningScene } from './running';
 import { strokeMap } from './stroke-map';
+import { umpireScene } from './umpires';
 
 /** Every lab scene by name. The capture harness addresses scenes by these keys. */
 export const SCENES: Record<string, LabSceneFactory> = {
@@ -32,6 +33,9 @@ export const SCENES: Record<string, LabSceneFactory> = {
   'running-safe': runningScene(false),
   'running-short': runningScene(true),
   'stroke-map': strokeMap,
+  'umpire-boundaries': umpireScene('boundaries'),
+  'umpire-extras': umpireScene('extras'),
+  'umpire-dismissals': umpireScene('dismissals'),
   ...Object.fromEntries(
     Object.keys(CANDIDATE_CLIPS).map((name) => [`clip-${name}`, clipReview(name)]),
   ),

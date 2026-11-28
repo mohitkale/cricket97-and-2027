@@ -13,6 +13,7 @@ import {
   practiceSwingError,
   practiceWindow,
 } from '../../game/pace-practice';
+import { type UmpireSignal, umpireSignals } from '../../game/umpire-signals';
 import { bindBattingInput } from '../../platform/batting-input';
 import { loadClips, loadModel } from '../../render/assets';
 import { createBallView } from '../../render/ball-view';
@@ -23,6 +24,7 @@ import { createPaceBowler, PACE_APPROACH } from '../../render/pace-bowler';
 import { createPracticeCamera } from '../../render/practice-camera';
 import { createRunningBatter } from '../../render/running-batter';
 import { addSliceGround } from '../../render/slice';
+import { createUmpire } from '../../render/umpire';
 import type { End, RunCommand } from '../../sim/agents/running';
 import { PITCH } from '../../sim/units';
 import { bindBowlingControls } from './bowling-controls';
@@ -148,10 +150,11 @@ async function start() {
   const ball = createBallView(ballAsset);
   const camera = createPracticeCamera();
   scene.add(striker.bat, ball.root);
-  const [fieldingClips, keeperGloves, runningClips] = await Promise.all([
+  const [fieldingClips, keeperGloves, runningClips, officialClips] = await Promise.all([
     loadFieldingClips(),
     loadModel('equipment/keeping-gloves.glb'),
     loadClips('clips/over-movement.glb'),
+    loadClips('clips/over-officials.glb'),
   ]);
   const partner = {
     ...strikerInfo,
@@ -198,9 +201,40 @@ async function start() {
   });
   const phone = matchMedia('(pointer: coarse)').matches;
   const pitch = new Vector3(0, 0, PITCH.length - PITCH.poppingCrease);
+  const officialAtlas = createJerseyAtlas(2);
+  const officialMotion = new Map(fieldingClips);
+  for (const clip of officialClips) officialMotion.set(clip.name, clip);
+  const officials = (['bowler', 'square'] as const).map((station, index) => {
+    const gender = station === 'bowler' ? 'male' : 'female';
+    const character = asCharacter(clone(bodies[gender]));
+    makeJersey(
+      character.root,
+      officialAtlas,
+      index,
+    )({
+      name: '',
+      number: 0,
+      team: 'Official',
+      gender,
+      color: 0x647b8e,
+    });
+    scene.add(character.root);
+    return createUmpire(character, officialMotion, station);
+  });
+  const officialFocus = new Vector3();
+  let signals: UmpireSignal[] = [];
+  let deadAt = 0;
   let wicket = played.result.wicketBroken;
   const planField = () => {
     wicket = played.result.wicketBroken ?? returnedWicket(played.field.wicket);
+    deadAt = Math.max(played.frames.at(-1)?.time ?? 0, wicket?.t ?? 0);
+    const passing = played.frames.find(({ pos }) => pos.z >= PITCH.length)?.time ?? deadAt;
+    const returnEnd = played.field.wicket?.end;
+    signals = umpireSignals(played.result.outcome, {
+      passing,
+      dead: deadAt,
+      ...(returnEnd && { returnEnd }),
+    });
     for (const { id, actor } of field) actor.plan(played.field.track.get(id));
   };
   planField();
@@ -308,6 +342,16 @@ async function start() {
       }
     }
     if (heldBy?.actor.heldBall(position)) orientation.identity();
+    let showOfficial = false;
+    for (const official of officials) {
+      const signal = official.sample(time, signals);
+      if (signal && time >= deadAt) {
+        showOfficial = true;
+        officialFocus.copy(official.root.position);
+        officialFocus.y = 1.07;
+        if (cue.textContent !== signal.text) cue.textContent = signal.text;
+      }
+    }
     lastFlight = time;
     ball.setPose(position, orientation, practiceGround.surfaceAt(position.x, position.z).height);
     ball.setTrail(trace, pathIndex, position, time >= 0 && trail.checked);
@@ -327,7 +371,12 @@ async function start() {
       renderer.setSize(width, height, false);
     }
     // Hold the lens through the exact sim contact, then pan with that same ball.
-    camera.frame(width, height, position, result.contact?.impact ? time - result.contact.time : 0);
+    camera.frame(
+      width,
+      height,
+      showOfficial ? officialFocus : position,
+      showOfficial ? 1 : result.contact?.impact ? time - result.contact.time : 0,
+    );
     renderer.render(scene, camera.camera);
     if (Number.isFinite(inputAt) && before.distanceToSquared(striker.bat.position) > 0.000001) {
       screen.dataset.inputResponse = (performance.now() - inputAt).toFixed(1);
@@ -525,7 +574,7 @@ async function start() {
   function frame(now: number) {
     const impact = played.result.contact?.impact ? played.result.contact.time : undefined;
     const time = practiceClock((now - liveAt) / 1000 - PACE_APPROACH, mode, impact);
-    if (!userBowls && !choice) {
+    if (!userBowls && !choice && time < deadAt) {
       const { opens, closes } = practiceWindow(expected, mode);
       const ready = time >= opens && time <= closes;
       const nextCue = time < opens ? 'Get ready' : ready ? 'Play now' : '';
@@ -536,7 +585,7 @@ async function start() {
         leaving = true;
         striker.plan('leave', time, time + 0.22, null);
       }
-    } else if (impact !== undefined && time >= impact) {
+    } else if (impact !== undefined && time >= impact && time < deadAt) {
       const contact = played.result.contact;
       const strike =
         contact?.kind === 'middled'
@@ -547,7 +596,7 @@ async function start() {
       if (cue.textContent !== strike) cue.textContent = strike;
     }
     draw(time);
-    const until = Math.max(SHOW_UNTIL, (played.frames.at(-1)?.time ?? 0) + 0.35);
+    const until = Math.max(SHOW_UNTIL, deadAt + 0.35, ...signals.map(({ end }) => end));
     if (time < until) requestAnimationFrame(frame);
     else finish();
   }
