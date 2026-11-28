@@ -9,6 +9,8 @@ export interface Viewport {
 interface ScenarioBase {
   /** Seconds of scene time covered by the capture. */
   duration: number;
+  /** Record a shorter clip by sampling less often in scene time. */
+  playbackRate?: number;
   viewport: Viewport;
   seed: number;
 }
@@ -27,6 +29,7 @@ export interface PageScenario extends ScenarioBase {
   frameMs: number;
   /** Bring the page to the moment the capture should start. */
   setup(page: Page, advance: (ms: number) => Promise<void>): Promise<void>;
+  verify?(page: Page): Promise<void>;
 }
 
 export type Scenario = LabScenario | PageScenario;
@@ -63,6 +66,50 @@ async function startBowling(page: Page, advance: (ms: number) => Promise<void>, 
       1130,
     );
   });
+}
+
+export async function startPracticeOver(
+  page: Page,
+  bowling: boolean,
+  legalBalls: number,
+  shotDelay = 210,
+) {
+  await page.locator('#next:enabled').waitFor();
+  await page.evaluate(
+    ({ bowling, legalBalls, shotDelay }) => {
+      const stage = document.querySelector<HTMLElement>('#practice');
+      const cue = document.getElementById('cue');
+      const meter = document.querySelector<HTMLOutputElement>('#bowling output');
+      const next = document.querySelector<HTMLButtonElement>('#next');
+      const auto = document.querySelector<HTMLInputElement>('#auto-next');
+      if (!stage || !cue || !meter || !next || !auto) throw new Error('Missing practice controls');
+      let previousAttempt = -1;
+      function playBall() {
+        const attempt = Number(stage?.dataset.attempts);
+        if (Number(stage?.dataset.legal) >= legalBalls) {
+          if (auto) auto.checked = false;
+          return;
+        }
+        const inputReady = bowling
+          ? meter?.dataset.ready === 'true' && !meter.hidden
+          : cue?.textContent === 'Play now';
+        if (inputReady && previousAttempt !== attempt) {
+          previousAttempt = attempt;
+          const play = () =>
+            window.dispatchEvent(
+              new KeyboardEvent('keydown', { code: bowling ? 'Space' : 'ArrowLeft' }),
+            );
+          const delay = bowling ? 55 : shotDelay;
+          if (delay) window.setTimeout(play, delay);
+          else play();
+        }
+        requestAnimationFrame(playBall);
+      }
+      requestAnimationFrame(playBall);
+      next.click();
+    },
+    { bowling, legalBalls, shotDelay },
+  );
 }
 
 /** Click a visible button whose text matches, waiting in real time for it to appear. */
@@ -146,6 +193,25 @@ const CLIP_REVIEWS: [string, number][] = [
 ];
 
 export const SCENARIOS: Record<string, Scenario> = {
+  ...Object.fromEntries(
+    [false, true].map((bowling): [string, Scenario] => [
+      bowling ? 'practice-over-bowling' : 'practice-over-batting',
+      {
+        kind: 'page',
+        path: bowling ? '/play/?role=bowl' : '/play/',
+        duration: bowling ? 49 : 65,
+        playbackRate: 2,
+        viewport: SMALL_LANDSCAPE,
+        seed: 1,
+        frameMs: 170,
+        setup: (page) => startPracticeOver(page, bowling, 6, 0),
+        async verify(page) {
+          const count = await page.locator('#practice').getAttribute('data-legal');
+          if (count !== '6') throw new Error(`Expected 6 legal balls in capture, played ${count}`);
+        },
+      },
+    ]),
+  ),
   ...Object.fromEntries(
     [
       ['boundaries', 2],

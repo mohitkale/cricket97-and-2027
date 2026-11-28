@@ -2,11 +2,11 @@ import {
   DoubleSide,
   Mesh,
   MeshBasicMaterial,
+  type Object3D,
   type PerspectiveCamera,
   Plane,
   Raycaster,
   RingGeometry,
-  type Scene,
   Vector2,
   Vector3,
 } from 'three';
@@ -24,7 +24,7 @@ import type { PracticeAssist } from '../../game/pace-practice';
 export function bindBowlingControls(
   canvas: HTMLCanvasElement,
   camera: PerspectiveCamera,
-  scene: Scene,
+  pitch: Object3D,
   panel: HTMLElement,
   redraw: () => void,
   release: (delivery: ReturnType<typeof selectBowling>) => void,
@@ -45,7 +45,7 @@ export function bindBowlingControls(
     }),
   );
   ring.rotation.x = -Math.PI / 2 + 0.23;
-  scene.add(ring);
+  pitch.add(ring);
   const uv = new Vector2();
   const target = new Vector3();
   const ray = new Raycaster();
@@ -134,6 +134,9 @@ export function bindBowlingControls(
   }
 
   return {
+    get timing() {
+      return Number.isFinite(started);
+    },
     press(mode: PracticeAssist) {
       if (Number.isFinite(started)) {
         commit();

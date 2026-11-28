@@ -27,3 +27,11 @@ Reviewed `running-safe` and `running-short` at the wicket-break frame. The rende
 The shared rigs work from the bowler's end and square leg. A close dismissal waits 340 ms before the signal. The use of the rules engine's dismissal check keeps an out signal off a disallowed dismissal. Boundaries, extras, and explicit dead-ball calls have their appropriate hand signals. Ordinary completed runs appear in the score.
 
 Reviewed `umpire-boundaries`, `umpire-extras` and `umpire-dismissals`. The lab supplies typed outcomes to the same dispatcher used on the playable pitch, including all six supported dismissal kinds.
+
+## #33 Over flow and pacing
+
+The practice innings uses the shared match rules for legal balls, extras, strike and wickets. The result stays visible through the bowler's return walk. **Next ball** skips straight to the next run-up or release meter. The two batters take their new ends at the start of the next over, with the camera following the bowler's end.
+
+Scripted Chrome playthroughs completed 30 legal balls each way. The largest ordinary dead-ball-to-run-up interval was 3.93 seconds batting and 4.83 seconds bowling, including the timed release press. Both roles switched ends at 6, 12, 18 and 24 legal balls, and **Restart practice** reset the score at the end. A phone-viewport touch rehearsal verified that disabling **Auto next** held the result and tapping **Next ball** resumed play. The match setup link opened all three roster modes with Auto selected.
+
+The `practice-over-batting` and `practice-over-bowling` captures each verify six legal balls. The video samples at twice the in-game speed. The owner delegated the milestone review. The five-over checks were scripted browser playthroughs.

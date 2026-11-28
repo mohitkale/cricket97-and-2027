@@ -22,12 +22,17 @@ import { WICKET_PIECES, type WicketPiece, wicketPose } from './wicket';
 export interface SliceGround {
   /** Pose the striker's wicket `since` seconds after it was broken (rest pose for null). */
   breakWicket(hit: WicketBreak | null, since: number): void;
+  setStrikerEnd(swapped: boolean): void;
 }
 
 /** Shadow map size for the sun: the phone tier's budget, enough for contact shadows at the crease. */
 const SHADOW_MAP = 1024;
 
-export async function addSliceGround(scene: Scene, renderer: WebGLRenderer): Promise<SliceGround> {
+export async function addSliceGround(
+  scene: Scene,
+  renderer: WebGLRenderer,
+  pitch: Object3D = scene,
+): Promise<SliceGround> {
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = PCFSoftShadowMap;
   // The sky shader is physically based; without tone mapping it renders white.
@@ -49,7 +54,7 @@ export async function addSliceGround(scene: Scene, renderer: WebGLRenderer): Pro
     wicket.traverse((node) => {
       node.castShadow = true;
     });
-    scene.add(wicket);
+    pitch.add(wicket);
   }
 
   // Afternoon sun from over the bowler's shoulder, the shadow box tight on the striker's end.
@@ -96,6 +101,11 @@ export async function addSliceGround(scene: Scene, renderer: WebGLRenderer): Pro
   const axis = new Vector3();
   const turn = new Quaternion();
   return {
+    setStrikerEnd(swapped) {
+      const end = swapped ? 0 : PITCH.length;
+      sun.position.z = end - 10;
+      sun.target.position.z = end;
+    },
     breakWicket(hit, since) {
       for (const { end, items } of pieces) {
         const active = end === (hit?.end ?? 'striker') ? hit : null;

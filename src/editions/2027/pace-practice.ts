@@ -1,4 +1,4 @@
-import { Quaternion, Scene, Vector3, WebGLRenderer } from 'three';
+import { Group, Quaternion, Scene, Vector3, WebGLRenderer } from 'three';
 import { clone } from 'three/addons/utils/SkeletonUtils.js';
 import type { selectBowling } from '../../game/bowling-aim';
 import { returnedWicket, runFrameAt } from '../../game/field-trace';
@@ -13,12 +13,18 @@ import {
   practiceSwingError,
   practiceWindow,
 } from '../../game/pace-practice';
+import {
+  createPracticeInnings,
+  PRACTICE_OVERS,
+  RESET_WALK,
+  RESULT_BEAT,
+} from '../../game/practice-innings';
 import { type UmpireSignal, umpireSignals } from '../../game/umpire-signals';
 import { bindBattingInput } from '../../platform/batting-input';
 import { loadClips, loadModel } from '../../render/assets';
 import { createBallView } from '../../render/ball-view';
 import { createBatterStroke, STROKE_CLIP_FILES } from '../../render/batter-stroke';
-import { asCharacter, attach } from '../../render/character';
+import { asCharacter, attach, type Character } from '../../render/character';
 import { createFielder, loadFieldingClips } from '../../render/fielding';
 import { createPaceBowler, PACE_APPROACH } from '../../render/pace-bowler';
 import { createPracticeCamera } from '../../render/practice-camera';
@@ -26,9 +32,10 @@ import { createRunningBatter } from '../../render/running-batter';
 import { addSliceGround } from '../../render/slice';
 import { createUmpire } from '../../render/umpire';
 import type { End, RunCommand } from '../../sim/agents/running';
+import { oversText } from '../../sim/rules/match';
 import { PITCH } from '../../sim/units';
 import { bindBowlingControls } from './bowling-controls';
-import { createJerseyAtlas, makeJersey } from './lineup-kit';
+import { createJerseyAtlas, type LineupPlayer, makeJersey } from './lineup-kit';
 import { outfieldLod } from './live-fielders';
 import { loadPlayerBodies } from './player-bodies';
 import './pace-practice.css';
@@ -47,12 +54,14 @@ const runRisk = get<HTMLSpanElement>('#run-risk');
 const assist = get<HTMLSelectElement>('#assist');
 const returnEnd = get<HTMLSelectElement>('#return-end');
 const trail = get<HTMLInputElement>('#trail');
+const autoNext = get<HTMLInputElement>('#auto-next');
 const cue = get<HTMLElement>('#cue');
 const feedback = get<HTMLElement>('#feedback');
 const verdict = get<HTMLElement>('#feedback strong');
 const meter = get<HTMLMeterElement>('#feedback meter');
 const score = get<HTMLElement>('#score');
 const overs = get<HTMLElement>('#overs');
+const onStrike = get<HTMLElement>('#on-strike');
 
 const START = 'Bowl first ball';
 const SHOW_UNTIL = 1.5;
@@ -77,6 +86,8 @@ async function start() {
   const renderer = new WebGLRenderer({ canvas, antialias: true });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 1.35));
   const scene = new Scene();
+  const pitchActors = new Group();
+  scene.add(pitchActors);
   const [bodies, jogClips, paceClips, strikeClips, ballAsset, bat, helmet, pads, gloves, ground] =
     await Promise.all([
       loadPlayerBodies(),
@@ -88,7 +99,7 @@ async function start() {
       loadModel('equipment/helmet.glb'),
       loadModel('equipment/pads.glb'),
       loadModel('equipment/batting-gloves.glb'),
-      addSliceGround(scene, renderer),
+      addSliceGround(scene, renderer, pitchActors),
     ]);
   const strikerInfo = {
     name: rosterMode === 'male' ? 'Neel Joshi' : 'Avani Joshi',
@@ -104,29 +115,26 @@ async function start() {
     number: 36,
     gender: rosterMode === 'female' ? 'female' : 'male',
   } as const;
-  const atlas = createJerseyAtlas(2);
-  atlas.write([strikerInfo, bowlerInfo]);
-  const striking = asCharacter(clone(bodies[strikerInfo.gender]));
-  const bowling = asCharacter(clone(bodies[bowlerInfo.gender]));
-  makeJersey(striking.root, atlas, 0)(strikerInfo);
-  makeJersey(bowling.root, atlas, 1)(bowlerInfo);
-  attach(striking, 'helmet', helmet);
-  for (const name of ['pad_l', 'pad_r'] as const) {
-    const pad = pads.getObjectByName(name);
-    if (pad) attach(striking, name, pad);
-  }
-  for (const name of ['glove_l', 'glove_r'] as const) {
-    const glove = gloves.getObjectByName(name);
-    if (glove) attach(striking, name, glove);
-  }
-  for (const player of [striking, bowling]) {
+  function playerBody(gender: LineupPlayer['gender']) {
+    const player = asCharacter(clone(bodies[gender]));
     player.root.traverse((part) => {
       part.castShadow = true;
     });
-    scene.add(player.root);
+    player.root.visible = false;
+    pitchActors.add(player.root);
+    return player;
   }
+  function equipBatter(player: Character) {
+    attach(player, 'helmet', helmet.clone(true));
+    for (const name of ['pad_l', 'pad_r', 'glove_l', 'glove_r'] as const) {
+      const piece = (name.startsWith('pad') ? pads : gloves).getObjectByName(name);
+      if (piece) attach(player, name, piece.clone(true));
+    }
+  }
+  const walk = jogClips.find(({ name }) => name === 'Walk_Loop');
   const jog = jogClips.find(({ name }) => name === 'Jog_Fwd_Loop');
   const delivery = paceClips.find(({ name }) => name === 'Bowling_Pace_Delivery');
+  let session = createPracticeInnings();
   let mode = assist.value as PracticeAssist;
   const selectedEnd = () => (returnEnd.value || undefined) as End | undefined;
   const runCommands: RunCommand[] = [];
@@ -138,18 +146,17 @@ async function start() {
     return {
       ...(throwEnd && { throwEnd }),
       ...(activeBowl && { bowl: activeBowl }),
+      innings: session.batting,
       running: { automatic: userBowls || mode === 'casual', commands: runCommands },
     };
   };
   let played = practiceDelivery(0, mode, undefined, undefined, options());
   let trace = played.frames.map(({ pos }) => pos);
   const release = played.frames[0];
-  if (!jog || !delivery || !release) throw new Error('Missing pace practice fixture');
-  const bowler = createPaceBowler(bowling, jog, delivery, release.pos);
-  const striker = createBatterStroke(striking, bat, strikeClips.flat(), 'right', release.pos);
+  if (!walk || !jog || !delivery || !release) throw new Error('Missing pace practice fixture');
   const ball = createBallView(ballAsset);
   const camera = createPracticeCamera();
-  scene.add(striker.bat, ball.root);
+  pitchActors.add(ball.root);
   const [fieldingClips, keeperGloves, runningClips, officialClips] = await Promise.all([
     loadFieldingClips(),
     loadModel('equipment/keeping-gloves.glb'),
@@ -162,18 +169,50 @@ async function start() {
     number: 7,
     gender: rosterMode === 'mixed' ? ('male' as const) : strikerInfo.gender,
   };
-  const batters = [strikerInfo, partner] as const;
-  const runnerAtlas = createJerseyAtlas(2);
-  runnerAtlas.write(batters);
-  const runnerViews = ([0, 1] as const).map((slot) => {
-    const info = batters[slot];
-    const runner = asCharacter(clone(bodies[info.gender]));
-    makeJersey(runner.root, runnerAtlas, slot)(info);
-    for (const name of ['helmet', 'pad_l', 'pad_r', 'glove_l', 'glove_r'] as const) {
-      for (const item of striking.socket(name).children) attach(runner, name, item.clone(true));
-    }
-    scene.add(runner.root);
-    return createRunningBatter(runner, bat.clone(true), runningClips, slot);
+  const batters = [
+    strikerInfo,
+    partner,
+    ...['Shah', 'Singh', 'Rao', 'Kumar', 'Patel', 'Nair', 'Jain', 'Das', 'Basu'].map(
+      (name, index) => ({
+        ...strikerInfo,
+        name,
+        number: index + 22,
+        gender: index % 2 === 0 ? strikerInfo.gender : partner.gender,
+      }),
+    ),
+  ];
+  const atlas = createJerseyAtlas(3);
+  const genders = [...new Set([strikerInfo.gender, partner.gender, bowlerInfo.gender])];
+  const battingActors = genders.map((gender) => {
+    const striker = playerBody(gender);
+    equipBatter(striker);
+    const stroke = createBatterStroke(
+      striker,
+      bat.clone(true),
+      strikeClips.flat(),
+      'right',
+      release.pos,
+    );
+    stroke.bat.visible = false;
+    pitchActors.add(stroke.bat);
+    const runners = ([0, 1] as const).map((slot) => {
+      const player = playerBody(gender);
+      equipBatter(player);
+      return {
+        motion: createRunningBatter(player, bat.clone(true), runningClips, slot),
+        dress: makeJersey(player.root, atlas, slot),
+      };
+    });
+    return { gender, striker, stroke, runners, dress: makeJersey(striker.root, atlas, 0) };
+  });
+  const bowlingActors = genders.map((gender) => {
+    const player = playerBody(gender);
+    return {
+      gender,
+      player,
+      motion: createPaceBowler(player, jog, delivery, release.pos, walk),
+      dress: makeJersey(player.root, atlas, 2),
+    };
   });
   const fieldAtlas = createJerseyAtlas(played.field.track.size);
   const fieldIds = [...played.field.track.keys()];
@@ -196,7 +235,7 @@ async function start() {
         if (glove) attach(character, name, glove);
       }
     }
-    scene.add(character.root);
+    pitchActors.add(character.root);
     return { id, character, actor: createFielder(character, fieldingClips, keeper) };
   });
   const phone = matchMedia('(pointer: coarse)').matches;
@@ -218,10 +257,49 @@ async function start() {
       gender,
       color: 0x647b8e,
     });
-    scene.add(character.root);
+    pitchActors.add(character.root);
     return createUmpire(character, officialMotion, station);
   });
   const officialFocus = new Vector3();
+  function lineup() {
+    const { striker, nonStriker, bowler } = session.batting;
+    const first = batters[striker] ?? strikerInfo;
+    const second = batters[nonStriker] ?? partner;
+    const currentBowler =
+      bowler === 9 ? bowlerInfo : (kits[fieldIds.indexOf(bowler ?? 9)] ?? bowlerInfo);
+    const batter = battingActors.find(({ gender }) => gender === first.gender);
+    const runner = battingActors.find(({ gender }) => gender === second.gender);
+    const bowling = bowlingActors.find(({ gender }) => gender === currentBowler.gender);
+    const front = batter?.runners[0];
+    const back = runner?.runners[1];
+    if (!batter || !bowling || !front || !back) throw new Error('Missing practice lineup');
+    atlas.write([first, second, currentBowler]);
+    for (const actor of battingActors) {
+      actor.striker.root.visible = false;
+      actor.stroke.bat.visible = false;
+      for (const { motion } of actor.runners) motion.root.visible = false;
+    }
+    for (const actor of bowlingActors) actor.player.root.visible = false;
+    batter.dress(first);
+    front.dress(first);
+    back.dress(second);
+    bowling.dress(currentBowler);
+    onStrike.textContent = `${first.name} on strike`;
+    screen.dataset.striker = String(striker);
+    return {
+      striker: batter.stroke,
+      striking: batter.striker,
+      bowler: bowling.motion,
+      bowling: bowling.player,
+      front: front.motion,
+      back: back.motion,
+    };
+  }
+  let actors = lineup();
+  let activeEnd = session.end;
+  screen.dataset.bowlingEnd = String(activeEnd);
+  screen.dataset.legal = '0';
+  screen.dataset.attempts = '0';
   let signals: UmpireSignal[] = [];
   let deadAt = 0;
   let wicket = played.result.wicketBroken;
@@ -230,11 +308,17 @@ async function start() {
     deadAt = Math.max(played.frames.at(-1)?.time ?? 0, wicket?.t ?? 0);
     const passing = played.frames.find(({ pos }) => pos.z >= PITCH.length)?.time ?? deadAt;
     const returnEnd = played.field.wicket?.end;
-    signals = umpireSignals(played.result.outcome, {
-      passing,
-      dead: deadAt,
-      ...(returnEnd && { returnEnd }),
-    });
+    const outcome = played.result.outcome;
+    const ruling = session.preview(outcome);
+    signals = umpireSignals(
+      ruling.noBallForBouncers ? { ...outcome, illegal: 'no-ball' } : outcome,
+      {
+        passing,
+        dead: deadAt,
+        freeHit: ruling.wasFreeHit,
+        ...(returnEnd && { returnEnd }),
+      },
+    );
     for (const { id, actor } of field) actor.plan(played.field.track.get(id));
   };
   planField();
@@ -244,15 +328,15 @@ async function start() {
   const axis = new Vector3();
   const turn = new Quaternion();
   const orientation = new Quaternion();
+  const halfTurn = new Quaternion(0, 1, 0, 0);
   const before = new Vector3();
   let liveAt = Number.NaN;
   let inputAt = Number.NaN;
   let expected = 0;
   let earlyLate = 0;
-  let legal = 0;
-  let runs = 0;
-  let wickets = 0;
-  let attempted = 0;
+  let deadSince = Number.NaN;
+  let resetAt = 0;
+  let resetFrame = 0;
   let choice = false;
   let leaving = false;
   let tooLate = false;
@@ -265,7 +349,7 @@ async function start() {
     ? bindBowlingControls(
         canvas,
         camera.camera,
-        scene,
+        pitchActors,
         get('#bowling'),
         () => {
           const input = performance.now();
@@ -276,15 +360,27 @@ async function start() {
       )
     : null;
 
-  function draw(time: number) {
+  // Keep rig queries and aim rays in the sim frame. Turn the playing actors and
+  // bowler-end camera together for the alternate end of the physical ground.
+  function turnCamera() {
+    const view = camera.camera;
+    view.position.x *= -1;
+    view.position.z = PITCH.length - view.position.z;
+    view.quaternion.premultiply(halfTurn);
+    view.updateMatrixWorld();
+  }
+
+  function draw(time: number, walkTime?: number) {
     const { frames, result } = played;
+    const { striker, striking, bowler, bowling, front, back } = actors;
     bowler.sample(time, socket);
+    if (walkTime !== undefined) bowler.walkBack(walkTime);
     striker.sample(time);
-    const strikerRunning = runnerViews[0]?.sample(time, played.field.running) ?? false;
-    runnerViews[1]?.sample(time, played.field.running);
+    const strikerRunning = front.sample(time, played.field.running);
+    back.sample(time, played.field.running);
     striking.root.visible = !strikerRunning;
     striker.bat.visible = !strikerRunning;
-    if (!userBowls) {
+    if (!userBowls && Number.isFinite(liveAt)) {
       const running = runFrameAt(played.field.running, time).current;
       runAction.hidden = !running?.available;
       runRisk.hidden = runAction.hidden;
@@ -327,7 +423,9 @@ async function start() {
     for (const player of field) {
       const { id, actor, character } = player;
       const track = played.field.track.get(id);
-      const active = id !== played.field.bowler || (time >= 1 && !!track?.events.length);
+      const active =
+        id !== played.field.bowler ||
+        (walkTime === undefined && time >= 1 && !!track?.events.length);
       character.root.visible = active;
       if (id === played.field.bowler) bowling.root.visible = !active;
       if (!active) continue;
@@ -345,7 +443,7 @@ async function start() {
     let showOfficial = false;
     for (const official of officials) {
       const signal = official.sample(time, signals);
-      if (signal && time >= deadAt) {
+      if (signal && time >= deadAt && walkTime === undefined) {
         showOfficial = true;
         officialFocus.copy(official.root.position);
         officialFocus.y = 1.07;
@@ -353,8 +451,9 @@ async function start() {
       }
     }
     lastFlight = time;
+    ball.root.visible = walkTime === undefined;
     ball.setPose(position, orientation, practiceGround.surfaceAt(position.x, position.z).height);
-    ball.setTrail(trace, pathIndex, position, time >= 0 && trail.checked);
+    ball.setTrail(trace, pathIndex, position, walkTime === undefined && time >= 0 && trail.checked);
     if (wicket && time >= wicket.t) {
       ground.breakWicket(wicket, time - wicket.t);
       broken = true;
@@ -375,32 +474,47 @@ async function start() {
       width,
       height,
       showOfficial ? officialFocus : position,
-      showOfficial ? 1 : result.contact?.impact ? time - result.contact.time : 0,
+      walkTime !== undefined
+        ? 0
+        : showOfficial
+          ? 1
+          : result.contact?.impact
+            ? time - result.contact.time
+            : 0,
     );
+    if (activeEnd === 1) {
+      pitchActors.position.z = PITCH.length;
+      pitchActors.quaternion.copy(halfTurn);
+      turnCamera();
+    }
     renderer.render(scene, camera.camera);
+    if (activeEnd === 1) {
+      pitchActors.position.z = 0;
+      pitchActors.quaternion.identity();
+      pitchActors.updateMatrixWorld(true);
+      turnCamera();
+    }
     if (Number.isFinite(inputAt) && before.distanceToSquared(striker.bat.position) > 0.000001) {
       screen.dataset.inputResponse = (performance.now() - inputAt).toFixed(1);
       inputAt = Number.NaN;
     }
     screen.dataset.phase =
-      time < 0
-        ? 'approach'
-        : result.contact?.impact && time > result.contact.time
-          ? 'follow'
-          : 'flight';
+      walkTime !== undefined
+        ? 'reset'
+        : time < 0
+          ? 'approach'
+          : result.contact?.impact && time > result.contact.time
+            ? 'follow'
+            : 'flight';
   }
 
   function finish() {
     const { outcome, contact } = played.result;
-    const illegal = outcome.illegal;
-    if (!illegal) legal++;
-    attempted++;
-    if (outcome.dismissal) wickets++;
-    runs += (outcome.boundary ?? outcome.runsRun ?? 0) + (illegal ? 1 : 0);
+    const ruling = session.finish(outcome);
+    const { legalBalls, runs, wickets, ended } = session.batting;
     score.textContent = `${runs} / ${wickets}`;
-    overs.textContent = `${Math.floor(legal / 6)}.${legal % 6} / 5 overs`;
-    const outcomeLabel =
-      illegal ?? outcome.dismissal?.kind ?? (outcome.boundary ? `${outcome.boundary} runs` : '');
+    overs.textContent = `${oversText(legalBalls)} / ${PRACTICE_OVERS} overs`;
+    const outcomeLabel = ruling.noBallForBouncers ? 'no-ball' : (outcome.illegal ?? ruling.wicket);
     const strike =
       contact?.kind === 'middled'
         ? 'Clean hit'
@@ -419,13 +533,24 @@ async function start() {
             ? 'Late'
             : 'Early';
     const action = userBowls ? bowlingTiming : choice || tooLate ? `${strike} · ${timing}` : timing;
-    verdict.textContent = outcomeLabel ? `${action} · ${outcomeLabel}` : action;
+    const runsLabel = ruling.runs ? `${ruling.runs} run${ruling.runs === 1 ? '' : 's'}` : '';
+    const nextLabel =
+      ended === 'all-out'
+        ? 'All out'
+        : ended
+          ? 'Practice complete'
+          : ruling.overComplete
+            ? 'Change ends'
+            : '';
+    verdict.textContent = [action, outcomeLabel, runsLabel, nextLabel].filter(Boolean).join(' · ');
     meter.value = Math.max(-1, Math.min(1, earlyLate / 0.19));
     meter.hidden = userBowls || (!choice && !tooLate);
     feedback.hidden = false;
+    cue.classList.remove('playing');
     cue.textContent = '';
     screen.dataset.phase = 'ready';
-    screen.dataset.legal = String(legal);
+    screen.dataset.legal = String(legalBalls);
+    screen.dataset.attempts = String(session.attempts);
     liveAt = Number.NaN;
     next.disabled = false;
     playShot.hidden = true;
@@ -434,12 +559,27 @@ async function start() {
     next.hidden = false;
     assist.disabled = false;
     returnEnd.disabled = false;
-    bowlingControls?.ready();
-    next.textContent = legal >= 30 ? 'Restart practice' : 'Next ball';
-    if (userBowls) {
-      draw(-PACE_APPROACH);
-      screen.dataset.phase = 'ready';
+    next.textContent = ended ? 'Restart practice' : 'Next ball';
+    if (!ended && autoNext.checked) scheduleReset();
+  }
+
+  function scheduleReset() {
+    if (!resetFrame) {
+      resetAt = performance.now();
+      resetFrame = requestAnimationFrame(reset);
     }
+  }
+
+  function reset(now: number) {
+    resetFrame = 0;
+    if (!autoNext.checked) return;
+    const elapsed = (now - resetAt) / 1000 - RESULT_BEAT;
+    if (elapsed >= RESET_WALK) {
+      advanceDelivery();
+      return;
+    }
+    if (elapsed >= 0) draw(lastFlight, elapsed);
+    resetFrame = requestAnimationFrame(reset);
   }
 
   function choose(shot: PracticeShot) {
@@ -455,8 +595,9 @@ async function start() {
     }
     earlyLate = time - window.ideal;
     const timingError = practiceSwingError(time, expected, mode);
+    const { striker } = actors;
     const previous = played;
-    played = practiceDelivery(attempted, mode, shot, timingError, options());
+    played = practiceDelivery(session.attempts, mode, shot, timingError, options());
     const event = played.result.contact;
     if (event?.impact && event.time <= time + 0.018) played = previous;
     else {
@@ -489,7 +630,7 @@ async function start() {
     if (!Number.isFinite(liveAt) || userBowls || !current?.available || current.returning) return;
     if ((runCommands.at(-1)?.time ?? -Infinity) > lastFlight) return;
     runCommands.push({ time: lastFlight + 1e-6, action: current.active ? 'cancel' : 'run' });
-    played = practiceDelivery(attempted, mode, activeShot, swingError, options());
+    played = practiceDelivery(session.attempts, mode, activeShot, swingError, options());
     trace = played.frames.map(({ pos }) => pos);
     pathIndex = 0;
     planField();
@@ -501,22 +642,25 @@ async function start() {
     callRun();
   });
 
-  function startDelivery(bowl?: ReturnType<typeof selectBowling>) {
-    const input = performance.now();
-    if (legal >= 30) {
-      legal = 0;
-      runs = 0;
-      wickets = 0;
-      attempted = 0;
+  function prepareDelivery(bowl?: ReturnType<typeof selectBowling>) {
+    if (session.batting.ended) {
+      session = createPracticeInnings();
       score.textContent = '0 / 0';
-      overs.textContent = '0.0 / 5 overs';
+      overs.textContent = `0.0 / ${PRACTICE_OVERS} overs`;
+      screen.dataset.legal = '0';
+      screen.dataset.attempts = '0';
     }
+    actors = lineup();
+    activeEnd = session.end;
+    ground.setStrikerEnd(activeEnd === 1);
+    screen.dataset.bowlingEnd = String(activeEnd);
+    const { bowler, striker } = actors;
     mode = assist.value as PracticeAssist;
     activeShot = undefined;
     activeBowl = bowl;
     swingError = 0;
     runCommands.length = 0;
-    played = practiceDelivery(attempted, mode, undefined, undefined, options());
+    played = practiceDelivery(session.attempts, mode, undefined, undefined, options());
     planField();
     trace = played.frames.map(({ pos }) => pos);
     expected = practiceArrival(played.frames, 'cover-drive');
@@ -527,19 +671,25 @@ async function start() {
     pathIndex = 0;
     lastFlight = 0;
     striker.reset();
+    const style = bowl?.style === 'off' ? 'Bowling_Off_Spin' : 'Bowling_Leg_Spin';
+    const take = bowl?.style ? spinClips.find(({ name }) => name === style) : delivery;
+    const launch = played.frames[0];
+    if (!take || !launch) throw new Error('Missing bowling take or launch');
+    bowler.configure(take, launch.pos);
     if (bowl) {
       bowlingTiming = bowl.timing;
-      const style = bowl.style === 'off' ? 'Bowling_Off_Spin' : 'Bowling_Leg_Spin';
-      const take = bowl.style ? spinClips.find(({ name }) => name === style) : delivery;
-      const launch = played.frames[0];
-      if (!take || !launch) throw new Error('Missing bowling take or launch');
-      bowler.configure(take, launch.pos);
       const { stroke } = played.batting;
       const contact = played.result.contact;
       const event = contact?.impact ? contact.time : practiceArrival(played.frames, stroke);
       striker.plan(stroke, Math.max(0, event - 0.22), event, contact?.impact ?? null);
       choice = stroke !== 'leave';
     }
+  }
+
+  function startDelivery(bowl?: ReturnType<typeof selectBowling>) {
+    const input = performance.now();
+    if (Number.isFinite(liveAt)) return;
+    prepareDelivery(bowl);
     cue.textContent = '';
     feedback.hidden = true;
     next.disabled = true;
@@ -551,6 +701,9 @@ async function start() {
     delete screen.dataset.inputResponse;
     canvas.focus();
     liveAt = performance.now();
+    if (Number.isFinite(deadSince))
+      screen.dataset.resetDelay = ((liveAt - deadSince) / 1000).toFixed(3);
+    deadSince = Number.NaN;
     if (bowl) {
       draw(-PACE_APPROACH);
       screen.dataset.releaseResponse = (performance.now() - input).toFixed(1);
@@ -558,17 +711,35 @@ async function start() {
     requestAnimationFrame(frame);
   }
 
-  next.addEventListener('click', () => {
+  function advanceDelivery() {
+    cancelAnimationFrame(resetFrame);
+    resetFrame = 0;
     if (!bowlingControls) {
       startDelivery();
       return;
     }
-    if (bowlingControls.press(assist.value as PracticeAssist)) {
-      feedback.hidden = true;
-      assist.disabled = true;
-      next.textContent = 'Release ball';
-      canvas.focus();
+    if (!bowlingControls.timing) {
+      prepareDelivery();
+      bowlingControls.ready();
+      draw(-PACE_APPROACH);
+      screen.dataset.phase = 'aim';
     }
+    if (!bowlingControls.press(assist.value as PracticeAssist)) return;
+    feedback.hidden = true;
+    assist.disabled = true;
+    next.textContent = 'Release ball';
+    canvas.focus();
+  }
+  next.addEventListener('click', advanceDelivery);
+  autoNext.addEventListener('change', () => {
+    if (
+      autoNext.checked &&
+      !session.batting.ended &&
+      Number.isFinite(deadSince) &&
+      !Number.isFinite(liveAt) &&
+      !bowlingControls?.timing
+    )
+      scheduleReset();
   });
 
   function frame(now: number) {
@@ -583,7 +754,7 @@ async function start() {
       playShot.disabled = !ready;
       if (time > closes && !leaving) {
         leaving = true;
-        striker.plan('leave', time, time + 0.22, null);
+        actors.striker.plan('leave', time, time + 0.22, null);
       }
     } else if (impact !== undefined && time >= impact && time < deadAt) {
       const contact = played.result.contact;
@@ -595,6 +766,7 @@ async function start() {
             : 'Mistimed hit';
       if (cue.textContent !== strike) cue.textContent = strike;
     }
+    if (time >= deadAt && !Number.isFinite(deadSince)) deadSince = now;
     draw(time);
     const until = Math.max(SHOW_UNTIL, deadAt + 0.35, ...signals.map(({ end }) => end));
     if (time < until) requestAnimationFrame(frame);

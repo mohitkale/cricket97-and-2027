@@ -20,11 +20,13 @@ export function createPaceBowler(
   jog: AnimationClip,
   pace: AnimationClip,
   release: Vec3,
+  walk?: AnimationClip,
 ) {
   const { root } = character;
   root.rotation.y = APPROACH_YAW;
   const mixer = new AnimationMixer(root);
   const runUp = mixer.clipAction(jog).play();
+  const returnWalk = walk ? mixer.clipAction(walk).play().setEffectiveWeight(0) : undefined;
   const ball = character.socket('ball');
   const hips = root.getObjectByName('pelvis');
   if (!hips) throw new Error('The pace bowler needs a pelvis joint');
@@ -46,7 +48,9 @@ export function createPaceBowler(
     delivery.stop();
     delivery = mixer.clipAction(take).reset().play().setEffectiveWeight(1);
     runUp.setEffectiveWeight(0);
+    returnWalk?.setEffectiveWeight(0);
     root.position.set(0, 0, 0);
+    root.rotation.y = APPROACH_YAW;
     root.scale.copy(originalScale);
     delivery.time = marker;
     mixer.update(0);
@@ -71,11 +75,25 @@ export function createPaceBowler(
       delivery.time = Math.min(Math.max(0, actionTime), take.duration - 1e-5);
       runUp.setEffectiveWeight(1 - blend);
       delivery.setEffectiveWeight(blend);
+      returnWalk?.setEffectiveWeight(0);
       const approach = Math.min(0, actionTime);
+      root.rotation.y = APPROACH_YAW;
       root.position.set(x + approach * across, 0, z + approach * downPitch);
       mixer.update(0);
       ball.getWorldPosition(ballPosition);
       if (hipsPosition) hips.getWorldPosition(hipsPosition);
+    },
+    walkBack(time: number) {
+      if (!returnWalk || !walk) return;
+      const distance = 0.84 * time * Math.abs(root.scale.z);
+      root.rotation.y = Math.PI + APPROACH_YAW;
+      root.position.x -= Math.sin(APPROACH_YAW) * distance;
+      root.position.z -= Math.cos(APPROACH_YAW) * distance;
+      runUp.setEffectiveWeight(0);
+      delivery.setEffectiveWeight(0);
+      returnWalk.time = time % walk.duration;
+      returnWalk.setEffectiveWeight(1);
+      mixer.update(0);
     },
   };
 }

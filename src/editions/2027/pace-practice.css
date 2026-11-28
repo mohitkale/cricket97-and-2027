@@ -26,6 +26,7 @@ body { margin: 0; }
 #practice-settings label { display: inline-flex; align-items: center; gap: 4px; }
 #practice-hud strong { font-size: 1.1rem; }
 #overs { font-size: 0.75rem; }
+#on-strike { display: block; font-size: 0.72rem; margin-top: 4px; }
 select { font: inherit; padding: 4px; }
 #practice-controls {
   bottom: max(14px, env(safe-area-inset-bottom));
