@@ -39,7 +39,7 @@ select { font: inherit; padding: 4px; }
 }
 #practice-controls > * { margin: 0; }
 #practice-controls button, #practice-controls a { pointer-events: auto; }
-#practice-controls p, #practice-controls a, #feedback {
+#practice-controls p, #practice-controls a, #feedback, #run-risk {
   border-radius: 6px;
   background: #162824f2;
   padding: 8px 10px;

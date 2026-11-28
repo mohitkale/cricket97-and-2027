@@ -1,4 +1,4 @@
-import type { End } from '../sim/agents/running';
+import type { End, RunControl } from '../sim/agents/running';
 import { AI_LEVELS, chooseStroke } from '../sim/ai/ai';
 import { type BallObserver, groundEnvironment } from '../sim/ball/ball';
 import { ASSIST, STROKES } from '../sim/contact/strokes';
@@ -43,13 +43,18 @@ export function practiceClock(elapsedFromRelease: number, assist: PracticeAssist
 const battingTeam = standardTeam(1);
 const fieldingTeam = standardTeam(2);
 
+export interface PracticeOptions {
+  throwEnd?: End;
+  bowl?: { intent: BowlingIntent; style: 'off' | 'leg' | null };
+  running?: RunControl;
+}
+
 export function practiceDelivery(
   number: number,
   assist: PracticeAssist,
   shot: PracticeShot = { stroke: 'leave', lofted: false },
   timingError = 0,
-  throwEnd?: End,
-  bowl?: { intent: BowlingIntent; style: 'off' | 'leg' | null },
+  { throwEnd, bowl, running }: PracticeOptions = {},
 ) {
   const [striker, nonStriker] = battingTeam;
   const bowler = fieldingTeam[9]?.bowling;
@@ -111,6 +116,7 @@ export function practiceDelivery(
       random: random.stream('delivery'),
       ...(ai ? { caution: ai.caution } : {}),
       ...(throwEnd === undefined ? {} : { throwEnd }),
+      ...(running === undefined ? {} : { running }),
     },
     (time, { pos, spin, bounces }) => {
       frames.push({ time, pos: { ...pos }, spin: { ...spin }, bounces });

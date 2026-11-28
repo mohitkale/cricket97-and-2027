@@ -15,3 +15,9 @@ Reviewed the harness sheets for `fielding-chase`, `fielding-dive`, `fielding-cau
 ## #28 Bowling controls
 
 Two fresh Chrome sessions completed six legal stock balls on their first attempt. The keyboard session used the arrow-key aim and Space release. The touch session used release taps in a phone viewport. Chrome on Intel UHD Graphics 630 submitted the visible aim change in 4.9 ms and the first changed delivery frames within 11.3 ms for keyboard and 36 ms for touch. The pace and off-spin lab captures show the timing meter, run-up and authored release. A two-person hallway test and real-phone input measurements remain open.
+
+## #31 Running between wickets
+
+Casual calls runs automatically. In Classic and Pro, use **Run** or **R**. The same control calls both batters back once they are running. The risk text compares the sim's estimated run and return times.
+
+Reviewed `running-safe` and `running-short` at the wicket-break frame. The rendered bat was 45.8 cm past the crease on the safe call and 17.8 cm short on the run-out. The replay test compares the displayed blade with the sim's grounding position and verifies that canceling returns both batters without scoring. The run and cancel traces matched in Node, Chromium, Firefox and WebKit.

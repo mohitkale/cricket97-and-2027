@@ -7,6 +7,8 @@ import { PITCH } from '../units.ts';
 import { limitsFor, type MoveLimits, type Ratings } from './movement.ts';
 
 export type End = 'striker' | 'bowler';
+export type RunCommand = { time: number; action: 'run' | 'cancel' };
+export type RunControl = { automatic: boolean; commands: readonly RunCommand[] };
 
 /** Popping crease positions along the pitch. */
 export const CREASE: Record<End, number> = {

@@ -19,6 +19,7 @@ import {
   type End,
   etaHome,
   nextRunTime,
+  type RunControl,
   type Runner,
   runTime,
   setOff,
@@ -85,12 +86,22 @@ export interface PlaySetup {
   noCatch?: boolean;
   /** Omit for the fielding side's automatic choice. */
   throwEnd?: End;
+  running?: RunControl;
 }
 
 export type FieldTouch = 'catch' | 'gather' | 'release' | 'take' | 'stump';
 export interface FieldObserver {
   frame(time: number, agents: readonly Agent[]): void;
   touch(time: number, actor: Agent, kind: FieldTouch, ball: Vec3, aim?: Point): void;
+  runners?(time: number, runners: readonly [Runner, Runner], status: RunStatus): void;
+  wicket?(time: number, end: End, out: boolean): void;
+}
+
+export interface RunStatus {
+  active: boolean;
+  returning: boolean;
+  available: boolean;
+  margin: number;
 }
 
 type BallMode =
@@ -249,14 +260,26 @@ export function resolvePlay(
   }
 
   /** Would the batters take another run now? Both must make it with `caution` to spare. */
-  function wantRun(): boolean {
-    if (mode.kind === 'taken') return false;
+  function runMargin(active: boolean): number {
+    if (mode.kind === 'taken' && !active) return Number.NEGATIVE_INFINITY;
+    if (active) {
+      return (
+        Math.min(
+          threatAt(striker.goal) - etaHome(striker),
+          threatAt(partner.goal) - etaHome(partner),
+        ) - t
+      );
+    }
     // From where each batter actually is: one who ran on past the crease has further to come.
     const time = Math.max(nextRunTime(striker), nextRunTime(partner));
     // After this run the striker would be heading for the end the partner is at now, and the reverse.
     const strikerEnd: End = striker.goal === 'striker' ? 'bowler' : 'striker';
     const partnerEnd: End = partner.goal === 'striker' ? 'bowler' : 'striker';
-    return t + time + caution < Math.min(threatAt(strikerEnd), threatAt(partnerEnd));
+    return Math.min(threatAt(strikerEnd), threatAt(partnerEnd)) - t - time;
+  }
+
+  function wantRun(): boolean {
+    return runMargin(false) > caution;
   }
 
   function callRun(): void {
@@ -269,6 +292,7 @@ export function resolvePlay(
   function breakWicket(end: End, fielder: number): void {
     events.push({ type: 'wicket-broken', end, t });
     const victim = runners.find((runner) => runner.goal === end && !runner.home);
+    field?.wicket?.(t, end, !!victim);
     if (victim) {
       // Crossed: the batters have passed each other on the run in progress.
       const crossed = striker.goal === 'bowler' ? striker.z < partner.z : striker.z > partner.z;
@@ -359,18 +383,40 @@ export function resolvePlay(
   const currentMode = (): BallMode => mode;
   const out = () => dismissal !== null;
   let running = false;
+  let returning = false;
+  let automatic = setup.running?.automatic ?? true;
+  let commandIndex = 0;
   const startRun = () => {
     callRun();
     running = true;
   };
+  const reportRunners = (available: boolean) =>
+    field?.runners?.(t, runners, {
+      active: running,
+      returning,
+      available,
+      margin: runMargin(running),
+    });
 
   plan();
   field?.frame(t, fielders);
-  if (wantRun()) startRun();
+  if (automatic && wantRun()) startRun();
+  reportRunners(true);
 
   for (let step = 0; step < 120 * 40; step++) {
     if (step > 0) observe?.(t, ball);
     t += SIM_DT;
+    const command = setup.running?.commands[commandIndex];
+    if (command && command.time <= t) {
+      commandIndex++;
+      if (command.action === 'cancel' && running && !returning) {
+        callRun();
+        returning = true;
+        automatic = false;
+      } else if (command.action === 'run' && !running && currentMode().kind === 'free') {
+        startRun();
+      }
+    }
     for (const agent of fielders) stepAgent(agent, SIM_DT);
     field?.frame(t, fielders);
     for (const runner of runners) stepRunner(runner, SIM_DT);
@@ -378,9 +424,12 @@ export function resolvePlay(
     if (running) {
       if (striker.home && partner.home) {
         // Both batters have made their ground: the run counts. Another?
-        runs += 1;
+        if (!returning) {
+          runs += 1;
+          events.push({ type: 'run', total: runs, t });
+        }
         running = false;
-        events.push({ type: 'run', total: runs, t });
+        returning = false;
         // Batters who slowed to turn have already judged this run; they go unless it has
         // clearly gone wrong. Batters who ran through have to pull up first, and judge afresh.
         const committed = striker.turning && mode.kind !== 'taken';
@@ -390,22 +439,23 @@ export function resolvePlay(
           ? t + Math.max(runTime(striker), runTime(partner)) + caution <
             Math.min(threatAt('striker'), threatAt('bowler'))
           : wantRun();
-        if (go) startRun();
+        if (automatic && go) startRun();
       } else {
         // Decide on the way whether to turn, so they slow into the crease only if they will.
         // Judged ten times a second, as a batter glancing up would.
         if (step % 12 === 0) {
-          const turn = wantRunAfterThis();
+          const turn = automatic && wantRunAfterThis();
           striker.turning = turn;
           partner.turning = turn;
         }
       }
-    } else if (mode.kind === 'free' && step % 12 === 0 && wantRun()) {
+    } else if (automatic && mode.kind === 'free' && step % 12 === 0 && wantRun()) {
       // Things change while the ball is loose (a misfield, an overthrow): look again.
       startRun();
     }
 
     const current = currentMode();
+    reportRunners(current.kind === 'free' || running);
     if (current.kind === 'free') {
       stepBall(ball, SIM_DT, env);
       if (t >= nextPlan) plan(false);
@@ -521,7 +571,7 @@ export function resolvePlay(
             ball.rolling = false;
             mode = { kind: 'free' };
             plan();
-            if (!running && wantRun()) startRun();
+            if (automatic && !running && wantRun()) startRun();
           }
         }
         if (out()) break;
@@ -545,6 +595,7 @@ export function resolvePlay(
     }
   }
   observe?.(t, ball);
+  reportRunners(false);
 
   // Runs do not count on a catch, and a boundary replaces runs run.
   const final = dismissal as PlayResult['dismissal'];

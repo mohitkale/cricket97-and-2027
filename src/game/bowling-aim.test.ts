@@ -15,7 +15,7 @@ test('the first six Casual stock bowls with varied presses are legal', () => {
     const selected = selectBowling(GOOD_LENGTH, 'stock', bowlMeter(timing * 1.7), 'casual');
     expect(selected.timing).toBe('On time');
     expect(
-      practiceDelivery(ball, 'casual', undefined, undefined, undefined, selected).result.outcome
+      practiceDelivery(ball, 'casual', undefined, undefined, { bowl: selected }).result.outcome
         .illegal,
     ).toBeUndefined();
   }
@@ -29,8 +29,8 @@ test('jointly applies the variation and timing while the keeper stands up to spi
   expect(early.intent.swing).toBe(quick.intent.swing);
   const legSpin = selectBowling(GOOD_LENGTH, 'leg-spin', BOWL_TARGET, 'casual');
   expect(legSpin.intent.turn).toBeLessThan(0);
-  const paceView = practiceDelivery(2, 'casual', undefined, undefined, undefined, quick);
-  const spinView = practiceDelivery(2, 'casual', undefined, undefined, undefined, legSpin);
+  const paceView = practiceDelivery(2, 'casual', undefined, undefined, { bowl: quick });
+  const spinView = practiceDelivery(2, 'casual', undefined, undefined, { bowl: legSpin });
   expect(paceView.field.track.get(paceView.field.keeper)?.keys[0]?.z).toBe(PITCH.length + 10);
   expect(spinView.field.track.get(spinView.field.keeper)?.keys[0]?.z).toBe(PITCH.length + 1.3);
 });

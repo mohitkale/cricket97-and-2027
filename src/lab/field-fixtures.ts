@@ -3,7 +3,7 @@ import type { PracticeFrame } from '../game/pace-practice';
 import { keeperPosition } from '../sim/agents/field';
 import { createAgent } from '../sim/agents/movement';
 import { resolvePlay } from '../sim/agents/play';
-import { createRunner, type End } from '../sim/agents/running';
+import { createRunner, type End, type RunControl } from '../sim/agents/running';
 import { type BallObserver, createBall, groundEnvironment } from '../sim/ball/ball';
 import { ASSIST } from '../sim/contact/strokes';
 import { Rng } from '../sim/core/prng';
@@ -15,7 +15,12 @@ const env = groundEnvironment('hard');
 const SAFE = { pace: 0.8, agility: 0.85, hands: 1, arm: 0.9 };
 export type FieldScene = 'chase' | 'dive' | 'caught-behind' | 'stumping';
 
-export function fieldFixture(kind: FieldScene | 'catch' | 'gather', seed: number, throwEnd?: End) {
+export function fieldFixture(
+  kind: FieldScene | 'catch' | 'gather',
+  seed: number,
+  throwEnd?: End,
+  running?: RunControl,
+) {
   const field = recordField(1, 2);
   const frames: PracticeFrame[] = [];
   const observe: BallObserver = (time, { pos, spin, bounces }) => {
@@ -102,9 +107,18 @@ export function fieldFixture(kind: FieldScene | 'catch' | 'gather', seed: number
       random,
       ...(aerial ? {} : { caution: -2, noCatch: true }),
       ...(throwEnd === undefined ? {} : { throwEnd }),
+      ...(running === undefined ? {} : { running }),
     },
     observe,
     field.observer,
   );
   return { field: field.trace, frames, wicket: null, play };
+}
+
+/** One grounded and one short at the frame the return puts the wicket down. */
+export function runningFixture(short: boolean) {
+  return fieldFixture('dive', short ? 1 : 9, 'striker', {
+    automatic: false,
+    commands: [{ time: short ? 0.2 : 1.25, action: 'run' }],
+  });
 }

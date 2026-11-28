@@ -1,8 +1,10 @@
 import { Quaternion, Scene, Vector3, WebGLRenderer } from 'three';
 import { clone } from 'three/addons/utils/SkeletonUtils.js';
 import type { selectBowling } from '../../game/bowling-aim';
+import { returnedWicket, runFrameAt } from '../../game/field-trace';
 import {
   type PracticeAssist,
+  type PracticeOptions,
   type PracticeShot,
   practiceArrival,
   practiceClock,
@@ -19,8 +21,9 @@ import { asCharacter, attach } from '../../render/character';
 import { createFielder, loadFieldingClips } from '../../render/fielding';
 import { createPaceBowler, PACE_APPROACH } from '../../render/pace-bowler';
 import { createPracticeCamera } from '../../render/practice-camera';
+import { createRunningBatter } from '../../render/running-batter';
 import { addSliceGround } from '../../render/slice';
-import type { End } from '../../sim/agents/running';
+import type { End, RunCommand } from '../../sim/agents/running';
 import { PITCH } from '../../sim/units';
 import { bindBowlingControls } from './bowling-controls';
 import { createJerseyAtlas, makeJersey } from './lineup-kit';
@@ -37,6 +40,8 @@ const screen = get<HTMLElement>('#practice');
 const canvas = get<HTMLCanvasElement>('#pitch');
 const next = get<HTMLButtonElement>('#next');
 const playShot = get<HTMLButtonElement>('#play-shot');
+const runAction = get<HTMLButtonElement>('#run-action');
+const runRisk = get<HTMLSpanElement>('#run-risk');
 const assist = get<HTMLSelectElement>('#assist');
 const returnEnd = get<HTMLSelectElement>('#return-end');
 const trail = get<HTMLInputElement>('#trail');
@@ -122,7 +127,19 @@ async function start() {
   const delivery = paceClips.find(({ name }) => name === 'Bowling_Pace_Delivery');
   let mode = assist.value as PracticeAssist;
   const selectedEnd = () => (returnEnd.value || undefined) as End | undefined;
-  let played = practiceDelivery(0, mode, undefined, undefined, selectedEnd());
+  const runCommands: RunCommand[] = [];
+  let activeShot: PracticeShot | undefined;
+  let activeBowl: ReturnType<typeof selectBowling> | undefined;
+  let swingError = 0;
+  const options = (): PracticeOptions => {
+    const throwEnd = selectedEnd();
+    return {
+      ...(throwEnd && { throwEnd }),
+      ...(activeBowl && { bowl: activeBowl }),
+      running: { automatic: userBowls || mode === 'casual', commands: runCommands },
+    };
+  };
+  let played = practiceDelivery(0, mode, undefined, undefined, options());
   let trace = played.frames.map(({ pos }) => pos);
   const release = played.frames[0];
   if (!jog || !delivery || !release) throw new Error('Missing pace practice fixture');
@@ -131,10 +148,30 @@ async function start() {
   const ball = createBallView(ballAsset);
   const camera = createPracticeCamera();
   scene.add(striker.bat, ball.root);
-  const [fieldingClips, keeperGloves] = await Promise.all([
+  const [fieldingClips, keeperGloves, runningClips] = await Promise.all([
     loadFieldingClips(),
     loadModel('equipment/keeping-gloves.glb'),
+    loadClips('clips/over-movement.glb'),
   ]);
+  const partner = {
+    ...strikerInfo,
+    name: 'Sam Dev',
+    number: 7,
+    gender: rosterMode === 'mixed' ? ('male' as const) : strikerInfo.gender,
+  };
+  const batters = [strikerInfo, partner] as const;
+  const runnerAtlas = createJerseyAtlas(2);
+  runnerAtlas.write(batters);
+  const runnerViews = ([0, 1] as const).map((slot) => {
+    const info = batters[slot];
+    const runner = asCharacter(clone(bodies[info.gender]));
+    makeJersey(runner.root, runnerAtlas, slot)(info);
+    for (const name of ['helmet', 'pad_l', 'pad_r', 'glove_l', 'glove_r'] as const) {
+      for (const item of striking.socket(name).children) attach(runner, name, item.clone(true));
+    }
+    scene.add(runner.root);
+    return createRunningBatter(runner, bat.clone(true), runningClips, slot);
+  });
   const fieldAtlas = createJerseyAtlas(played.field.track.size);
   const fieldIds = [...played.field.track.keys()];
   const kits = fieldIds.map((id) => ({
@@ -161,7 +198,9 @@ async function start() {
   });
   const phone = matchMedia('(pointer: coarse)').matches;
   const pitch = new Vector3(0, 0, PITCH.length - PITCH.poppingCrease);
+  let wicket = played.result.wicketBroken;
   const planField = () => {
+    wicket = played.result.wicketBroken ?? returnedWicket(played.field.wicket);
     for (const { id, actor } of field) actor.plan(played.field.track.get(id));
   };
   planField();
@@ -207,6 +246,25 @@ async function start() {
     const { frames, result } = played;
     bowler.sample(time, socket);
     striker.sample(time);
+    const strikerRunning = runnerViews[0]?.sample(time, played.field.running) ?? false;
+    runnerViews[1]?.sample(time, played.field.running);
+    striking.root.visible = !strikerRunning;
+    striker.bat.visible = !strikerRunning;
+    if (!userBowls) {
+      const running = runFrameAt(played.field.running, time).current;
+      runAction.hidden = !running?.available;
+      runRisk.hidden = runAction.hidden;
+      runAction.disabled = running?.returning ?? false;
+      runAction.textContent = running?.active ? 'Cancel run' : 'Run';
+      if (running?.available)
+        runRisk.textContent = running.returning
+          ? 'Turning back'
+          : running.margin > 0.35
+            ? 'Safe run'
+            : running.margin > 0
+              ? 'Tight run'
+              : 'High risk';
+    }
     if (time < 0) {
       position.copy(socket);
       orientation.identity();
@@ -253,8 +311,8 @@ async function start() {
     lastFlight = time;
     ball.setPose(position, orientation, practiceGround.surfaceAt(position.x, position.z).height);
     ball.setTrail(trace, pathIndex, position, time >= 0 && trail.checked);
-    if (result.wicketBroken && time >= result.wicketBroken.t) {
-      ground.breakWicket(result.wicketBroken, time - result.wicketBroken.t);
+    if (wicket && time >= wicket.t) {
+      ground.breakWicket(wicket, time - wicket.t);
       broken = true;
     } else if (broken) {
       ground.breakWicket(null, 0);
@@ -322,6 +380,8 @@ async function start() {
     liveAt = Number.NaN;
     next.disabled = false;
     playShot.hidden = true;
+    runAction.hidden = true;
+    runRisk.hidden = true;
     next.hidden = false;
     assist.disabled = false;
     returnEnd.disabled = false;
@@ -347,9 +407,13 @@ async function start() {
     earlyLate = time - window.ideal;
     const timingError = practiceSwingError(time, expected, mode);
     const previous = played;
-    played = practiceDelivery(attempted, mode, shot, timingError, selectedEnd());
+    played = practiceDelivery(attempted, mode, shot, timingError, options());
     const event = played.result.contact;
     if (event?.impact && event.time <= time + 0.018) played = previous;
+    else {
+      activeShot = shot;
+      swingError = timingError;
+    }
     planField();
     trace = played.frames.map(({ pos }) => pos);
     const chosen = played.result.contact;
@@ -371,6 +435,22 @@ async function start() {
   }
   if (!userBowls) bindBattingInput(canvas, choose);
   playShot.addEventListener('click', () => choose({ stroke: 'straight-drive', lofted: false }));
+  const callRun = () => {
+    const current = runFrameAt(played.field.running, lastFlight).current;
+    if (!Number.isFinite(liveAt) || userBowls || !current?.available || current.returning) return;
+    if ((runCommands.at(-1)?.time ?? -Infinity) > lastFlight) return;
+    runCommands.push({ time: lastFlight + 1e-6, action: current.active ? 'cancel' : 'run' });
+    played = practiceDelivery(attempted, mode, activeShot, swingError, options());
+    trace = played.frames.map(({ pos }) => pos);
+    pathIndex = 0;
+    planField();
+  };
+  runAction.addEventListener('click', callRun);
+  window.addEventListener('keydown', (event) => {
+    if (event.code !== 'KeyR' || event.repeat || event.target instanceof HTMLSelectElement) return;
+    event.preventDefault();
+    callRun();
+  });
 
   function startDelivery(bowl?: ReturnType<typeof selectBowling>) {
     const input = performance.now();
@@ -383,7 +463,11 @@ async function start() {
       overs.textContent = '0.0 / 5 overs';
     }
     mode = assist.value as PracticeAssist;
-    played = practiceDelivery(attempted, mode, undefined, undefined, selectedEnd(), bowl);
+    activeShot = undefined;
+    activeBowl = bowl;
+    swingError = 0;
+    runCommands.length = 0;
+    played = practiceDelivery(attempted, mode, undefined, undefined, options());
     planField();
     trace = played.frames.map(({ pos }) => pos);
     expected = practiceArrival(played.frames, 'cover-drive');

@@ -9,7 +9,7 @@
 import { type FieldName, fieldPositions, keeperPosition } from '../agents/field.ts';
 import { type Agent, createAgent } from '../agents/movement.ts';
 import { type FieldObserver, type PlayResult, resolvePlay } from '../agents/play.ts';
-import { createRunner, type End } from '../agents/running.ts';
+import { createRunner, type End, type RunControl } from '../agents/running.ts';
 import {
   type BallEnvironment,
   type BallObserver,
@@ -83,6 +83,7 @@ export interface DeliveryInput {
   /** Seconds of safety the batters want before running. */
   caution?: number;
   throwEnd?: End;
+  running?: RunControl;
   /** The striker has left their ground playing the delivery and is not attempting a run. */
   strikerAdvanced?: boolean;
 }
@@ -105,6 +106,7 @@ export type DeliveryEnding =
  */
 export interface WicketBreak {
   t: number;
+  end?: End;
   /** Where the ball's centre crossed the line of the stumps (z is the stumps). */
   at: { x: number; y: number; z: number };
   /** The ball's velocity there, m/s. */
@@ -275,6 +277,7 @@ export function playDelivery(
   });
 
   const live = (noCatch: boolean): PlayResult => {
+    const start = flown * SIM_DT;
     const { fielders, keeper, bowler: bowlerId } = initialField ?? setField(input);
     const setup = {
       ball,
@@ -289,8 +292,16 @@ export function playDelivery(
       noCatch,
       ...(input.caution === undefined ? {} : { caution: input.caution }),
       ...(input.throwEnd === undefined ? {} : { throwEnd: input.throwEnd }),
+      ...(input.running && {
+        running: {
+          automatic: input.running.automatic,
+          commands: input.running.commands.map(({ time, action }) => ({
+            time: time - start,
+            action,
+          })),
+        },
+      }),
     };
-    const start = flown * SIM_DT;
     return resolvePlay(
       setup,
       observe && ((time, frame) => observe(start + time, frame)),
@@ -298,6 +309,8 @@ export function playDelivery(
         frame: (time, agents) => field.frame(start + time, agents),
         touch: (time, actor, kind, point, aim) =>
           field.touch(start + time, actor, kind, point, aim),
+        runners: (time, runners, status) => field.runners?.(start + time, runners, status),
+        wicket: (time, end, out) => field.wicket?.(start + time, end, out),
       },
     );
   };

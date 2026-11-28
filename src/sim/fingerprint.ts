@@ -201,6 +201,17 @@ function playFingerprint(): string {
       random: new Rng(shot).stream('fielding'),
       caution: random.range(-0.5, 0.6),
       ...(shot % 3 === 0 ? { throwEnd: 'bowler' as const } : {}),
+      ...(shot % 4 === 0
+        ? {
+            running: {
+              automatic: false,
+              commands: [
+                { time: 0.15, action: 'run' as const },
+                { time: 0.8, action: 'cancel' as const },
+              ],
+            },
+          }
+        : {}),
     });
     values.push(
       result.runs,

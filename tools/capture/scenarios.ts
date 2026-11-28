@@ -147,6 +147,12 @@ const CLIP_REVIEWS: [string, number][] = [
 
 export const SCENARIOS: Record<string, Scenario> = {
   ...Object.fromEntries(
+    ['running-safe', 'running-short'].map((name): [string, Scenario] => [
+      name,
+      { kind: 'lab', scene: name, duration: 2.55, viewport: SMALL_LANDSCAPE, seed: 1 },
+    ]),
+  ),
+  ...Object.fromEntries(
     [false, true].map((spin): [string, Scenario] => [
       spin ? 'bowling-input-spin' : 'bowling-input',
       {
