@@ -47,7 +47,10 @@ async function captureFrames(
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
 
-  const count = Math.max(SHEET_FRAMES, Math.round(scenario.duration * VIDEO_FPS));
+  const count = Math.max(
+    SHEET_FRAMES,
+    Math.round((scenario.duration * VIDEO_FPS) / (scenario.playbackRate ?? 1)),
+  );
   const times = Array.from({ length: count }, (_, i) => (scenario.duration * i) / (count - 1));
   const frames: Frame[] = [];
 
@@ -81,6 +84,7 @@ async function captureFrames(
       previous = t;
       frames.push({ t, png: await shot(page) });
     }
+    await scenario.verify?.(page);
   }
 
   await context.close();

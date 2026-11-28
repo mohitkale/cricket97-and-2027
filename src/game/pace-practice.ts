@@ -1,9 +1,13 @@
+import type { End, RunControl } from '../sim/agents/running';
+import { AI_LEVELS, chooseStroke } from '../sim/ai/ai';
 import { type BallObserver, groundEnvironment } from '../sim/ball/ball';
 import { ASSIST, STROKES } from '../sim/contact/strokes';
 import { Rng } from '../sim/core/prng';
-import { type BattingIntent, playDelivery } from '../sim/match/delivery';
+import { type BattingIntent, type BowlingIntent, playDelivery } from '../sim/match/delivery';
 import { standardTeam } from '../sim/match/players';
 import { PITCH } from '../sim/units';
+import { recordField } from './field-trace';
+import { PRACTICE_OVERS } from './practice-innings';
 
 export type PracticeShot = Pick<BattingIntent, 'stroke' | 'lofted'>;
 export type PracticeAssist = keyof typeof ASSIST;
@@ -40,48 +44,98 @@ export function practiceClock(elapsedFromRelease: number, assist: PracticeAssist
 const battingTeam = standardTeam(1);
 const fieldingTeam = standardTeam(2);
 
+export interface PracticeOptions {
+  throwEnd?: End;
+  bowl?: { intent: BowlingIntent; style: 'off' | 'leg' | null };
+  running?: RunControl;
+  innings?: {
+    striker: number;
+    nonStriker: number;
+    bowler: number | null;
+    legalBalls: number;
+    wickets: number;
+  };
+}
+
 export function practiceDelivery(
   number: number,
   assist: PracticeAssist,
   shot: PracticeShot = { stroke: 'leave', lofted: false },
   timingError = 0,
+  { throwEnd, bowl, running, innings }: PracticeOptions = {},
 ) {
-  const [striker, nonStriker] = battingTeam;
-  const bowler = fieldingTeam[9]?.bowling;
+  const striker = battingTeam[innings?.striker ?? 0];
+  const nonStriker = battingTeam[innings?.nonStriker ?? 1];
+  const bowlerIndex = innings?.bowler ?? 9;
+  const bowler = fieldingTeam[bowlerIndex]?.bowling;
   if (!striker || !nonStriker || !bowler) throw new Error('Missing practice players');
   const length = 4.7 + (number % 5) * 0.25;
+  const random = new Rng(number);
+  const bowling = bowl?.style
+    ? { ...bowler, kind: 'spin' as const, turn: bowl.style, hand: 'right' as const }
+    : { ...bowler, kind: 'pace' as const, turn: null, hand: 'right' as const };
+  const rightHanded = { ...striker, hand: 'right' as const };
+  const legal = innings?.legalBalls ?? number;
+  const situation = {
+    over: Math.floor(legal / 6),
+    overs: PRACTICE_OVERS,
+    wickets: innings?.wickets ?? 0,
+    toWin: null,
+    ballsLeft: Math.max(1, PRACTICE_OVERS * 6 - legal),
+    bouncersLeft: 1,
+    ballAge: number / 6,
+  };
+  const ai = bowl
+    ? chooseStroke(
+        rightHanded,
+        bowling,
+        bowl.intent,
+        situation,
+        AI_LEVELS[assist],
+        random.stream('batter'),
+      )
+    : null;
+  const batting = ai?.intent ?? {
+    ...shot,
+    timingError,
+    assist: ASSIST[assist],
+    power: 0.8,
+    misread: { x: 0, y: 0 },
+  };
   const frames: PracticeFrame[] = [];
+  const field = recordField(
+    fieldingTeam.findIndex(({ keeper }) => keeper),
+    bowlerIndex,
+  );
   const result = playDelivery(
     {
-      bowler: { ...bowler, hand: 'right' },
-      intent: {
+      bowler: bowling,
+      intent: bowl?.intent ?? {
         line: -0.13 - (number % 4) * 0.035,
         length,
         kmh: 132 + (number % 4) * 2,
         swing: 0.15,
         turn: 0,
       },
-      batting: {
-        ...shot,
-        timingError,
-        assist: ASSIST[assist],
-        power: 0.8,
-        misread: { x: 0, y: 0 },
-      },
-      striker: { ...striker, hand: 'right' },
+      batting,
+      striker: rightHanded,
       nonStriker,
       fieldingTeam,
-      bowlerIndex: 9,
-      field: 'pace-spread',
+      bowlerIndex,
+      field: bowl?.style ? 'spin-spread' : 'pace-spread',
       env: practiceGround,
       ballAge: number / 6,
-      random: new Rng(number).stream('delivery'),
+      random: random.stream('delivery'),
+      ...(ai ? { caution: ai.caution } : {}),
+      ...(throwEnd === undefined ? {} : { throwEnd }),
+      ...(running === undefined ? {} : { running }),
     },
     (time, { pos, spin, bounces }) => {
       frames.push({ time, pos: { ...pos }, spin: { ...spin }, bounces });
     },
+    field.observer,
   );
-  return { result, frames };
+  return { result, frames, field: field.trace, batting };
 }
 
 export function practiceArrival(

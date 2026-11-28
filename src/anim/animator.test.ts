@@ -121,6 +121,8 @@ test.each([30 / 60, 0.51])(
     const root = await character();
     const idle = markClip(clip('Idle_Loop'), root);
     const throwClip = markClip(clip('OverhandThrow'), root);
+    const release = throwClip.markers.find(({ name }) => name === 'release');
+    if (!release) throw new Error('Missing one-shot release marker');
     const runtime = new Animator(root, idle, []);
     const input = { speed: 0, lookTarget: null, bat: null };
     runtime.play(throwClip, 'release', event);
@@ -128,12 +130,12 @@ test.each([30 / 60, 0.51])(
     if (!action) throw new Error('Missing one-shot animation action');
     const eventStep = Math.ceil(event * 60);
     for (let i = 0; i < eventStep - 1; i++) runtime.update(1 / 60, input);
-    expect(action.time).toBeLessThan(0.4);
+    expect(action.time).toBeLessThan(release.time);
     runtime.update(1 / 60, input);
     const afterEvent = eventStep / 60 - event;
-    expect(action.time).toBeCloseTo(0.4 + afterEvent, 7);
+    expect(action.time).toBeCloseTo(release.time + afterEvent, 7);
     runtime.update(1 / 60, input);
-    expect(action.time).toBeCloseTo(0.4 + afterEvent + 1 / 60, 7);
+    expect(action.time).toBeCloseTo(release.time + afterEvent + 1 / 60, 7);
   },
 );
 

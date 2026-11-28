@@ -8,6 +8,7 @@
  */
 import { type BallEnvironment, type BallObserver, type BallState, stepBall } from '../ball/ball.ts';
 import type { RandomStream } from '../core/prng.ts';
+import type { Vec3 } from '../core/vec.ts';
 import type { BallOutcome } from '../rules/match.ts';
 import { GRAVITY, PITCH, SIM_DT } from '../units.ts';
 import { insideBoundary } from './field.ts';
@@ -18,6 +19,7 @@ import {
   type End,
   etaHome,
   nextRunTime,
+  type RunControl,
   type Runner,
   runTime,
   setOff,
@@ -82,6 +84,24 @@ export interface PlaySetup {
   caution?: number;
   /** The ball has not touched the bat: no catch is possible (byes, wides). */
   noCatch?: boolean;
+  /** Omit for the fielding side's automatic choice. */
+  throwEnd?: End;
+  running?: RunControl;
+}
+
+export type FieldTouch = 'catch' | 'gather' | 'release' | 'take' | 'stump';
+export interface FieldObserver {
+  frame(time: number, agents: readonly Agent[]): void;
+  touch(time: number, actor: Agent, kind: FieldTouch, ball: Vec3, aim?: Point): void;
+  runners?(time: number, runners: readonly [Runner, Runner], status: RunStatus): void;
+  wicket?(time: number, end: End, out: boolean): void;
+}
+
+export interface RunStatus {
+  active: boolean;
+  returning: boolean;
+  available: boolean;
+  margin: number;
 }
 
 type BallMode =
@@ -108,7 +128,11 @@ const clamp01 = (value: number, low: number, high: number) =>
   value < low ? low : value > high ? high : value;
 
 /** Play the ball out. Mutates the ball, fielders and runners; returns what happened. */
-export function resolvePlay(setup: PlaySetup, observe?: BallObserver): PlayResult {
+export function resolvePlay(
+  setup: PlaySetup,
+  observe?: BallObserver,
+  field?: FieldObserver,
+): PlayResult {
   const { ball, env, fielders, runners, random, guards } = setup;
   const caution = setup.caution ?? 0.35;
   const byId = new Map(fielders.map((agent) => [agent.id, agent]));
@@ -118,6 +142,7 @@ export function resolvePlay(setup: PlaySetup, observe?: BallObserver): PlayResul
     return agent;
   };
   const events: PlayEvent[] = [];
+  let preferredEnd = setup.throwEnd;
   const cooldown = new Map<number, number>();
   const airborneFromBat = ball.bounces;
   const [striker, partner] = runners;
@@ -235,14 +260,26 @@ export function resolvePlay(setup: PlaySetup, observe?: BallObserver): PlayResul
   }
 
   /** Would the batters take another run now? Both must make it with `caution` to spare. */
-  function wantRun(): boolean {
-    if (mode.kind === 'taken') return false;
+  function runMargin(active: boolean): number {
+    if (mode.kind === 'taken' && !active) return Number.NEGATIVE_INFINITY;
+    if (active) {
+      return (
+        Math.min(
+          threatAt(striker.goal) - etaHome(striker),
+          threatAt(partner.goal) - etaHome(partner),
+        ) - t
+      );
+    }
     // From where each batter actually is: one who ran on past the crease has further to come.
     const time = Math.max(nextRunTime(striker), nextRunTime(partner));
     // After this run the striker would be heading for the end the partner is at now, and the reverse.
     const strikerEnd: End = striker.goal === 'striker' ? 'bowler' : 'striker';
     const partnerEnd: End = partner.goal === 'striker' ? 'bowler' : 'striker';
-    return t + time + caution < Math.min(threatAt(strikerEnd), threatAt(partnerEnd));
+    return Math.min(threatAt(strikerEnd), threatAt(partnerEnd)) - t - time;
+  }
+
+  function wantRun(): boolean {
+    return runMargin(false) > caution;
   }
 
   function callRun(): void {
@@ -255,6 +292,7 @@ export function resolvePlay(setup: PlaySetup, observe?: BallObserver): PlayResul
   function breakWicket(end: End, fielder: number): void {
     events.push({ type: 'wicket-broken', end, t });
     const victim = runners.find((runner) => runner.goal === end && !runner.home);
+    field?.wicket?.(t, end, !!victim);
     if (victim) {
       // Crossed: the batters have passed each other on the run in progress.
       const crossed = striker.goal === 'bowler' ? striker.z < partner.z : striker.z > partner.z;
@@ -265,9 +303,10 @@ export function resolvePlay(setup: PlaySetup, observe?: BallObserver): PlayResul
   function throwBall(by: number): void {
     const thrower = agentOf(by);
     // Aim at the end where a batter is furthest from safety relative to the throw.
-    let end: End = 'striker';
+    let end: End = preferredEnd ?? 'striker';
     let tightest = Number.POSITIVE_INFINITY;
     for (const candidate of ['striker', 'bowler'] as const) {
+      if (preferredEnd && candidate !== preferredEnd) continue;
       const runner = runners.find((entry) => entry.goal === candidate && !entry.home);
       if (!runner) continue;
       const margin =
@@ -277,6 +316,7 @@ export function resolvePlay(setup: PlaySetup, observe?: BallObserver): PlayResul
         end = candidate;
       }
     }
+    preferredEnd = undefined;
     const stumps = STUMPS[end];
     const gap = distance(thrower.pos, stumps);
     let target: End | number = end;
@@ -302,24 +342,29 @@ export function resolvePlay(setup: PlaySetup, observe?: BallObserver): PlayResul
     const length = distance(thrower.pos, to);
     // A throw beyond comfortable range has to be lobbed, which is slower.
     const speed = throwSpeed(thrower) * (length > throwRange(thrower) ? 0.7 : 1);
-    const flight = length / speed;
+    const flight = Math.max(SIM_DT, length / speed);
+    const releaseHeight = length <= 8 ? 1.05 : 1.6;
     const shy = target === end && length <= SHY_RANGE && tightest < 0.6;
     const miss = length * (0.01 + 0.05 * (1 - thrower.ratings.arm)) * random.range(-1, 1);
     if (typeof target === 'number') halt(agentOf(target));
     mode = {
       kind: 'thrown',
       from: { ...thrower.pos },
-      height: 1.6,
+      height: releaseHeight,
       to,
       start: t,
       arrive: t + flight,
-      rise: (1 - 1.6 + 0.5 * GRAVITY * flight * flight) / flight,
+      rise: (1 - releaseHeight + 0.5 * GRAVITY * flight * flight) / flight,
       target,
       shy,
       miss,
       by,
     };
+    ball.pos.x = thrower.pos.x;
+    ball.pos.y = releaseHeight;
+    ball.pos.z = thrower.pos.z;
     events.push({ type: 'throw', fielder: by, to: target, t });
+    field?.touch(t, thrower, 'release', ball.pos, to);
   }
 
   /** While a run is in progress: will the batters want the next one when they get there? */
@@ -338,26 +383,53 @@ export function resolvePlay(setup: PlaySetup, observe?: BallObserver): PlayResul
   const currentMode = (): BallMode => mode;
   const out = () => dismissal !== null;
   let running = false;
+  let returning = false;
+  let automatic = setup.running?.automatic ?? true;
+  let commandIndex = 0;
   const startRun = () => {
     callRun();
     running = true;
   };
+  const reportRunners = (available: boolean) =>
+    field?.runners?.(t, runners, {
+      active: running,
+      returning,
+      available,
+      margin: runMargin(running),
+    });
 
   plan();
-  if (wantRun()) startRun();
+  field?.frame(t, fielders);
+  if (automatic && wantRun()) startRun();
+  reportRunners(true);
 
   for (let step = 0; step < 120 * 40; step++) {
     if (step > 0) observe?.(t, ball);
     t += SIM_DT;
+    const command = setup.running?.commands[commandIndex];
+    if (command && command.time <= t) {
+      commandIndex++;
+      if (command.action === 'cancel' && running && !returning) {
+        callRun();
+        returning = true;
+        automatic = false;
+      } else if (command.action === 'run' && !running && currentMode().kind === 'free') {
+        startRun();
+      }
+    }
     for (const agent of fielders) stepAgent(agent, SIM_DT);
+    field?.frame(t, fielders);
     for (const runner of runners) stepRunner(runner, SIM_DT);
 
     if (running) {
       if (striker.home && partner.home) {
         // Both batters have made their ground: the run counts. Another?
-        runs += 1;
+        if (!returning) {
+          runs += 1;
+          events.push({ type: 'run', total: runs, t });
+        }
         running = false;
-        events.push({ type: 'run', total: runs, t });
+        returning = false;
         // Batters who slowed to turn have already judged this run; they go unless it has
         // clearly gone wrong. Batters who ran through have to pull up first, and judge afresh.
         const committed = striker.turning && mode.kind !== 'taken';
@@ -367,22 +439,23 @@ export function resolvePlay(setup: PlaySetup, observe?: BallObserver): PlayResul
           ? t + Math.max(runTime(striker), runTime(partner)) + caution <
             Math.min(threatAt('striker'), threatAt('bowler'))
           : wantRun();
-        if (go) startRun();
+        if (automatic && go) startRun();
       } else {
         // Decide on the way whether to turn, so they slow into the crease only if they will.
         // Judged ten times a second, as a batter glancing up would.
         if (step % 12 === 0) {
-          const turn = wantRunAfterThis();
+          const turn = automatic && wantRunAfterThis();
           striker.turning = turn;
           partner.turning = turn;
         }
       }
-    } else if (mode.kind === 'free' && step % 12 === 0 && wantRun()) {
+    } else if (automatic && mode.kind === 'free' && step % 12 === 0 && wantRun()) {
       // Things change while the ball is loose (a misfield, an overthrow): look again.
       startRun();
     }
 
     const current = currentMode();
+    reportRunners(current.kind === 'free' || running);
     if (current.kind === 'free') {
       stepBall(ball, SIM_DT, env);
       if (t >= nextPlan) plan(false);
@@ -418,6 +491,7 @@ export function resolvePlay(setup: PlaySetup, observe?: BallObserver): PlayResul
             );
             if (random.chance(chance)) {
               events.push({ type: 'catch', fielder: agent.id, t });
+              field?.touch(t, agent, 'catch', ball.pos);
               const crossed =
                 running &&
                 (striker.goal === 'bowler' ? striker.z < partner.z : striker.z > partner.z);
@@ -438,6 +512,7 @@ export function resolvePlay(setup: PlaySetup, observe?: BallObserver): PlayResul
             );
             if (random.chance(chance)) {
               events.push({ type: 'stop', fielder: agent.id, t });
+              field?.touch(t, agent, 'gather', ball.pos);
               for (const other of fielders) {
                 if (other.id !== currentGuards.striker && other.id !== currentGuards.bowler)
                   halt(other);
@@ -470,6 +545,7 @@ export function resolvePlay(setup: PlaySetup, observe?: BallObserver): PlayResul
       ball.pos.y = current.height + current.rise * flown - 0.5 * GRAVITY * flown * flown;
       if (t >= current.arrive) {
         if (typeof current.target === 'number') {
+          field?.touch(t, agentOf(current.target), 'take', ball.pos);
           mode = { kind: 'held', by: current.target, until: t + 0.4 };
         } else {
           const end = current.target;
@@ -480,6 +556,7 @@ export function resolvePlay(setup: PlaySetup, observe?: BallObserver): PlayResul
             breakWicket(end, current.by);
             mode = { kind: 'taken', end, by: current.by, until: 0 };
           } else if (distance(guard.pos, STUMPS[end]) <= 1.5 && offLine <= 1.5) {
+            field?.touch(t, guard, 'take', ball.pos);
             mode = { kind: 'taken', end, by: guard.id, until: t + TAKE };
           } else {
             // Nobody there, or too wide: the ball runs on past the stumps.
@@ -494,7 +571,7 @@ export function resolvePlay(setup: PlaySetup, observe?: BallObserver): PlayResul
             ball.rolling = false;
             mode = { kind: 'free' };
             plan();
-            if (!running && wantRun()) startRun();
+            if (automatic && !running && wantRun()) startRun();
           }
         }
         if (out()) break;
@@ -518,6 +595,7 @@ export function resolvePlay(setup: PlaySetup, observe?: BallObserver): PlayResul
     }
   }
   observe?.(t, ball);
+  reportRunners(false);
 
   // Runs do not count on a catch, and a boundary replaces runs run.
   const final = dismissal as PlayResult['dismissal'];

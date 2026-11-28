@@ -7,9 +7,12 @@ import { bowled } from './bowled';
 import { character } from './character';
 import { CANDIDATE_CLIPS, clipReview } from './clip-review';
 import { deliveryBall } from './delivery-ball';
+import { fieldingScene } from './fielding';
 import { heroField, heroRig } from './hero-rig';
 import { pitchPlan } from './pitch-plan';
+import { runningScene } from './running';
 import { strokeMap } from './stroke-map';
+import { umpireScene } from './umpires';
 
 /** Every lab scene by name. The capture harness addresses scenes by these keys. */
 export const SCENES: Record<string, LabSceneFactory> = {
@@ -18,12 +21,21 @@ export const SCENES: Record<string, LabSceneFactory> = {
   'ball-flight': ballFlight,
   'bat-contact': batContact,
   'delivery-ball': deliveryBall,
+  'fielding-chase': fieldingScene('chase'),
+  'fielding-dive': fieldingScene('dive'),
+  'fielding-caught-behind': fieldingScene('caught-behind'),
+  'fielding-stumping': fieldingScene('stumping'),
   bowled,
   character,
   'hero-rig': heroRig,
   'hero-field': heroField,
   'pitch-plan': pitchPlan,
+  'running-safe': runningScene(false),
+  'running-short': runningScene(true),
   'stroke-map': strokeMap,
+  'umpire-boundaries': umpireScene('boundaries'),
+  'umpire-extras': umpireScene('extras'),
+  'umpire-dismissals': umpireScene('dismissals'),
   ...Object.fromEntries(
     Object.keys(CANDIDATE_CLIPS).map((name) => [`clip-${name}`, clipReview(name)]),
   ),

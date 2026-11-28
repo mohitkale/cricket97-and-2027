@@ -22,8 +22,11 @@ body { margin: 0; }
 #practice-hud p { margin: 0 0 3px; font-size: 0.75rem; color: #d9f499; }
 #practice-hud > * { border-radius: 8px; padding: 9px 11px; background: #162824ee; }
 #practice-hud label { pointer-events: auto; font-size: 0.75rem; }
+#practice-settings { display: flex; flex-wrap: wrap; gap: 4px 9px; }
+#practice-settings label { display: inline-flex; align-items: center; gap: 4px; }
 #practice-hud strong { font-size: 1.1rem; }
 #overs { font-size: 0.75rem; }
+#on-strike { display: block; font-size: 0.72rem; margin-top: 4px; }
 select { font: inherit; padding: 4px; }
 #practice-controls {
   bottom: max(14px, env(safe-area-inset-bottom));
@@ -37,13 +40,19 @@ select { font: inherit; padding: 4px; }
 }
 #practice-controls > * { margin: 0; }
 #practice-controls button, #practice-controls a { pointer-events: auto; }
-#practice-controls p, #practice-controls a, #feedback {
+#practice-controls p, #practice-controls a, #feedback, #run-risk {
   border-radius: 6px;
   background: #162824f2;
   padding: 8px 10px;
   font-size: 0.78rem;
 }
 #practice-controls a { color: #e6f1dc; }
+#bowling { pointer-events: auto; border-radius: 6px; background: #162824f2; padding: 7px 9px; font-size: 0.78rem; }
+#bowling output { display: inline-block; vertical-align: middle; position: relative; width: 104px; height: 13px; border-radius: 8px; background: #213c33; margin-left: 9px; }
+#bowling output[hidden] { display: none; }
+#bowling output::before { content: ""; position: absolute; inset: 0 auto 0 var(--good-start, 63%); width: var(--good-width, 14%); background: #83a74e; }
+#bowling output span { position: absolute; left: var(--position, 0); width: 4px; height: 100%; background: #f4fbf4; transform: translateX(-50%); }
+#bowling output[data-ready="true"] span { background: #c9ef68; }
 #practice-controls button {
   border: 0;
   border-radius: 6px;

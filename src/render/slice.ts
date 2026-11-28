@@ -12,6 +12,7 @@ import {
   type WebGLRenderer,
 } from 'three';
 import { Sky } from 'three/examples/jsm/objects/Sky.js';
+import type { End } from '../sim/agents/running';
 import type { WicketBreak } from '../sim/match/delivery';
 import { PITCH } from '../sim/units';
 import { loadModel } from './assets';
@@ -21,12 +22,17 @@ import { WICKET_PIECES, type WicketPiece, wicketPose } from './wicket';
 export interface SliceGround {
   /** Pose the striker's wicket `since` seconds after it was broken (rest pose for null). */
   breakWicket(hit: WicketBreak | null, since: number): void;
+  setStrikerEnd(swapped: boolean): void;
 }
 
 /** Shadow map size for the sun: the phone tier's budget, enough for contact shadows at the crease. */
 const SHADOW_MAP = 1024;
 
-export async function addSliceGround(scene: Scene, renderer: WebGLRenderer): Promise<SliceGround> {
+export async function addSliceGround(
+  scene: Scene,
+  renderer: WebGLRenderer,
+  pitch: Object3D = scene,
+): Promise<SliceGround> {
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = PCFSoftShadowMap;
   // The sky shader is physically based; without tone mapping it renders white.
@@ -48,7 +54,7 @@ export async function addSliceGround(scene: Scene, renderer: WebGLRenderer): Pro
     wicket.traverse((node) => {
       node.castShadow = true;
     });
-    scene.add(wicket);
+    pitch.add(wicket);
   }
 
   // Afternoon sun from over the bowler's shoulder, the shadow box tight on the striker's end.
@@ -75,27 +81,48 @@ export async function addSliceGround(scene: Scene, renderer: WebGLRenderer): Pro
   // Each piece hangs from a pivot at its rest position (a stump's foot, a bail's centre).
   // The break moves the pivot; the piece keeps its own transform, which holds the asset
   // build's quantization scale and offset.
-  const pieces = (Object.entries(WICKET_PIECES) as [WicketPiece, readonly number[]][]).map(
-    ([name, rest]) => {
-      const node = strikerEnd.getObjectByName(name);
-      if (!node) throw new Error(`stumps.glb has no ${name}`);
-      const pivot = new Object3D();
-      pivot.position.set(rest[0] ?? 0, rest[1] ?? 0, rest[2] ?? 0);
-      strikerEnd.add(pivot);
-      node.position.sub(pivot.position);
-      pivot.add(node);
-      return [name, pivot] as [WicketPiece, Object3D];
-    },
-  );
+  const pieces = (
+    Object.entries({ striker: strikerEnd, bowler: bowlerEnd }) as [End, Object3D][]
+  ).map(([end, wicket]) => ({
+    end,
+    items: (Object.entries(WICKET_PIECES) as [WicketPiece, readonly number[]][]).map(
+      ([name, rest]) => {
+        const node = wicket.getObjectByName(name);
+        if (!node) throw new Error(`stumps.glb has no ${name}`);
+        const pivot = new Object3D();
+        pivot.position.set(rest[0] ?? 0, rest[1] ?? 0, rest[2] ?? 0);
+        wicket.add(pivot);
+        node.position.sub(pivot.position);
+        pivot.add(node);
+        return [name, pivot] as const;
+      },
+    ),
+  }));
   const axis = new Vector3();
   const turn = new Quaternion();
   return {
+    setStrikerEnd(swapped) {
+      const end = swapped ? 0 : PITCH.length;
+      sun.position.z = end - 10;
+      sun.target.position.z = end;
+    },
     breakWicket(hit, since) {
-      const pose = wicketPose(hit, since);
-      for (const [name, node] of pieces) {
-        const { position, axis: around, angle } = pose[name];
-        node.position.set(...position);
-        node.quaternion.copy(turn.setFromAxisAngle(axis.set(...around), angle));
+      for (const { end, items } of pieces) {
+        const active = end === (hit?.end ?? 'striker') ? hit : null;
+        const local =
+          active && end === 'bowler'
+            ? {
+                ...active,
+                at: { ...active.at, x: -active.at.x },
+                vel: { x: -active.vel.x, y: active.vel.y, z: -active.vel.z },
+              }
+            : active;
+        const pose = wicketPose(local, since);
+        for (const [name, node] of items) {
+          const { position, axis: around, angle } = pose[name];
+          node.position.set(...position);
+          node.quaternion.copy(turn.setFromAxisAngle(axis.set(...around), angle));
+        }
       }
     },
   };

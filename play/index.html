@@ -9,15 +9,18 @@
     <main id="practice">
       <canvas id="pitch" aria-label="Cricket pitch. Swipe to drive or tap to defend." tabindex="0"></canvas>
       <header id="practice-hud">
-        <div><p>Pace practice</p><strong id="score">0 / 0</strong> <span id="overs">0.0 / 5 overs</span></div>
-        <div><label>Assist <select id="assist"><option value="casual" selected>Casual</option><option value="classic">Classic</option><option value="pro">Pro</option></select></label> <label><input type="checkbox" id="trail" checked /> Trail</label></div>
+        <div><p>Pace practice</p><strong id="score">0 / 0</strong> <span id="overs">0.0 / 5 overs</span><span id="on-strike"></span></div>
+        <div id="practice-settings"><label>Assist <select id="assist"><option value="casual" selected>Casual</option><option value="classic">Classic</option><option value="pro">Pro</option></select></label> <label><input type="checkbox" id="trail" checked /> Trail</label> <label>Return <select id="return-end"><option value="">Auto</option><option value="striker">Striker's end</option><option value="bowler">Bowler's end</option></select></label><label><input type="checkbox" id="auto-next" checked /> Auto next</label></div>
       </header>
       <p id="cue" aria-live="polite"></p>
       <section id="practice-controls">
+        <div id="bowling" hidden><label>Delivery <select id="delivery-type"><option value="stock">Stock pace</option><option value="swing-in">Inswing</option><option value="swing-away">Outswing</option><option value="slower">Slower ball</option><option value="off-spin">Off spin</option><option value="leg-spin">Leg spin</option></select></label><output aria-label="Release timing" hidden><span></span></output></div>
         <div id="feedback" hidden><strong></strong><meter aria-label="Shot timing" min="-1" max="1" value="0"></meter></div>
         <p id="help">← ↑ → drive · ↓ defend · Space loft</p>
         <button id="next" disabled>Loading pitch…</button>
         <button id="play-shot" hidden>Play shot</button>
+        <button id="run-action" aria-keyshortcuts="R" hidden>Run</button><span id="run-risk" hidden></span>
+        <a id="swap-practice" href="?role=bowl">Practise bowling</a>
         <a href="../legacy/?era=2027">Match setup</a>
       </section>
     </main>

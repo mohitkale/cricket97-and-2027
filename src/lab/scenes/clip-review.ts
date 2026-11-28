@@ -11,6 +11,7 @@ import {
   WebGLRenderer,
 } from 'three';
 import { MARKERS } from '../../anim/clips';
+import { OVER_CLIPS } from '../../anim/over-clips';
 import { KEEPER_PALM_ON_GLOVE } from '../../anim/skeleton';
 import { loadClips, loadModel } from '../../render/assets';
 import { asCharacter, attach } from '../../render/character';
@@ -18,6 +19,7 @@ import type { LabSceneFactory } from '../scene';
 
 /** Candidate source clips for cricket actions (issue #11), by the file that holds them. */
 export const CANDIDATE_CLIPS: Record<string, string> = {
+  ...Object.fromEntries(Object.entries(OVER_CLIPS).map(([name, clip]) => [name, clip.file])),
   TreeChopping_Loop: 'clips/ual2-candidates.glb',
   Sword_Attack: 'clips/ual1-candidates.glb',
   Sword_Regular_A: 'clips/ual2-candidates.glb',
@@ -93,10 +95,15 @@ export const clipReview =
   async ({ stage }) => {
     const file = CANDIDATE_CLIPS[clipName];
     if (!file) throw new Error(`Unknown clip ${clipName}`);
-    const keeping = clipName === 'Keeper_Regulation_Take';
-    const bowling = clipName === 'Bowling_Pace_Delivery';
+    const spec = OVER_CLIPS[clipName];
+    const keeping = clipName === 'Keeper_Regulation_Take' || spec?.gear === 'gloves';
+    const bowling =
+      clipName === 'Bowling_Pace_Delivery' || spec?.gear === 'ball' || clipName === 'OverhandThrow';
+    const batting = spec?.gear === 'bat';
     const [model, clips] = await Promise.all([
-      loadModel(keeping || bowling ? 'characters/base-body.glb' : 'characters/mannequin.glb'),
+      loadModel(
+        keeping || bowling || spec ? 'characters/base-body.glb' : 'characters/mannequin.glb',
+      ),
       loadClips(file),
     ]);
     const clip = clips.find((candidate) => candidate.name === clipName);
@@ -119,8 +126,12 @@ export const clipReview =
     mixer.clipAction(clip).play();
     const catchAt = MARKERS[clipName]?.find(({ name }) => name === 'catch')?.time ?? 0;
     const showKeeperBall = keeping ? await keeperFixture(model, mixer, scene, catchAt) : null;
-    const bowlingBall = bowling ? await loadModel('equipment/cricket-ball.glb') : null;
+    const [bowlingBall, bat] = await Promise.all([
+      bowling ? loadModel('equipment/cricket-ball.glb') : null,
+      batting ? loadModel('equipment/bat.glb') : null,
+    ]);
     if (bowlingBall) attach(asCharacter(model), 'ball', bowlingBall);
+    if (bat) attach(asCharacter(model), 'bat', bat);
     const markers = [...(MARKERS[clipName] ?? [])].reverse();
     const releaseAt = markers.find(({ name }) => name === 'release')?.time ?? 0;
 
@@ -136,6 +147,29 @@ export const clipReview =
     side.position.set(6, 1.1, bowling ? 1 : 0);
     side.lookAt(0, bowling ? 1.05 : 0.95, bowling ? 1 : 0);
     if (bowling) front.position.z += 1.5;
+    if (spec && !bowling) {
+      // Fit the front and side cameras to the authored travel over the entire take.
+      const pelvis = model.getObjectByName('pelvis');
+      const point = new Vector3();
+      let minX = 0;
+      let maxX = 0;
+      let minZ = 0;
+      let maxZ = 0;
+      for (let frame = 0; pelvis && frame <= 12; frame++) {
+        mixer.setTime((frame * (clip.duration - 1e-5)) / 12);
+        pelvis.getWorldPosition(point);
+        minX = Math.min(minX, point.x);
+        maxX = Math.max(maxX, point.x);
+        minZ = Math.min(minZ, point.z);
+        maxZ = Math.max(maxZ, point.z);
+      }
+      const centreX = (minX + maxX) / 2;
+      const centreZ = (minZ + maxZ) / 2;
+      front.position.set(centreX, 1.18, 6 + maxZ);
+      front.lookAt(centreX, 0.93, centreZ);
+      side.position.set(6 + maxX, 1.18, centreZ);
+      side.lookAt(centreX, 0.93, centreZ);
+    }
 
     return {
       duration: clip.duration / rate,
@@ -149,7 +183,7 @@ export const clipReview =
         if (bowlingBall) bowlingBall.visible = clipTime <= releaseAt;
         const detail = keeping
           ? `  reference ball · catch at ${catchAt.toFixed(2)} s`
-          : bowling
+          : markers.length
             ? `  ${markers.find(({ time }) => time <= clipTime)?.name ?? 'approach'}`
             : '';
         label.textContent = `${clipName}  ${clipTime.toFixed(2)} / ${clip.duration.toFixed(2)} s  front | side${detail}`;

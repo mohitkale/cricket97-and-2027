@@ -1,4 +1,5 @@
 import type { Page } from 'playwright-core';
+import { OVER_CLIPS } from '../../src/anim/over-clips.ts';
 
 export interface Viewport {
   width: number;
@@ -8,6 +9,8 @@ export interface Viewport {
 interface ScenarioBase {
   /** Seconds of scene time covered by the capture. */
   duration: number;
+  /** Record a shorter clip by sampling less often in scene time. */
+  playbackRate?: number;
   viewport: Viewport;
   seed: number;
 }
@@ -26,6 +29,7 @@ export interface PageScenario extends ScenarioBase {
   frameMs: number;
   /** Bring the page to the moment the capture should start. */
   setup(page: Page, advance: (ms: number) => Promise<void>): Promise<void>;
+  verify?(page: Page): Promise<void>;
 }
 
 export type Scenario = LabScenario | PageScenario;
@@ -50,6 +54,62 @@ async function startPacePractice(page: Page, advance: (ms: number) => Promise<vo
     });
     observer.observe(cue, { childList: true });
   });
+}
+
+async function startBowling(page: Page, advance: (ms: number) => Promise<void>, spin: boolean) {
+  if (spin) await page.locator('#delivery-type').selectOption('off-spin');
+  await advance(50);
+  await page.getByRole('button', { name: 'Start timing' }).click();
+  await page.evaluate(() => {
+    window.setTimeout(
+      () => window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Space' })),
+      1130,
+    );
+  });
+}
+
+export async function startPracticeOver(
+  page: Page,
+  bowling: boolean,
+  legalBalls: number,
+  shotDelay = 210,
+) {
+  await page.locator('#next:enabled').waitFor();
+  await page.evaluate(
+    ({ bowling, legalBalls, shotDelay }) => {
+      const stage = document.querySelector<HTMLElement>('#practice');
+      const cue = document.getElementById('cue');
+      const meter = document.querySelector<HTMLOutputElement>('#bowling output');
+      const next = document.querySelector<HTMLButtonElement>('#next');
+      const auto = document.querySelector<HTMLInputElement>('#auto-next');
+      if (!stage || !cue || !meter || !next || !auto) throw new Error('Missing practice controls');
+      let previousAttempt = -1;
+      function playBall() {
+        const attempt = Number(stage?.dataset.attempts);
+        if (Number(stage?.dataset.legal) >= legalBalls) {
+          if (auto) auto.checked = false;
+          return;
+        }
+        const inputReady = bowling
+          ? meter?.dataset.ready === 'true' && !meter.hidden
+          : cue?.textContent === 'Play now';
+        if (inputReady && previousAttempt !== attempt) {
+          previousAttempt = attempt;
+          const play = () =>
+            window.dispatchEvent(
+              new KeyboardEvent('keydown', { code: bowling ? 'Space' : 'ArrowLeft' }),
+            );
+          const delay = bowling ? 55 : shotDelay;
+          if (delay) window.setTimeout(play, delay);
+          else play();
+        }
+        requestAnimationFrame(playBall);
+      }
+      requestAnimationFrame(playBall);
+      next.click();
+    },
+    { bowling, legalBalls, shotDelay },
+  );
 }
 
 /** Click a visible button whose text matches, waiting in real time for it to appear. */
@@ -108,6 +168,7 @@ async function startOpeningLineup(
 
 /** Source and fitted clips under review, with lengths in seconds. */
 const CLIP_REVIEWS: [string, number][] = [
+  ...Object.entries(OVER_CLIPS).map(([name, clip]): [string, number] => [name, clip.duration]),
   ['TreeChopping_Loop', 0.97],
   ['Sword_Attack', 1.53],
   ['Sword_Regular_A', 0.43],
@@ -132,6 +193,73 @@ const CLIP_REVIEWS: [string, number][] = [
 ];
 
 export const SCENARIOS: Record<string, Scenario> = {
+  ...Object.fromEntries(
+    [false, true].map((bowling): [string, Scenario] => [
+      bowling ? 'practice-over-bowling' : 'practice-over-batting',
+      {
+        kind: 'page',
+        path: bowling ? '/play/?role=bowl' : '/play/',
+        duration: bowling ? 49 : 65,
+        playbackRate: 2,
+        viewport: SMALL_LANDSCAPE,
+        seed: 1,
+        frameMs: 170,
+        setup: (page) => startPracticeOver(page, bowling, 6, 0),
+        async verify(page) {
+          const count = await page.locator('#practice').getAttribute('data-legal');
+          if (count !== '6') throw new Error(`Expected 6 legal balls in capture, played ${count}`);
+        },
+      },
+    ]),
+  ),
+  ...Object.fromEntries(
+    [
+      ['boundaries', 2],
+      ['extras', 5],
+      ['dismissals', 6],
+    ].map(([name, count]): [string, Scenario] => [
+      `umpire-${name}`,
+      {
+        kind: 'lab',
+        scene: `umpire-${name}`,
+        duration: Number(count) * 1.3,
+        viewport: SMALL_LANDSCAPE,
+        seed: 1,
+      },
+    ]),
+  ),
+  ...Object.fromEntries(
+    ['running-safe', 'running-short'].map((name): [string, Scenario] => [
+      name,
+      { kind: 'lab', scene: name, duration: 2.55, viewport: SMALL_LANDSCAPE, seed: 1 },
+    ]),
+  ),
+  ...Object.fromEntries(
+    [false, true].map((spin): [string, Scenario] => [
+      spin ? 'bowling-input-spin' : 'bowling-input',
+      {
+        kind: 'page',
+        path: '/play/?role=bowl',
+        duration: 3.8,
+        viewport: { width: 768, height: 432 },
+        seed: 1,
+        frameMs: 30,
+        setup: (page, advance) => startBowling(page, advance, spin),
+      },
+    ]),
+  ),
+  ...Object.fromEntries(
+    ['chase', 'dive', 'caught-behind', 'stumping'].map((name): [string, Scenario] => [
+      `fielding-${name}`,
+      {
+        kind: 'lab',
+        scene: `fielding-${name}`,
+        duration: name === 'chase' ? 4 : 2.1,
+        viewport: SMALL_LANDSCAPE,
+        seed: 1,
+      },
+    ]),
+  ),
   ...Object.fromEntries(
     [
       ['landscape', { width: 768, height: 432 }],
