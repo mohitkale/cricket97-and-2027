@@ -11,3 +11,7 @@ Reviewed the front and side Chromium contact sheets for the full clip set. The n
 The 50 seeded plays produced 24 catches and 32 gathers. The worst displayed hand-to-ball error was 3.36 cm across the shared base rig and both 2027 fits. The measured distance is from the full-sized ball's centre to the farther hand on two-handed contacts. The return-release and stumping checks use the same event renderer. The tests exercise automatic returns and both explicit return ends.
 
 Reviewed the harness sheets for `fielding-chase`, `fielding-dive`, `fielding-caught-behind`, `fielding-stumping` and `pace-practice-portrait`. The fielding captures use seeded scenarios starting from a batted trajectory, except the stumping, which runs a full spin delivery. The portrait route shows the existing bowler-end framing through contact before following the ball into the field. Real-phone performance remains unmeasured.
+
+## #28 Bowling controls
+
+Two fresh Chrome sessions completed six legal stock balls on their first attempt. The keyboard session used the arrow-key aim and Space release. The touch session used release taps in a phone viewport. Chrome on Intel UHD Graphics 630 submitted the visible aim change in 4.9 ms and the first changed delivery frames within 11.3 ms for keyboard and 36 ms for touch. The pace and off-spin lab captures show the timing meter, run-up and authored release. A two-person hallway test and real-phone input measurements remain open.

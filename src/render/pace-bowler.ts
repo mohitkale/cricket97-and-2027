@@ -25,32 +25,50 @@ export function createPaceBowler(
   root.rotation.y = APPROACH_YAW;
   const mixer = new AnimationMixer(root);
   const runUp = mixer.clipAction(jog).play();
-  const delivery = mixer.clipAction(pace).play();
   const ball = character.socket('ball');
   const hips = root.getObjectByName('pelvis');
   if (!hips) throw new Error('The pace bowler needs a pelvis joint');
 
-  runUp.setEffectiveWeight(0);
-  delivery.time = PACE_RELEASE;
-  mixer.update(0);
-  const anchor = ball.getWorldPosition(new Vector3());
-  // The slice uses one pace archetype. Scale the whole performer from the ground
-  // so the hand reaches the sim's release height while the support foot stays down.
-  root.scale.multiplyScalar(release.y / anchor.y);
-  ball.getWorldPosition(anchor);
-  const x = release.x - anchor.x;
-  const z = release.z - anchor.z;
-  const speed = APPROACH_SPEED * Math.abs(root.scale.z);
-  const across = Math.sin(APPROACH_YAW) * speed;
-  const downPitch = Math.cos(APPROACH_YAW) * speed;
+  const originalScale = root.scale.clone();
+  const anchor = new Vector3();
+  let take = pace;
+  let delivery = mixer.clipAction(take);
+  let marker = PACE_RELEASE;
+  let x = 0;
+  let z = 0;
+  let across = 0;
+  let downPitch = 0;
+  const configure = (clip: AnimationClip, point: Vec3) => {
+    const releaseAt = MARKERS[clip.name]?.find(({ name }) => name === 'release');
+    if (!releaseAt) throw new Error(`Missing release marker on ${clip.name}`);
+    take = clip;
+    marker = releaseAt.time;
+    delivery.stop();
+    delivery = mixer.clipAction(take).reset().play().setEffectiveWeight(1);
+    runUp.setEffectiveWeight(0);
+    root.position.set(0, 0, 0);
+    root.scale.copy(originalScale);
+    delivery.time = marker;
+    mixer.update(0);
+    ball.getWorldPosition(anchor);
+    root.scale.multiplyScalar(point.y / anchor.y);
+    ball.getWorldPosition(anchor);
+    x = point.x - anchor.x;
+    z = point.z - anchor.z;
+    const speed = APPROACH_SPEED * Math.abs(root.scale.z) * (take === pace ? 1 : 0.53);
+    across = Math.sin(APPROACH_YAW) * speed;
+    downPitch = Math.cos(APPROACH_YAW) * speed;
+  };
+  configure(pace, release);
 
   return {
+    configure,
     sample(timeFromRelease: number, ballPosition: Vector3, hipsPosition?: Vector3): void {
-      const actionTime = timeFromRelease + PACE_RELEASE;
+      const actionTime = timeFromRelease + marker;
       const blend = Math.min(1, Math.max(0, 1 + actionTime / GATHER_BLEND));
-      const cycle = (jog.duration * 0.23 + actionTime) % jog.duration;
+      const cycle = (jog.duration * 0.23 + actionTime * (take === pace ? 1 : 0.53)) % jog.duration;
       runUp.time = cycle < 0 ? cycle + jog.duration : cycle;
-      delivery.time = Math.min(Math.max(0, actionTime), pace.duration - 1e-5);
+      delivery.time = Math.min(Math.max(0, actionTime), take.duration - 1e-5);
       runUp.setEffectiveWeight(1 - blend);
       delivery.setEffectiveWeight(blend);
       const approach = Math.min(0, actionTime);

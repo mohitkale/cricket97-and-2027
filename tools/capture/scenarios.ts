@@ -53,6 +53,18 @@ async function startPacePractice(page: Page, advance: (ms: number) => Promise<vo
   });
 }
 
+async function startBowling(page: Page, advance: (ms: number) => Promise<void>, spin: boolean) {
+  if (spin) await page.locator('#delivery-type').selectOption('off-spin');
+  await advance(50);
+  await page.getByRole('button', { name: 'Start timing' }).click();
+  await page.evaluate(() => {
+    window.setTimeout(
+      () => window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Space' })),
+      1130,
+    );
+  });
+}
+
 /** Click a visible button whose text matches, waiting in real time for it to appear. */
 async function press(page: Page, text: RegExp): Promise<void> {
   await page.locator('button:visible', { hasText: text }).first().click({ timeout: 20_000 });
@@ -134,6 +146,20 @@ const CLIP_REVIEWS: [string, number][] = [
 ];
 
 export const SCENARIOS: Record<string, Scenario> = {
+  ...Object.fromEntries(
+    [false, true].map((spin): [string, Scenario] => [
+      spin ? 'bowling-input-spin' : 'bowling-input',
+      {
+        kind: 'page',
+        path: '/play/?role=bowl',
+        duration: 3.8,
+        viewport: { width: 768, height: 432 },
+        seed: 1,
+        frameMs: 30,
+        setup: (page, advance) => startBowling(page, advance, spin),
+      },
+    ]),
+  ),
   ...Object.fromEntries(
     ['chase', 'dive', 'caught-behind', 'stumping'].map((name): [string, Scenario] => [
       `fielding-${name}`,

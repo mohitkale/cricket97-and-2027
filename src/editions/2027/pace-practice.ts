@@ -1,5 +1,6 @@
 import { Quaternion, Scene, Vector3, WebGLRenderer } from 'three';
 import { clone } from 'three/addons/utils/SkeletonUtils.js';
+import type { selectBowling } from '../../game/bowling-aim';
 import {
   type PracticeAssist,
   type PracticeShot,
@@ -21,6 +22,7 @@ import { createPracticeCamera } from '../../render/practice-camera';
 import { addSliceGround } from '../../render/slice';
 import type { End } from '../../sim/agents/running';
 import { PITCH } from '../../sim/units';
+import { bindBowlingControls } from './bowling-controls';
 import { createJerseyAtlas, makeJersey } from './lineup-kit';
 import { outfieldLod } from './live-fielders';
 import { loadPlayerBodies } from './player-bodies';
@@ -49,8 +51,20 @@ const START = 'Bowl first ball';
 const SHOW_UNTIL = 1.5;
 const query = new URLSearchParams(location.search);
 const rosterMode = query.get('mode') ?? 'mixed';
+const userBowls = query.get('role') === 'bowl';
+const alternate = new URLSearchParams(query);
+if (userBowls) alternate.delete('role');
+else alternate.set('role', 'bowl');
+const swap = get<HTMLAnchorElement>('#swap-practice');
+swap.href = `?${alternate}`;
+swap.textContent = userBowls ? 'Practise batting' : 'Practise bowling';
 if (matchMedia('(pointer: coarse)').matches)
   get('#help').textContent = 'Swipe to drive · tap to defend · swipe farther to loft';
+if (userBowls) {
+  get('#practice-hud p').textContent = 'Bowling practice';
+  get('#help').textContent = 'Drag or use arrows to aim · Space to release';
+  canvas.setAttribute('aria-label', 'Bowling pitch. Drag or use arrows to aim.');
+}
 
 async function start() {
   const renderer = new WebGLRenderer({ canvas, antialias: true });
@@ -172,6 +186,22 @@ async function start() {
   let broken = false;
   let pathIndex = 0;
   let lastFlight = 0;
+  let bowlingTiming = '';
+  const spinClips = userBowls ? await loadClips('clips/over-spin.glb') : [];
+  const bowlingControls = userBowls
+    ? bindBowlingControls(
+        canvas,
+        camera.camera,
+        scene,
+        get('#bowling'),
+        () => {
+          const input = performance.now();
+          draw(-PACE_APPROACH);
+          screen.dataset.aimResponse = (performance.now() - input).toFixed(1);
+        },
+        startDelivery,
+      )
+    : null;
 
   function draw(time: number) {
     const { frames, result } = played;
@@ -281,10 +311,10 @@ async function start() {
           : earlyLate > 0
             ? 'Late'
             : 'Early';
-    const action = choice || tooLate ? `${strike} · ${timing}` : timing;
+    const action = userBowls ? bowlingTiming : choice || tooLate ? `${strike} · ${timing}` : timing;
     verdict.textContent = outcomeLabel ? `${action} · ${outcomeLabel}` : action;
     meter.value = Math.max(-1, Math.min(1, earlyLate / 0.19));
-    meter.hidden = !choice && !tooLate;
+    meter.hidden = userBowls || (!choice && !tooLate);
     feedback.hidden = false;
     cue.textContent = '';
     screen.dataset.phase = 'ready';
@@ -295,7 +325,12 @@ async function start() {
     next.hidden = false;
     assist.disabled = false;
     returnEnd.disabled = false;
+    bowlingControls?.ready();
     next.textContent = legal >= 30 ? 'Restart practice' : 'Next ball';
+    if (userBowls) {
+      draw(-PACE_APPROACH);
+      screen.dataset.phase = 'ready';
+    }
   }
 
   function choose(shot: PracticeShot) {
@@ -334,10 +369,11 @@ async function start() {
     cue.textContent = 'Shot played';
     draw(time);
   }
-  bindBattingInput(canvas, choose);
+  if (!userBowls) bindBattingInput(canvas, choose);
   playShot.addEventListener('click', () => choose({ stroke: 'straight-drive', lofted: false }));
 
-  next.addEventListener('click', () => {
+  function startDelivery(bowl?: ReturnType<typeof selectBowling>) {
+    const input = performance.now();
     if (legal >= 30) {
       legal = 0;
       runs = 0;
@@ -347,7 +383,7 @@ async function start() {
       overs.textContent = '0.0 / 5 overs';
     }
     mode = assist.value as PracticeAssist;
-    played = practiceDelivery(attempted, mode, undefined, undefined, selectedEnd());
+    played = practiceDelivery(attempted, mode, undefined, undefined, selectedEnd(), bowl);
     planField();
     trace = played.frames.map(({ pos }) => pos);
     expected = practiceArrival(played.frames, 'cover-drive');
@@ -358,24 +394,54 @@ async function start() {
     pathIndex = 0;
     lastFlight = 0;
     striker.reset();
+    if (bowl) {
+      bowlingTiming = bowl.timing;
+      const style = bowl.style === 'off' ? 'Bowling_Off_Spin' : 'Bowling_Leg_Spin';
+      const take = bowl.style ? spinClips.find(({ name }) => name === style) : delivery;
+      const launch = played.frames[0];
+      if (!take || !launch) throw new Error('Missing bowling take or launch');
+      bowler.configure(take, launch.pos);
+      const { stroke } = played.batting;
+      const contact = played.result.contact;
+      const event = contact?.impact ? contact.time : practiceArrival(played.frames, stroke);
+      striker.plan(stroke, Math.max(0, event - 0.22), event, contact?.impact ?? null);
+      choice = stroke !== 'leave';
+    }
     cue.textContent = '';
     feedback.hidden = true;
     next.disabled = true;
     next.hidden = true;
-    playShot.hidden = false;
+    playShot.hidden = userBowls;
     playShot.disabled = true;
     assist.disabled = true;
     returnEnd.disabled = true;
     delete screen.dataset.inputResponse;
     canvas.focus();
     liveAt = performance.now();
+    if (bowl) {
+      draw(-PACE_APPROACH);
+      screen.dataset.releaseResponse = (performance.now() - input).toFixed(1);
+    }
     requestAnimationFrame(frame);
+  }
+
+  next.addEventListener('click', () => {
+    if (!bowlingControls) {
+      startDelivery();
+      return;
+    }
+    if (bowlingControls.press(assist.value as PracticeAssist)) {
+      feedback.hidden = true;
+      assist.disabled = true;
+      next.textContent = 'Release ball';
+      canvas.focus();
+    }
   });
 
   function frame(now: number) {
     const impact = played.result.contact?.impact ? played.result.contact.time : undefined;
     const time = practiceClock((now - liveAt) / 1000 - PACE_APPROACH, mode, impact);
-    if (!choice) {
+    if (!userBowls && !choice) {
       const { opens, closes } = practiceWindow(expected, mode);
       const ready = time >= opens && time <= closes;
       const nextCue = time < opens ? 'Get ready' : ready ? 'Play now' : '';
@@ -408,7 +474,7 @@ async function start() {
   draw(-PACE_APPROACH);
   screen.dataset.phase = 'ready';
   next.disabled = false;
-  next.textContent = START;
+  next.textContent = userBowls ? 'Start timing' : START;
 }
 
 void start().catch((error: unknown) => {

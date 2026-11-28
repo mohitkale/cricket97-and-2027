@@ -1,7 +1,9 @@
+import type { End } from '../sim/agents/running';
+import { AI_LEVELS, chooseStroke } from '../sim/ai/ai';
 import { type BallObserver, groundEnvironment } from '../sim/ball/ball';
 import { ASSIST, STROKES } from '../sim/contact/strokes';
 import { Rng } from '../sim/core/prng';
-import { type BattingIntent, playDelivery } from '../sim/match/delivery';
+import { type BattingIntent, type BowlingIntent, playDelivery } from '../sim/match/delivery';
 import { standardTeam } from '../sim/match/players';
 import { PITCH } from '../sim/units';
 import { recordField } from './field-trace';
@@ -47,11 +49,42 @@ export function practiceDelivery(
   shot: PracticeShot = { stroke: 'leave', lofted: false },
   timingError = 0,
   throwEnd?: End,
+  bowl?: { intent: BowlingIntent; style: 'off' | 'leg' | null },
 ) {
   const [striker, nonStriker] = battingTeam;
   const bowler = fieldingTeam[9]?.bowling;
   if (!striker || !nonStriker || !bowler) throw new Error('Missing practice players');
   const length = 4.7 + (number % 5) * 0.25;
+  const random = new Rng(number);
+  const bowling = bowl?.style
+    ? { ...bowler, kind: 'spin' as const, turn: bowl.style, hand: 'right' as const }
+    : { ...bowler, hand: 'right' as const };
+  const situation = {
+    over: Math.floor(number / 6),
+    overs: 5,
+    wickets: 0,
+    toWin: null,
+    ballsLeft: Math.max(1, 30 - number),
+    bouncersLeft: 1,
+    ballAge: number / 6,
+  };
+  const ai = bowl
+    ? chooseStroke(
+        striker,
+        bowling,
+        bowl.intent,
+        situation,
+        AI_LEVELS[assist],
+        random.stream('batter'),
+      )
+    : null;
+  const batting = ai?.intent ?? {
+    ...shot,
+    timingError,
+    assist: ASSIST[assist],
+    power: 0.8,
+    misread: { x: 0, y: 0 },
+  };
   const frames: PracticeFrame[] = [];
   const field = recordField(
     fieldingTeam.findIndex(({ keeper }) => keeper),
@@ -59,29 +92,24 @@ export function practiceDelivery(
   );
   const result = playDelivery(
     {
-      bowler: { ...bowler, hand: 'right' },
-      intent: {
+      bowler: bowling,
+      intent: bowl?.intent ?? {
         line: -0.13 - (number % 4) * 0.035,
         length,
         kmh: 132 + (number % 4) * 2,
         swing: 0.15,
         turn: 0,
       },
-      batting: {
-        ...shot,
-        timingError,
-        assist: ASSIST[assist],
-        power: 0.8,
-        misread: { x: 0, y: 0 },
-      },
+      batting,
       striker: { ...striker, hand: 'right' },
       nonStriker,
       fieldingTeam,
       bowlerIndex: 9,
-      field: 'pace-spread',
+      field: bowl?.style ? 'spin-spread' : 'pace-spread',
       env: practiceGround,
       ballAge: number / 6,
-      random: new Rng(number).stream('delivery'),
+      random: random.stream('delivery'),
+      ...(ai ? { caution: ai.caution } : {}),
       ...(throwEnd === undefined ? {} : { throwEnd }),
     },
     (time, { pos, spin, bounces }) => {
@@ -89,7 +117,7 @@ export function practiceDelivery(
     },
     field.observer,
   );
-  return { result, frames, field: field.trace };
+  return { result, frames, field: field.trace, batting };
 }
 
 export function practiceArrival(
@@ -106,5 +134,3 @@ export function practiceArrival(
     ((next.time - previous.time) * (plane - previous.pos.z)) / (next.pos.z - previous.pos.z)
   );
 }
-
-import type { End } from '../sim/agents/running';

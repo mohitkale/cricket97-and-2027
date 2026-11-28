@@ -46,6 +46,12 @@ select { font: inherit; padding: 4px; }
   font-size: 0.78rem;
 }
 #practice-controls a { color: #e6f1dc; }
+#bowling { pointer-events: auto; border-radius: 6px; background: #162824f2; padding: 7px 9px; font-size: 0.78rem; }
+#bowling output { display: inline-block; vertical-align: middle; position: relative; width: 104px; height: 13px; border-radius: 8px; background: #213c33; margin-left: 9px; }
+#bowling output[hidden] { display: none; }
+#bowling output::before { content: ""; position: absolute; inset: 0 auto 0 var(--good-start, 63%); width: var(--good-width, 14%); background: #83a74e; }
+#bowling output span { position: absolute; left: var(--position, 0); width: 4px; height: 100%; background: #f4fbf4; transform: translateX(-50%); }
+#bowling output[data-ready="true"] span { background: #c9ef68; }
 #practice-controls button {
   border: 0;
   border-radius: 6px;
